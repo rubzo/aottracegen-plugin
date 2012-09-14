@@ -41,4 +41,13 @@ public class Trace {
 			successorsCount++;
 		}
 	}
+	
+	public boolean containsCodeAddress(int codeAddress) {
+		for (int i = 0; i < length; i++) {
+			if (addresses[i] == codeAddress) {
+				return true;
+			}
+		}
+		return false;
+	}
 }

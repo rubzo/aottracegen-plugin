@@ -200,7 +200,7 @@ public class AOTTraceGen implements Plugin {
 
     	for (int i = 0; i < trace.length; i++) {
     		int codeAddress = trace.addresses[i];
-    		Instruction inst = getInstructionAtCodeAddress(context, codeAddress);
+    		Instruction inst = context.getInstructionAtCodeAddress(codeAddress);
     		System.out.println(String.format("0x%x: %s", codeAddress, inst.opcode.name));
     	}
     	
@@ -213,10 +213,6 @@ public class AOTTraceGen implements Plugin {
 		for (Trace trace : traceMap.values()) {
 			printTrace(context, trace);
         }
-	}
-	
-	private Instruction getInstructionAtCodeAddress(CodeGenContext context, int codeAddress) {
-		return context.instructions[context.instructionMap.get(codeAddress)];
 	}
 	
 	private boolean isInvokeInstruction(Instruction i) {
@@ -263,7 +259,7 @@ public class AOTTraceGen implements Plugin {
 		}
 		
 		int nextCodeAddress = getNextCodeAddress(codeAddress, i);
-		Instruction nextInstruction = getInstructionAtCodeAddress(context, nextCodeAddress);
+		Instruction nextInstruction = context.getInstructionAtCodeAddress(nextCodeAddress);
 		if (nextInstruction.opcode == Opcode.PACKED_SWITCH ||
 				nextInstruction.opcode == Opcode.SPARSE_SWITCH) {
 			return true;
@@ -312,7 +308,7 @@ public class AOTTraceGen implements Plugin {
 		if (currentInstruction.opcode == Opcode.PACKED_SWITCH) {
 			int switchDataAddress = currentCodeAddress + 
 					((OffsetInstruction)currentInstruction).getTargetAddressOffset();
-			PackedSwitchDataPseudoInstruction switchData = (PackedSwitchDataPseudoInstruction) getInstructionAtCodeAddress(context, switchDataAddress);
+			PackedSwitchDataPseudoInstruction switchData = (PackedSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(switchDataAddress);
 			
 			trace.allocSuccessors(switchData.getTargetCount() + 1);
 			trace.addSuccessor(fallthruCodeAddress);
@@ -325,7 +321,7 @@ public class AOTTraceGen implements Plugin {
 		if (currentInstruction.opcode == Opcode.SPARSE_SWITCH) {
 			int switchDataAddress = currentCodeAddress + 
 					((OffsetInstruction)currentInstruction).getTargetAddressOffset();
-			SparseSwitchDataPseudoInstruction switchData = (SparseSwitchDataPseudoInstruction) getInstructionAtCodeAddress(context, switchDataAddress);
+			SparseSwitchDataPseudoInstruction switchData = (SparseSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(switchDataAddress);
 			
 			trace.allocSuccessors(switchData.getTargetCount() + 1);
 			trace.addSuccessor(fallthruCodeAddress);
@@ -359,7 +355,7 @@ public class AOTTraceGen implements Plugin {
 		
 		// Initialise the trace
 		trace.extend(currentCodeAddress);
-		currentInstruction = getInstructionAtCodeAddress(context, currentCodeAddress);
+		currentInstruction = context.getInstructionAtCodeAddress(currentCodeAddress);
 		
 		// Trace!
 		while (!isTraceEndingInstruction(context, currentCodeAddress, currentInstruction)) {
@@ -370,7 +366,7 @@ public class AOTTraceGen implements Plugin {
 			}
 			
 			trace.extend(currentCodeAddress);
-			currentInstruction = getInstructionAtCodeAddress(context, currentCodeAddress);
+			currentInstruction = context.getInstructionAtCodeAddress(currentCodeAddress);
 		}
 		
 		// If the last instruction in the trace is an invoke, extend it to include the
@@ -382,7 +378,7 @@ public class AOTTraceGen implements Plugin {
 				return;
 			}
 			trace.extend(currentCodeAddress);
-			currentInstruction = getInstructionAtCodeAddress(context, currentCodeAddress);
+			currentInstruction = context.getInstructionAtCodeAddress(currentCodeAddress);
 		}
 		
 		// Deal with successors
