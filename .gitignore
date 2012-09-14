@@ -1,2 +1,4 @@
-AOT-Trace-Gen.jar
-.class
+aottracegen-plugin.jar
+*.class
+.classpath
+.project

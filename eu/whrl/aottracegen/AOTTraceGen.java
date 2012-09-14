@@ -47,26 +47,19 @@ public class AOTTraceGen implements Plugin {
 	SparseIntArray sparseSwitchMap;
 	SparseIntArray instructionMap;
 	
+	// Interface function
 	public void init(String pluginArgs) {
-		System.out.println("Initing plugin");
-		System.out.println("Args: " + pluginArgs);
+		loadConfigFile(pluginArgs);
 	}
 	
+	// Interface function
 	public void run(DexFile dexFile) {
-		System.out.println("Running plugin");
-		
-		/*// If we've disassembled a dexfile, then check if we want to jump into the injectable trace generation code.
-        if (generateCTraces) {
-        	System.out.println("Generating C traces...");
-        	CTraceGenerator generator = new CTraceGenerator();
-        	generator.loadConfigFile(generateCTracesFile);
-        	if (generator.isConfigFileValid()) {
-        		generator.generateCTraces(dexFile);
-        	}         
-        }*/
+		if (isConfigFileValid()) {
+			generateCTraces(dexFile);
+		}
 	}
 	
-	public void loadConfigFile(String filename) {
+	private void loadConfigFile(String filename) {
 		File file = new File(filename);
 		FileReader reader = null;
 		try {
@@ -100,11 +93,11 @@ public class AOTTraceGen implements Plugin {
 		}
 	}
 	
-	public boolean isConfigFileValid() {
+	private boolean isConfigFileValid() {
 		return validConfigFileLoaded;
 	}
 	
-	public void generateCTraces(DexFile dexFile) {
+	private void generateCTraces(DexFile dexFile) {
 		printConfig();
 		
 		boolean foundClass = false;
