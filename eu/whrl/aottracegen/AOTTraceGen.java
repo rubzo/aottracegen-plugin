@@ -20,45 +20,25 @@ import org.jf.dexlib.Code.Format.SparseSwitchDataPseudoInstruction;
 import org.jf.dexlib.Util.SparseIntArray;
 
 public class AOTTraceGen implements Plugin {
-	public class Config {
-		public String clazz = "";
-		public String method = "";
-		public String signature = "";
-		public int numTraces = 0;
-		public int[] traceEntries = null;
-		
-		public void addEntry(int e) {
-			numTraces++;
-			int[] newTraceEntries = new int[numTraces];
-			for (int i = 0; i < numTraces-1; i++) {
-				newTraceEntries[i] = traceEntries[i];
-			}
-			newTraceEntries[numTraces-1] = e;
-			traceEntries = newTraceEntries;
-		}
-	}
+	private boolean validConfigFileLoaded = false;
+	private Config config = null;
 	
-	boolean validConfigFileLoaded = false;
-	Config config = null;
-	
-	// These data structures are used during the trace generation stage.
-	Instruction[] instructions;
-	SparseIntArray packedSwitchMap;
-	SparseIntArray sparseSwitchMap;
-	SparseIntArray instructionMap;
-	
-	// Interface function
+	//
+	// INTERFACE METHODS
+	//
 	public void init(String pluginArgs) {
 		loadConfigFile(pluginArgs);
 	}
 	
-	// Interface function
 	public void run(DexFile dexFile) {
 		if (isConfigFileValid()) {
-			generateCTraces(dexFile);
+			generateAOTTraces(dexFile);
 		}
 	}
 	
+	//
+	// EVERYTHING ELSE
+	//
 	private void loadConfigFile(String filename) {
 		File file = new File(filename);
 		FileReader reader = null;
@@ -80,6 +60,8 @@ public class AOTTraceGen implements Plugin {
 					config.method = line.substring(7, line.length());
 				} else if (line.startsWith("signature")) {
 					config.signature = line.substring(10, line.length());
+				} else if (line.startsWith("merge")) {
+					config.produceMerged = true;
 				} else if (line.startsWith("trace")) {
 					config.addEntry(Integer.parseInt(line.substring(8, line.length()), 16));
 				}
@@ -97,16 +79,17 @@ public class AOTTraceGen implements Plugin {
 		return validConfigFileLoaded;
 	}
 	
-	private void generateCTraces(DexFile dexFile) {
-		printConfig();
-		
+	private EncodedMethod findTargetMethod(DexFile dexFile) {
 		boolean foundClass = false;
 		
 		String methodName = config.method + config.signature;
 		
 		EncodedMethod methodToUse = null;
 		
+		// Search all the classes
 		for (ClassDefItem clazz : dexFile.ClassDefsSection.getItems()) {
+			
+			// Have we found the right class?
 			if (clazz.getClassType().getTypeDescriptor().equals(config.clazz)) {
 				
 				foundClass = true;
@@ -118,6 +101,7 @@ public class AOTTraceGen implements Plugin {
 					if (method.method.getShortMethodString().equals(methodName)) {
 						methodToUse = method;
 						foundMethod = true;
+						break;
 					}
 				}
 				
@@ -127,6 +111,7 @@ public class AOTTraceGen implements Plugin {
 						if (method.method.getShortMethodString().equals(methodName)) {
 							methodToUse = method;
 							foundMethod = true;
+							break;
 						}
 					}
 				}
@@ -144,68 +129,94 @@ public class AOTTraceGen implements Plugin {
 			System.err.println("Couldn't find the given class in this DEX file!");
 		}
 		
-		if (methodToUse != null) {
-			generateTracesFromMethod(methodToUse);
-		}
+		return methodToUse;
 	}
 	
-	private void generateTracesFromMethod(EncodedMethod method) {
+	private void generateAOTTraces(DexFile dexFile) {
+		printConfig();
 		
-		instructions = method.codeItem.getInstructions();
+		EncodedMethod methodToUse = findTargetMethod(dexFile);
+		
+		if (methodToUse == null) {
+			return;
+		}
+		
+		CodeGenContext context = new CodeGenContext();
+		context.dexFile = dexFile;
+		
+		HashMap<Integer,Trace> traceMap = generateTracesFromMethod(context, methodToUse);
+		
+		Trace theTrace = traceMap.get(new Integer(config.traceEntries[0])); 
+		
+		printTrace(context, theTrace);
+		
+		CodeGenerator codeGen = new CodeGenerator();
+		
+		context.trace = theTrace;
+		
+		codeGen.generateCodeFromContext(context);
+	}
+	
+	private HashMap<Integer,Trace> generateTracesFromMethod(CodeGenContext context, EncodedMethod method) {
+		
+		context.instructions = method.codeItem.getInstructions();
 		
 		// MAP <switch data location> -> <switch inst code address>
-		packedSwitchMap = new SparseIntArray(1);
+		context.packedSwitchMap = new SparseIntArray(1);
 		// MAP <switch data location> -> <switch inst code address>
-		sparseSwitchMap = new SparseIntArray(1);
+		context.sparseSwitchMap = new SparseIntArray(1);
 		// MAP <inst code address> -> <index in instructions list>
-		instructionMap = new SparseIntArray(instructions.length);
+		context.instructionMap = new SparseIntArray(context.instructions.length);
 
 		// Create the packed switch, sparse switch and instruction maps.
         int currentCodeAddress = 0;
-        for (int i=0; i<instructions.length; i++) {
-            Instruction instruction = instructions[i];
+        for (int i=0; i<context.instructions.length; i++) {
+            Instruction instruction = context.instructions[i];
             if (instruction.opcode == Opcode.PACKED_SWITCH) {
-                packedSwitchMap.append(
+            	context.packedSwitchMap.append(
                         currentCodeAddress +
                                 ((OffsetInstruction)instruction).getTargetAddressOffset(),
                         currentCodeAddress);
             } else if (instruction.opcode == Opcode.SPARSE_SWITCH) {
-                sparseSwitchMap.append(
+            	context.sparseSwitchMap.append(
                         currentCodeAddress +
                                 ((OffsetInstruction)instruction).getTargetAddressOffset(),
                         currentCodeAddress);
             }
-            instructionMap.append(currentCodeAddress, i);
+            context.instructionMap.append(currentCodeAddress, i);
             currentCodeAddress += instruction.getSize(currentCodeAddress);
         }
         
         // Now generate all the traces.
         HashMap<Integer,Trace> traceMap = new HashMap<Integer,Trace>();
-        generateAllTracesInMethod(traceMap);
+        generateAllTracesInMethod(context, traceMap);
         
-        // Now look for the traces we want.
-        printTraces(traceMap);
+        return traceMap;
 	}
 	
-	private void printTraces(HashMap<Integer,Trace> traceMap) {
+	private void printTrace(CodeGenContext context, Trace trace) {
+		System.out.println(String.format("Trace starting at 0x%x", trace.addresses[0]));
+    	System.out.println();
+
+    	for (int i = 0; i < trace.length; i++) {
+    		int codeAddress = trace.addresses[i];
+    		Instruction inst = getInstructionAtCodeAddress(context, codeAddress);
+    		System.out.println(String.format("0x%x: %s", codeAddress, inst.opcode.name));
+    	}
+    	
+    	System.out.println();
+    	System.out.println();
+	}
+	
+	@SuppressWarnings("unused")
+	private void printAllTraces(CodeGenContext context, HashMap<Integer,Trace> traceMap) {
 		for (Trace trace : traceMap.values()) {
-
-        	System.out.println(String.format("Trace starting at 0x%x", trace.addresses[0]));
-        	System.out.println();
-
-        	for (int i = 0; i < trace.length; i++) {
-        		int codeAddress = trace.addresses[i];
-        		Instruction inst = getInstructionAtCodeAddress(codeAddress);
-        		System.out.println(String.format("0x%x: %s", codeAddress, inst.opcode.name));
-        	}
-        	
-        	System.out.println();
-        	System.out.println();
+			printTrace(context, trace);
         }
 	}
 	
-	private Instruction getInstructionAtCodeAddress(int codeAddress) {
-		return instructions[instructionMap.get(codeAddress)];
+	private Instruction getInstructionAtCodeAddress(CodeGenContext context, int codeAddress) {
+		return context.instructions[context.instructionMap.get(codeAddress)];
 	}
 	
 	private boolean isInvokeInstruction(Instruction i) {
@@ -215,7 +226,7 @@ public class AOTTraceGen implements Plugin {
 		return false;
 	}
 	
-	private boolean isTraceEndingInstruction(int codeAddress, Instruction i) {
+	private boolean isTraceEndingInstruction(CodeGenContext context, int codeAddress, Instruction i) {
 		if (i.opcode == Opcode.IF_EQ ||
 				i.opcode == Opcode.IF_EQZ ||
 				i.opcode == Opcode.IF_GE ||
@@ -252,7 +263,7 @@ public class AOTTraceGen implements Plugin {
 		}
 		
 		int nextCodeAddress = getNextCodeAddress(codeAddress, i);
-		Instruction nextInstruction = getInstructionAtCodeAddress(nextCodeAddress);
+		Instruction nextInstruction = getInstructionAtCodeAddress(context, nextCodeAddress);
 		if (nextInstruction.opcode == Opcode.PACKED_SWITCH ||
 				nextInstruction.opcode == Opcode.SPARSE_SWITCH) {
 			return true;
@@ -275,7 +286,7 @@ public class AOTTraceGen implements Plugin {
 		return nextCodeAddress;
 	}
 	
-	private void handleSuccessors(Trace trace, int currentCodeAddress, Instruction currentInstruction) {
+	private void handleSuccessors(CodeGenContext context, Trace trace, int currentCodeAddress, Instruction currentInstruction) {
 		// Get the address where we'll be going next.
 		int fallthruCodeAddress = getNextCodeAddress(currentCodeAddress, currentInstruction);
 		
@@ -301,7 +312,7 @@ public class AOTTraceGen implements Plugin {
 		if (currentInstruction.opcode == Opcode.PACKED_SWITCH) {
 			int switchDataAddress = currentCodeAddress + 
 					((OffsetInstruction)currentInstruction).getTargetAddressOffset();
-			PackedSwitchDataPseudoInstruction switchData = (PackedSwitchDataPseudoInstruction) getInstructionAtCodeAddress(switchDataAddress);
+			PackedSwitchDataPseudoInstruction switchData = (PackedSwitchDataPseudoInstruction) getInstructionAtCodeAddress(context, switchDataAddress);
 			
 			trace.allocSuccessors(switchData.getTargetCount() + 1);
 			trace.addSuccessor(fallthruCodeAddress);
@@ -314,7 +325,7 @@ public class AOTTraceGen implements Plugin {
 		if (currentInstruction.opcode == Opcode.SPARSE_SWITCH) {
 			int switchDataAddress = currentCodeAddress + 
 					((OffsetInstruction)currentInstruction).getTargetAddressOffset();
-			SparseSwitchDataPseudoInstruction switchData = (SparseSwitchDataPseudoInstruction) getInstructionAtCodeAddress(switchDataAddress);
+			SparseSwitchDataPseudoInstruction switchData = (SparseSwitchDataPseudoInstruction) getInstructionAtCodeAddress(context, switchDataAddress);
 			
 			trace.allocSuccessors(switchData.getTargetCount() + 1);
 			trace.addSuccessor(fallthruCodeAddress);
@@ -330,11 +341,11 @@ public class AOTTraceGen implements Plugin {
 		return;
 	}
 	
-	private void generateAllTracesInMethod(HashMap<Integer,Trace> traceMap) {
-		generateTracesFromCodeAddress(traceMap, 0x0);
+	private void generateAllTracesInMethod(CodeGenContext context, HashMap<Integer,Trace> traceMap) {
+		generateTracesFromCodeAddress(context, traceMap, 0x0);
 	}
 	
-	private void generateTracesFromCodeAddress(HashMap<Integer,Trace> traceMap, int codeAddress) {
+	private void generateTracesFromCodeAddress(CodeGenContext context, HashMap<Integer,Trace> traceMap, int codeAddress) {
 		// First check, have we already generated the traces starting from this point?
 		if (traceMap.containsKey(new Integer(codeAddress))) {
 			return;
@@ -348,10 +359,10 @@ public class AOTTraceGen implements Plugin {
 		
 		// Initialise the trace
 		trace.extend(currentCodeAddress);
-		currentInstruction = getInstructionAtCodeAddress(currentCodeAddress);
+		currentInstruction = getInstructionAtCodeAddress(context, currentCodeAddress);
 		
 		// Trace!
-		while (!isTraceEndingInstruction(currentCodeAddress, currentInstruction)) {
+		while (!isTraceEndingInstruction(context, currentCodeAddress, currentInstruction)) {
 			currentCodeAddress = getNextCodeAddress(currentCodeAddress, currentInstruction);
 			if (currentCodeAddress == -1) {
 				// We have a loop, bailout
@@ -359,7 +370,7 @@ public class AOTTraceGen implements Plugin {
 			}
 			
 			trace.extend(currentCodeAddress);
-			currentInstruction = getInstructionAtCodeAddress(currentCodeAddress);
+			currentInstruction = getInstructionAtCodeAddress(context, currentCodeAddress);
 		}
 		
 		// If the last instruction in the trace is an invoke, extend it to include the
@@ -371,20 +382,18 @@ public class AOTTraceGen implements Plugin {
 				return;
 			}
 			trace.extend(currentCodeAddress);
-			currentInstruction = getInstructionAtCodeAddress(currentCodeAddress);
+			currentInstruction = getInstructionAtCodeAddress(context, currentCodeAddress);
 		}
 		
-		
-		
 		// Deal with successors
-		handleSuccessors(trace, currentCodeAddress, currentInstruction);
+		handleSuccessors(context, trace, currentCodeAddress, currentInstruction);
 		
 		// Add to the map
 		traceMap.put(new Integer(codeAddress), trace);
 		
 		// Recurse into the successors to get their traces
 		for (int successor : trace.successors) {
-			generateTracesFromCodeAddress(traceMap, successor);
+			generateTracesFromCodeAddress(context, traceMap, successor);
 		}
 	}
 	
