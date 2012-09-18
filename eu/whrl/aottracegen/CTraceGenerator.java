@@ -17,6 +17,7 @@ public class CTraceGenerator {
 	private FileWriter writer;
 	private boolean prepared;
 	private BytecodeToCConverter converter;
+	private BytecodeToStringConverter stringConverter;
 	
 	private static Set<Opcode> opcodesThatNeedFunctions;
 	static {
@@ -41,6 +42,7 @@ public class CTraceGenerator {
 	static {
 		opcodesThatRaiseExceptions = new TreeSet<Opcode>();
 		opcodesThatRaiseExceptions.add(Opcode.AGET);
+		opcodesThatRaiseExceptions.add(Opcode.AGET_BYTE);
 		
 		// ...
 	}
@@ -50,11 +52,12 @@ public class CTraceGenerator {
 		writer = null;
 		prepared = false;
 		converter = new BytecodeToCConverter();
+		stringConverter = new BytecodeToStringConverter();
 	}
 	
-	public void prepare() {
+	public void prepare(String name) {
 		try {
-			File cFile = new File("aottrace_output.c");
+			File cFile = new File(name);
 			writer = new FileWriter(cFile);			
 			prepared = true;	
 		} catch (IOException e) {
@@ -84,8 +87,10 @@ public class CTraceGenerator {
 			emitFunctions(writer);
 			emitExitFunctionPrototypes(writer);
 			emitFunctionStart(writer);
+			
 			for (int i = 0; i < context.trace.length; i++) {
 				emitForCodeAddress(writer, context.trace.addresses[i]);
+				
 				// If we're the last instruction...
 				if (i == context.trace.length - 1 ) {
 					int codeAddress = context.trace.addresses[i];
@@ -94,6 +99,7 @@ public class CTraceGenerator {
 					writer.write(String.format("  goto __exit_L0x%x;\n\n", fallThroughAddress));
 				}
 			}
+			
 			emitExitLabels(writer);
 			emitFunctionEnd(writer);
 			
@@ -103,8 +109,11 @@ public class CTraceGenerator {
 		}
 	}
 	
+	/*
+	 * Emit the helper functions that will be used within the trace function.
+	 */
 	private void emitFunctions(Writer writer) throws IOException {
-		writer.write("// FUNCTIONS\n");
+		writer.write("// --- FUNCTIONS ---\n");
 		
 		for (int i = 0; i < context.trace.length; i++) {
 			Instruction instruction = context.getInstructionAtCodeAddress(context.trace.addresses[i]);
@@ -115,12 +124,11 @@ public class CTraceGenerator {
 			}
 		}
 		
-		
 		writer.write("\n");
 	}
 	
 	private void emitExitFunctionPrototypes(Writer writer) throws IOException {
-		writer.write("// EXIT FUNCTION PROTOTYPES\n");
+		writer.write("// --- EXIT FUNCTION PROTOTYPES ---\n");
 		
 		for (int i = 0; i < context.trace.length; i++) {
 			int codeAddress = context.trace.addresses[i];
@@ -142,11 +150,12 @@ public class CTraceGenerator {
 	}
 	
 	private void emitFunctionStart(Writer writer) throws IOException {
+		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.traceEntryAddress));
 		writer.write("void trace(int* v, char* self, int *lit) {\n");
 	}
 	
 	private void emitForCodeAddress(Writer writer, int codeAddress) throws IOException {
-		writer.write(String.format("  // BYTECODE AT 0x%x\n", codeAddress));
+		writer.write(stringConverter.convert(context, codeAddress));
 		writer.write(String.format("  __L0x%x:\n", codeAddress));
 		
 		writer.write(converter.convert(context, codeAddress));
@@ -155,7 +164,7 @@ public class CTraceGenerator {
 	}
 	
 	private void emitExitLabels(Writer writer) throws IOException {
-		writer.write("  // EXIT LABELS\n");
+		writer.write("  // --- EXIT LABELS ---\n");
 		
 		for (int i = 0; i < context.trace.length; i++) {
 			int codeAddress = context.trace.addresses[i];
