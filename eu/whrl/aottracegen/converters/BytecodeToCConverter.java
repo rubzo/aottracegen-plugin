@@ -1,4 +1,4 @@
-package eu.whrl.aottracegen;
+package eu.whrl.aottracegen.converters;
 
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
@@ -9,12 +9,18 @@ import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
 
+import eu.whrl.aottracegen.CodeGenContext;
+import eu.whrl.aottracegen.Trace;
+import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
+
 public class BytecodeToCConverter {
 
-	public String convert(CodeGenContext context, int codeAddress) {
+	public String convert(CodeGenContext context, int codeAddress) throws UnimplementedInstructionException {
 		Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
 		String result = "";
+		
+		Trace curTrace = context.getCurrentTrace();
 		
 		switch (instruction.opcode) {
 		
@@ -27,6 +33,21 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case GOTO:
+		{
+			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
+			int targetAddress = codeAddress + targetAddressOffset;
+			
+			String labelPrefix = "__";
+			if (!curTrace.containsCodeAddress(targetAddress)) {
+				labelPrefix = "__exit_";
+			}
+			
+			result = String.format("  goto %sL0x%x;",
+					labelPrefix, targetAddress);
+			break;
+		}
+		
 		case IF_EQ:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
@@ -36,7 +57,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -54,7 +75,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -72,7 +93,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -90,7 +111,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -108,7 +129,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -126,7 +147,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -143,7 +164,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -160,7 +181,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -177,7 +198,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -194,7 +215,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -211,7 +232,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -228,7 +249,7 @@ public class BytecodeToCConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			String labelPrefix = "__";
-			if (!context.trace.containsCodeAddress(targetAddress)) {
+			if (!curTrace.containsCodeAddress(targetAddress)) {
 				labelPrefix = "__exit_";
 			}
 			
@@ -243,12 +264,14 @@ public class BytecodeToCConverter {
 			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 					
-			result = String.format("  char *array = (char*) v[%2$d];\n" + 
+			result = String.format("  {\n" +
+					 "  char *array = (char*) v[%2$d];\n" + 
 					 "  int array_size = *((int*) (array + 8));\n" +
-					 "  if (array == 0) goto __exception_0x%4$x;\n" +
-					 "  if (v[%3$d] >= array_size || v[3] < 0) goto __exception_0x%4$x;\n" +
+					 "  if (array == 0) goto __exception_L0x%4$x;\n" +
+					 "  if (v[%3$d] >= array_size || v[3] < 0) goto __exception_L0x%4$x;\n" +
 					 "  int *array_contents = array + 16;\n" +
-					 "  v[%1$d] = array_contents[v[%3$d]];",
+					 "  v[%1$d] = array_contents[v[%3$d]];\n" +
+					 "  }",
 					 vA, vB, vC, codeAddress);
 			break;
 		}
@@ -259,12 +282,32 @@ public class BytecodeToCConverter {
 			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 					
-			result = String.format("  char *array = (char*) v[%2$d];\n" + 
+			result = String.format("  {\n" +
+					 "  char *array = (char*) v[%2$d];\n" + 
 					 "  int array_size = *((int*) (array + 8));\n" +
-					 "  if (array == 0) goto __exception_0x%4$x;\n" +
-					 "  if (v[%3$d] >= array_size || v[3] < 0) goto __exception_0x%4$x;\n" +
+					 "  if (array == 0) goto __exception_L0x%4$x;\n" +
+					 "  if (v[%3$d] >= array_size || v[3] < 0) goto __exception_L0x%4$x;\n" +
 					 "  char *array_contents = (char*) (array + 16);\n" +
-					 "  v[%1$d] = (char) array_contents[v[%3$d]];",
+					 "  v[%1$d] = (char) array_contents[v[%3$d]];\n" +
+					 "  }",
+					 vA, vB, vC, codeAddress);
+			break;
+		}
+		
+		case APUT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+					
+			result = String.format("  {\n" +
+					 "  char *array = (char*) v[%2$d];\n" + 
+					 "  int array_size = *((int*) (array + 8));\n" +
+					 "  if (array == 0) goto __exception_L0x%4$x;\n" +
+					 "  if (v[%3$d] >= array_size || v[3] < 0) goto __exception_L0x%4$x;\n" +
+					 "  int *array_contents = array + 16;\n" +
+					 "  array_contents[v[%3$d]] = v[%1$d];\n" +
+					 "  }",
 					 vA, vB, vC, codeAddress);
 			break;
 		}
@@ -274,14 +317,26 @@ public class BytecodeToCConverter {
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
 			
-			int literalPoolLoc = context.literalPoolSize;
-			context.literalPoolIndices.add(new Integer(field));
-			context.literalPoolOpcodes.add(instruction.opcode);
-			context.literalPoolSize++;
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			curTrace.meta.literalPoolIndices.add(new Integer(field));
+			curTrace.meta.literalPoolOpcodes.add(instruction.opcode);
+			curTrace.meta.literalPoolSize++;
 			
-			result = String.format("  int *obj = (int*) lit[%d];\n" +
-					 "  v[%d] = *obj;",
+			result = String.format("  {\n" +
+					 "  int *obj = (int*) lit[%d];\n" +
+					 "  v[%d] = *obj;\n" +
+					 "  }",
 					 literalPoolLoc, vA);
+			break;
+		}
+		
+		case ADD_INT_LIT8:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			long constant = ((LiteralInstruction)instruction).getLiteral();
+			
+			result = String.format("  v[%d] = v[%d] + %d;", vA, vB, constant);
 			break;
 		}
 		
@@ -298,7 +353,7 @@ public class BytecodeToCConverter {
 		default:
 		{
 			result = "  //\n  // Not implemented!!\n  //";
-			break;
+			throw new UnimplementedInstructionException(instruction.opcode.name, codeAddress);
 		}
 		
 		}

@@ -134,25 +134,26 @@ public class AOTTraceGen implements Plugin {
 			return;
 		}
 		
-		CodeGenContext context = new CodeGenContext();
-		context.dexFile = dexFile;
+		CodeGenContext context = new CodeGenContext(dexFile, methodToUse);
 		
 		// Enumerate all the traces in the method
 		TraceFinder traceFinder = new TraceFinder();
-		Map<Integer,Trace> traceMap = traceFinder.generateTracesFromMethod(context, methodToUse);
+		Map<Integer,Trace> traceMap = traceFinder.generateTracesFromMethod(context);
 		
 		// Do merging if needed
-		TraceMerger traceMerger = new TraceMerger();
-		traceMap = traceMerger.mergeTraces(context, config, traceMap);
+		if (config.produceMerged) {
+			TraceMerger traceMerger = new TraceMerger();
+			traceMap = traceMerger.mergeTraces(context, traceMap);
+		}
 		
 		// Generate code for the selected traces
 		CodeGenerator codeGen = new CodeGenerator();
 		for (int traceEntry : config.traceEntries) {
 			Trace trace = traceMap.get(new Integer(traceEntry));			
 			trace.print(context);
-			context.refreshAndSetTrace(trace, traceEntry);
-			codeGen.generateCodeFromContext(context);
+			context.addTrace(trace, traceEntry);
 		}
+		codeGen.generateCodeFromContext(context);
 	}
 	
 	

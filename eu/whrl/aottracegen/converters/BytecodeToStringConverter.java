@@ -1,4 +1,4 @@
-package eu.whrl.aottracegen;
+package eu.whrl.aottracegen.converters;
 
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
@@ -9,9 +9,14 @@ import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
 
+import eu.whrl.aottracegen.CodeGenContext;
+import eu.whrl.aottracegen.Trace;
+
 public class BytecodeToStringConverter {
 	public String convert(CodeGenContext context, int codeAddress) {
 		Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
+		
+		Trace curTrace = context.getCurrentTrace();
 		
 		String result = String.format("  // BYTECODE AT 0x%x: ", codeAddress);
 		
@@ -24,6 +29,15 @@ public class BytecodeToStringConverter {
 			result += String.format("const/16 v%d, #%d", vA, lit);
 			break;
 		}
+		
+		case GOTO:
+		{
+			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
+			int targetAddress = codeAddress + targetAddressOffset;
+			
+			result += String.format("goto +0x%x;", targetAddress);
+			break;
+		}
 
 		case IF_EQ:
 		{
@@ -32,7 +46,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-eq v%d, v%d, +%x",
+			result += String.format("if-eq v%d, v%d, +0x%x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -44,7 +58,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-ne v%d, v%d, +%x",
+			result += String.format("if-ne v%d, v%d, +0x%x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -56,7 +70,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-lt v%d, v%d, +%x",
+			result += String.format("if-lt v%d, v%d, +0x%x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -68,7 +82,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-ge v%d, v%d, +%x",
+			result += String.format("if-ge v%d, v%d, +0x%x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -80,7 +94,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-gt v%d, v%d, +%x",
+			result += String.format("if-gt v%d, v%d, +0x%x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -92,7 +106,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-le v%d, v%d, +%x",
+			result += String.format("if-le v%d, v%d, +0x%x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -103,7 +117,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-eqz v%d, +%x",
+			result += String.format("if-eqz v%d, +0x%x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -114,7 +128,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-nez v%d, +%x",
+			result += String.format("if-nez v%d, +0x%x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -125,7 +139,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-ltz v%d, +%x",
+			result += String.format("if-ltz v%d, +0x%x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -136,7 +150,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-gez v%d, +%x",
+			result += String.format("if-gez v%d, +0x%x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -147,7 +161,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-gtz v%d, +%x",
+			result += String.format("if-gtz v%d, +0x%x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -158,7 +172,7 @@ public class BytecodeToStringConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-lez v%d, +%x",
+			result += String.format("if-lez v%d, +0x%x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -184,16 +198,37 @@ public class BytecodeToStringConverter {
 					vA, vB, vC);
 			break;
 		}
+		
+		case APUT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aput v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
 
 		case SGET_OBJECT:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
 			
-			int literalPoolLoc = context.literalPoolSize;
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
 			
 			result += String.format("sget-object v%d, field@0x%x (lit pool idx: %d)",
 					 vA, field, literalPoolLoc);
+			break;
+		}
+		
+		case ADD_INT_LIT8:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			long constant = ((LiteralInstruction)instruction).getLiteral();
+			
+			result += String.format("add-int v%d, v%d, #%d;", vA, vB, constant);
 			break;
 		}
 		

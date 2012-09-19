@@ -9,39 +9,9 @@ import org.jf.dexlib.Code.OffsetInstruction;
 import org.jf.dexlib.Code.Opcode;
 import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction;
 import org.jf.dexlib.Code.Format.SparseSwitchDataPseudoInstruction;
-import org.jf.dexlib.Util.SparseIntArray;
 
 public class TraceFinder {
-	public HashMap<Integer,Trace> generateTracesFromMethod(CodeGenContext context, EncodedMethod method) {
-		
-		context.instructions = method.codeItem.getInstructions();
-		
-		// MAP <switch data location> -> <switch inst code address>
-		context.packedSwitchMap = new SparseIntArray(1);
-		// MAP <switch data location> -> <switch inst code address>
-		context.sparseSwitchMap = new SparseIntArray(1);
-		// MAP <inst code address> -> <index in instructions list>
-		context.instructionMap = new SparseIntArray(context.instructions.length);
-
-		// Create the packed switch, sparse switch and instruction maps.
-        int currentCodeAddress = 0;
-        for (int i=0; i<context.instructions.length; i++) {
-            Instruction instruction = context.instructions[i];
-            if (instruction.opcode == Opcode.PACKED_SWITCH) {
-            	context.packedSwitchMap.append(
-                        currentCodeAddress +
-                                ((OffsetInstruction)instruction).getTargetAddressOffset(),
-                        currentCodeAddress);
-            } else if (instruction.opcode == Opcode.SPARSE_SWITCH) {
-            	context.sparseSwitchMap.append(
-                        currentCodeAddress +
-                                ((OffsetInstruction)instruction).getTargetAddressOffset(),
-                        currentCodeAddress);
-            }
-            context.instructionMap.append(currentCodeAddress, i);
-            currentCodeAddress += instruction.getSize(currentCodeAddress);
-        }
-        
+	public HashMap<Integer,Trace> generateTracesFromMethod(CodeGenContext context) {
         // Now generate all the traces.
         HashMap<Integer,Trace> traceMap = new HashMap<Integer,Trace>();
         generateAllTracesInMethod(context, traceMap);

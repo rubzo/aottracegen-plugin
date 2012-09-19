@@ -11,6 +11,7 @@ public class Trace {
 	public int[] successors;
 	public int successorsCount;
 	private int successorsMax;
+	public TraceMetadata meta;
 	
 	public Trace() {
 		valid = false;
@@ -18,6 +19,7 @@ public class Trace {
 		length = 0;
 		successors = null;
 		successorsCount = 0;
+		meta = new TraceMetadata();
 	}
 	
 	public boolean extend(int codeAddress) {

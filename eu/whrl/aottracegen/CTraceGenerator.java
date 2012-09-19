@@ -12,6 +12,10 @@ import java.util.TreeSet;
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.Opcode;
 
+import eu.whrl.aottracegen.converters.BytecodeToCConverter;
+import eu.whrl.aottracegen.converters.BytecodeToStringConverter;
+import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
+
 public class CTraceGenerator {
 	private CodeGenContext context;
 	private FileWriter writer;
@@ -19,10 +23,10 @@ public class CTraceGenerator {
 	private BytecodeToCConverter converter;
 	private BytecodeToStringConverter stringConverter;
 	
-	private static Set<Opcode> opcodesThatNeedFunctions;
+	private static Set<Opcode> opcodesThatNeedHelperFunctions;
 	static {
-		opcodesThatNeedFunctions = new TreeSet<Opcode>();
-		opcodesThatNeedFunctions.add(Opcode.IGET_QUICK);
+		opcodesThatNeedHelperFunctions = new TreeSet<Opcode>();
+		opcodesThatNeedHelperFunctions.add(Opcode.IGET_QUICK);
 		
 		// ...
 	}
@@ -43,10 +47,14 @@ public class CTraceGenerator {
 		opcodesThatRaiseExceptions = new TreeSet<Opcode>();
 		opcodesThatRaiseExceptions.add(Opcode.AGET);
 		opcodesThatRaiseExceptions.add(Opcode.AGET_BYTE);
+		opcodesThatRaiseExceptions.add(Opcode.APUT);
 		
 		// ...
 	}
 	
+	//
+	// Actual methods start here...
+	//
 	public CTraceGenerator(CodeGenContext context) {
 		this.context = context;
 		writer = null;
@@ -77,10 +85,12 @@ public class CTraceGenerator {
 		}
 	}
 	
-	public void generate() {
+	public void generate() throws UnimplementedInstructionException {
 		if (!prepared) {
 			return;
 		}
+		
+		Trace curTrace = context.getCurrentTrace();
 		
 		try {
 			// Everything that this calls MUST throw the IOException back up here!
@@ -88,12 +98,12 @@ public class CTraceGenerator {
 			emitExitFunctionPrototypes(writer);
 			emitFunctionStart(writer);
 			
-			for (int i = 0; i < context.trace.length; i++) {
-				emitForCodeAddress(writer, context.trace.addresses[i]);
+			for (int i = 0; i < curTrace.length; i++) {
+				emitForCodeAddress(writer, curTrace.addresses[i]);
 				
 				// If we're the last instruction...
-				if (i == context.trace.length - 1 ) {
-					int codeAddress = context.trace.addresses[i];
+				if (i == curTrace.length - 1 ) {
+					int codeAddress = curTrace.addresses[i];
 					Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 					int fallThroughAddress = codeAddress + instruction.getSize(codeAddress);
 					writer.write(String.format("  goto __exit_L0x%x;\n\n", fallThroughAddress));
@@ -115,11 +125,13 @@ public class CTraceGenerator {
 	private void emitFunctions(Writer writer) throws IOException {
 		writer.write("// --- FUNCTIONS ---\n");
 		
-		for (int i = 0; i < context.trace.length; i++) {
-			Instruction instruction = context.getInstructionAtCodeAddress(context.trace.addresses[i]);
+		Trace curTrace = context.getCurrentTrace();
+		
+		for (int i = 0; i < context.getCurrentTrace().length; i++) {
+			Instruction instruction = context.getInstructionAtCodeAddress(curTrace.addresses[i]);
 			
-			if (opcodesThatNeedFunctions.contains(instruction.opcode) && !context.generatedFunctionOpcodes.contains(instruction.opcode)) {
-				context.generatedFunctionOpcodes.add(instruction.opcode);
+			if (opcodesThatNeedHelperFunctions.contains(instruction.opcode) && !curTrace.meta.generatedFunctionOpcodes.contains(instruction.opcode)) {
+				curTrace.meta.generatedFunctionOpcodes.add(instruction.opcode);
 				writer.write(opcodeFunctionHelpers.get(instruction.opcode));
 			}
 		}
@@ -130,8 +142,10 @@ public class CTraceGenerator {
 	private void emitExitFunctionPrototypes(Writer writer) throws IOException {
 		writer.write("// --- EXIT FUNCTION PROTOTYPES ---\n");
 		
-		for (int i = 0; i < context.trace.length; i++) {
-			int codeAddress = context.trace.addresses[i];
+		Trace curTrace = context.getCurrentTrace();
+		
+		for (int i = 0; i < curTrace.length; i++) {
+			int codeAddress = curTrace.addresses[i];
 			
 			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
@@ -140,8 +154,8 @@ public class CTraceGenerator {
 			}
 		}
 		
-		for (int i = 0; i < context.trace.successorsCount; i++) {
-			int successorAddress = context.trace.successors[i];
+		for (int i = 0; i < curTrace.successorsCount; i++) {
+			int successorAddress = curTrace.successors[i];
 			
 			writer.write(String.format("void exit_L0x%x() {return;}\n", successorAddress));
 		}
@@ -150,11 +164,11 @@ public class CTraceGenerator {
 	}
 	
 	private void emitFunctionStart(Writer writer) throws IOException {
-		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.traceEntryAddress));
+		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.getCurrentTraceEntryAddress()));
 		writer.write("void trace(int* v, char* self, int *lit) {\n");
 	}
 	
-	private void emitForCodeAddress(Writer writer, int codeAddress) throws IOException {
+	private void emitForCodeAddress(Writer writer, int codeAddress) throws IOException, UnimplementedInstructionException {
 		writer.write(stringConverter.convert(context, codeAddress));
 		writer.write(String.format("  __L0x%x:\n", codeAddress));
 		
@@ -166,8 +180,10 @@ public class CTraceGenerator {
 	private void emitExitLabels(Writer writer) throws IOException {
 		writer.write("  // --- EXIT LABELS ---\n");
 		
-		for (int i = 0; i < context.trace.length; i++) {
-			int codeAddress = context.trace.addresses[i];
+		Trace curTrace = context.getCurrentTrace();
+		
+		for (int i = 0; i < curTrace.length; i++) {
+			int codeAddress = curTrace.addresses[i];
 			
 			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
@@ -176,8 +192,8 @@ public class CTraceGenerator {
 			}
 		}
 		
-		for (int i = 0; i < context.trace.successorsCount; i++) {
-			int successorAddress = context.trace.successors[i];
+		for (int i = 0; i < curTrace.successorsCount; i++) {
+			int successorAddress = curTrace.successors[i];
 			
 			writer.write(String.format("  __exit_L0x%1$x: exit_L0x%1$x(); return;\n", successorAddress));
 		}
