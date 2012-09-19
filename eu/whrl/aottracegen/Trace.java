@@ -22,6 +22,9 @@ public class Trace {
 		meta = new TraceMetadata();
 	}
 	
+	/*
+	 * Extend this trace with a new codeAddress.
+	 */
 	public boolean extend(int codeAddress) {
 		if (!valid) {
 			valid = true;
@@ -34,11 +37,17 @@ public class Trace {
 		return true;
 	}
 	
+	/*
+	 * Allocate array space for all the successors of this trace.
+	 */
 	public void allocSuccessors(int count) {
 		successors = new int[count];
 		successorsMax = count;
 	}
 	
+	/*
+	 * Add a successor address to this trace.
+	 */
 	public void addSuccessor(int codeAddress) {
 		if (successors != null && successorsCount != successorsMax) {
 			successors[successorsCount] = codeAddress;
@@ -46,6 +55,9 @@ public class Trace {
 		}
 	}
 	
+	/*
+	 * Check if this trace contains a given code address.
+	 */
 	public boolean containsCodeAddress(int codeAddress) {
 		for (int i = 0; i < length; i++) {
 			if (addresses[i] == codeAddress) {
@@ -55,6 +67,9 @@ public class Trace {
 		return false;
 	}
 	
+	/*
+	 * Print out the trace.
+	 */
 	public void print(CodeGenContext context) {
 		System.out.println(String.format("Trace starting at 0x%x", addresses[0]));
     	System.out.println();

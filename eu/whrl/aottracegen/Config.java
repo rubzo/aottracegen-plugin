@@ -1,5 +1,8 @@
 package eu.whrl.aottracegen;
 
+/*
+ * Config represents the trace selection config we've passed in as an argument to the plugin.
+ */
 public class Config {
 	public String clazz = "";
 	public String method = "";

@@ -11,14 +11,21 @@ import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction;
 import org.jf.dexlib.Code.Format.SparseSwitchDataPseudoInstruction;
 
 public class TraceFinder {
+	/*
+	 * This will populate a trace map with all traces possible in the method 
+	 * that the provided CodeGenContext represents.
+	 */
 	public HashMap<Integer,Trace> generateTracesFromMethod(CodeGenContext context) {
-        // Now generate all the traces.
+        // Generate all the traces.
         HashMap<Integer,Trace> traceMap = new HashMap<Integer,Trace>();
         generateAllTracesInMethod(context, traceMap);
         
         return traceMap;
 	}
 	
+	/*
+	 * Checks if a given instruction is an invoke instruction.
+	 */
 	private boolean isInvokeInstruction(Instruction i) {
 		if (i instanceof InvokeInstruction) {
 			return true;
@@ -26,7 +33,11 @@ public class TraceFinder {
 		return false;
 	}
 	
+	/*
+	 * Checks if a given instruction should cause the tracer to stop.
+	 */
 	private boolean isTraceEndingInstruction(CodeGenContext context, int codeAddress, Instruction i) {
+		// Conditional branch? That's a trace ender.
 		if (i.opcode == Opcode.IF_EQ ||
 				i.opcode == Opcode.IF_EQZ ||
 				i.opcode == Opcode.IF_GE ||
@@ -42,14 +53,17 @@ public class TraceFinder {
 			return true;
 		}
 		
-		if (i instanceof InvokeInstruction) {
+		// Invoke instruction? That's a trace ender.
+		if (isInvokeInstruction(i)) {
 			return true;
 		}
 		
+		// Switch statement? That's a trace ender.
 		if (i.opcode == Opcode.PACKED_SWITCH || i.opcode == Opcode.SPARSE_SWITCH) {
 			return true;
 		}
 		
+		// Return statement? That's a trace ender.
 		if (i.opcode == Opcode.RETURN ||
 				i.opcode == Opcode.RETURN_OBJECT ||
 				i.opcode == Opcode.RETURN_VOID ||
@@ -58,10 +72,12 @@ public class TraceFinder {
 			return true;
 		}
 		
+		// Throwing an exception on purpose? That's a trace ender.
 		if (i.opcode == Opcode.THROW) {
 			return true;
 		}
 		
+		// The instruction after you's going to be a switch statement? Oh, you better believe that's a trace ender.
 		int nextCodeAddress = getNextCodeAddress(codeAddress, i);
 		Instruction nextInstruction = context.getInstructionAtCodeAddress(nextCodeAddress);
 		if (nextInstruction.opcode == Opcode.PACKED_SWITCH ||
@@ -69,9 +85,14 @@ public class TraceFinder {
 			return true;
 		}
 		
+		// Carry on.
 		return false;
 	}
 	
+	/*
+	 * Calculates, based on the current code address and instruction, where the next code address is.
+	 * (Basically handling things like GOTO.)
+	 */
 	private int getNextCodeAddress(int currentCodeAddress, Instruction instruction) {
 		int nextCodeAddress = currentCodeAddress + instruction.getSize(currentCodeAddress);
 		if (instruction.opcode == Opcode.GOTO || 
@@ -86,6 +107,9 @@ public class TraceFinder {
 		return nextCodeAddress;
 	}
 	
+	/*
+	 * Allocates the correct space for successors in the trace, and adds all successor code addresses to that array.
+	 */
 	private void handleSuccessors(CodeGenContext context, Trace trace, int currentCodeAddress, Instruction currentInstruction) {
 		// Get the address where we'll be going next.
 		int fallthruCodeAddress = getNextCodeAddress(currentCodeAddress, currentInstruction);
@@ -135,16 +159,22 @@ public class TraceFinder {
 			return;
 		}
 		
-		// If we get here, there's only the fallthru successor.
+		// If we get here, there's only the fallthrough successor.
 		trace.allocSuccessors(1);
 		trace.addSuccessor(fallthruCodeAddress);
 		return;
 	}
 	
+	/*
+	 * Starts trace generation from the start of the method.
+	 */
 	private void generateAllTracesInMethod(CodeGenContext context, HashMap<Integer,Trace> traceMap) {
 		generateTracesFromCodeAddress(context, traceMap, 0x0);
 	}
 	
+	/*
+	 * Starts trace generation from a given code address.
+	 */
 	private void generateTracesFromCodeAddress(CodeGenContext context, HashMap<Integer,Trace> traceMap, int codeAddress) {
 		// First check, have we already generated the traces starting from this point?
 		if (traceMap.containsKey(new Integer(codeAddress))) {

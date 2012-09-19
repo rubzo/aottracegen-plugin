@@ -26,12 +26,17 @@ public class AOTTraceGen implements Plugin {
 	public void run(DexFile dexFile) {
 		if (isConfigFileValid()) {
 			generateAOTTraces(dexFile);
+		} else {
+			System.err.println("The config file wasn't valid, cannot continue.");
 		}
 	}
+	//
+	// END INTERFACE METHODS
+	//
 	
-	//
-	// EVERYTHING ELSE
-	//
+	/*
+	 * Loads a config file from the filename provided.
+	 */
 	private void loadConfigFile(String filename) {
 		File file = new File(filename);
 		FileReader reader = null;
@@ -44,6 +49,7 @@ public class AOTTraceGen implements Plugin {
 		
 		BufferedReader buff = new BufferedReader(reader);
 		config = new Config();
+		int lineCounter = 0;
 		try {
 			while (buff.ready()) {
 				String line = buff.readLine();
@@ -57,7 +63,10 @@ public class AOTTraceGen implements Plugin {
 					config.produceMerged = true;
 				} else if (line.startsWith("trace")) {
 					config.addEntry(Integer.parseInt(line.substring(8, line.length()), 16));
+				} else {
+					System.err.println("Couldn't make sense of line " + lineCounter + ": " + line);
 				}
+				lineCounter++;
 			}
 		} catch (IOException e) {
 			System.err.println("Couldn't read config file");
@@ -68,10 +77,16 @@ public class AOTTraceGen implements Plugin {
 		}
 	}
 	
+	/*
+	 * Checks if the config file we tried to load in loadConfigFile() is valid.
+	 */
 	private boolean isConfigFileValid() {
 		return validConfigFileLoaded;
 	}
 	
+	/*
+	 * Based on the config that we've loaded, get the correct EncodedMethod.
+	 */
 	private EncodedMethod findTargetMethod(DexFile dexFile) {
 		boolean foundClass = false;
 		
@@ -104,6 +119,8 @@ public class AOTTraceGen implements Plugin {
 						if (method.method.getShortMethodString().equals(methodName)) {
 							methodToUse = method;
 							foundMethod = true;
+							
+							// Found the method, so we're done.
 							break;
 						}
 					}
@@ -125,6 +142,10 @@ public class AOTTraceGen implements Plugin {
 		return methodToUse;
 	}
 	
+	/*
+	 * Called from the interface methods to actually generate AOT traces based on the DexFile that
+	 * baksmali generated.
+	 */
 	private void generateAOTTraces(DexFile dexFile) {
 		printConfig();
 		
@@ -143,7 +164,7 @@ public class AOTTraceGen implements Plugin {
 		// Do merging if needed
 		if (config.produceMerged) {
 			TraceMerger traceMerger = new TraceMerger();
-			traceMap = traceMerger.mergeTraces(context, traceMap);
+			traceMap = traceMerger.mergeTraces(context, config, traceMap);
 		}
 		
 		// Generate code for the selected traces
@@ -156,15 +177,20 @@ public class AOTTraceGen implements Plugin {
 		codeGen.generateCodeFromContext(context);
 	}
 	
-	
-	
+	/*
+	 * Prints the loaded config, if it's valid.
+	 */
 	private void printConfig() {
-		System.out.println("Printing Config...");
-		System.out.println("  Class: " + config.clazz);
-		System.out.println("  Method: " + config.method);
-		System.out.println("  Signature: " + config.signature);
-		System.out.println("  Number of traces: " + config.numTraces);
-		System.out.println();
+		if (isConfigFileValid()) {
+			System.out.println("Printing Config...");
+			System.out.println("  Class: " + config.clazz);
+			System.out.println("  Method: " + config.method);
+			System.out.println("  Signature: " + config.signature);
+			System.out.println("  Number of traces: " + config.numTraces);
+			System.out.println();
+		} else {
+			System.out.println("Cannot print config, as it's invalid!");
+		}
 	}
 	
 }

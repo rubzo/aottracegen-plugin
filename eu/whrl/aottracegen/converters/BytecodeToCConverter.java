@@ -15,6 +15,11 @@ import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
 public class BytecodeToCConverter {
 
+	/*
+	 * Return a string representing the instruction at codeAddress,
+	 * as a C implementation. ALSO HAS SIDE EFFECTS OF UPDATING
+	 * THE CURRENT TRACE'S METADATA.
+	 */
 	public String convert(CodeGenContext context, int codeAddress) throws UnimplementedInstructionException {
 		Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		

@@ -12,7 +12,13 @@ import org.jf.dexlib.Code.TwoRegisterInstruction;
 import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.Trace;
 
-public class BytecodeToStringConverter {
+public class BytecodeToPrettyConverter {
+	
+	/*
+	 * Return a string representing the instruction at codeAddress,
+	 * as a human readable representation. MUST BE CALLED BEFORE THE
+	 * BYTECODE TO C CONVERTER, AS THAT HAS SIDE EFFECTS.
+	 */
 	public String convert(CodeGenContext context, int codeAddress) {
 		Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
