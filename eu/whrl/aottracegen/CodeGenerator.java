@@ -124,6 +124,9 @@ public class CodeGenerator {
 	 */
 	public void emitInjectableTraceAssembly(CodeGenContext context, String[] asmFileNames, String injectableTraceName) {
 		System.out.println("Producing linkable assembly file...");
+		InjectableTraceGenerator asmLoader = new InjectableTraceGenerator();
+		asmLoader.loadAsmFiles(context, asmFileNames);
+		asmLoader.createInjectableTrace(context, injectableTraceName);
 	}
 	
 	/*
