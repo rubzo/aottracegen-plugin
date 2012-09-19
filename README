@@ -1,0 +1,33 @@
+aottracegen-plugin
+==================
+
+A plugin for baksmali that generates AOT traces to be injected 
+into the Dalvik JIT compiler. A work in progress.
+
+You need a version of baksmali that can use plugins!
+See: https://github.com/rubzo/smali-with-plugins 
+
+Building
+========
+
+Edit build.sh to point BAKSMALI_JAR at your built baksmali jar file.
+Run ./build.sh
+The plugin is called aottracegen-plugin.jar by default.
+
+Typical usage
+=============
+
+baksmali -P aottracegen-plugin.jar,eu.whrl.aottracegen.AOTTraceGen,<trace selection file> <.odex file>
+
+Example 'trace selection file' contents
+=======================================
+
+class Lcom/eembc/coremark/ee_state;
+method core_state_transition_switch
+signature ([BI[I)Lcom/eembc/coremark/ee_state$CORE_STATE;
+trace 0x0
+trace 0x1c
+trace 0x34
+
+- Putting 'merge' on a single line anywhere in the file will cause the plugin
+to merge all the selected traces and emit a single trace from the merge.
