@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 
 import eu.whrl.aottracegen.exceptions.CGeneratorFaultException;
 import eu.whrl.aottracegen.exceptions.CompilationException;
+import eu.whrl.aottracegen.exceptions.ITraceGeneratorFaultException;
 import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
 public class CodeGenerator {
@@ -58,6 +59,10 @@ public class CodeGenerator {
 		} catch (CGeneratorFaultException e) {
 			
 			System.err.println("Fault in the C generator. Cannot continue.");
+			
+		} catch (ITraceGeneratorFaultException e) {
+			
+			System.err.println("Fault in the injectable trace generator. Cannot continue.");
 			
 		}
 		
@@ -122,7 +127,7 @@ public class CodeGenerator {
 	/*
 	 * Convert all the provided asmFileNames into one asm file in the format that can link with the DVM.
 	 */
-	public void emitInjectableTraceAssembly(CodeGenContext context, String[] asmFileNames, String injectableTraceName) {
+	public void emitInjectableTraceAssembly(CodeGenContext context, String[] asmFileNames, String injectableTraceName) throws ITraceGeneratorFaultException {
 		System.out.println("Producing linkable assembly file...");
 		InjectableTraceGenerator asmLoader = new InjectableTraceGenerator();
 		asmLoader.loadAsmFiles(context, asmFileNames);
