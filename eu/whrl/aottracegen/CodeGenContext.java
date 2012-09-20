@@ -18,6 +18,9 @@ public class CodeGenContext {
 	public List<Integer> traceEntryAddresses;
 	private int currentTraceIdx;
 	
+	public int methodIndex;
+	public Config config;
+	
 	//
 	// These are local to this method only!
 	//
@@ -36,11 +39,14 @@ public class CodeGenContext {
 	 * NB: A CodeGenContext only works within one method!
 	 * Hence, we pass in the method to the constructor.
 	 */
-	public CodeGenContext(DexFile df, EncodedMethod method) {
+	public CodeGenContext(DexFile df, EncodedMethod method, Config config) {
 		dexFile = df;
 		traces = new ArrayList<Trace>();
 		traceEntryAddresses = new ArrayList<Integer>();
 		currentTraceIdx = 0;
+		
+		this.config = config;
+		methodIndex = method.method.getIndex();
 
 		// Store all the instructions the method contains.
 		instructions = method.codeItem.getInstructions();
@@ -103,5 +109,12 @@ public class CodeGenContext {
 	 */
 	public int getCurrentTraceEntryAddress() {
 		return traceEntryAddresses.get(currentTraceIdx).intValue();
+	}
+	
+	/*
+	 * Get the index of the currently selected trace.
+	 */
+	public int getCurrentTraceIndex() {
+		return currentTraceIdx;
 	}
 }

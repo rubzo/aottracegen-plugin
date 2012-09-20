@@ -175,6 +175,7 @@ public class CTraceGenerator {
 		
 			if (opcodesThatRaiseExceptions.contains(instruction.opcode)) {
 				writer.write(String.format("void exception_L0x%x() {return;}\n", codeAddress));
+				curTrace.meta.codeAddressesRaisingExceptions.add(new Integer(codeAddress));
 			}
 		}
 		

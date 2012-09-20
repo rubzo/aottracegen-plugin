@@ -53,7 +53,9 @@ public class AOTTraceGen implements Plugin {
 		try {
 			while (buff.ready()) {
 				String line = buff.readLine();
-				if (line.startsWith("class")) {
+				if (line.startsWith("app")) {
+					config.app = line.substring(4, line.length());
+				} else if (line.startsWith("class")) {
 					config.clazz = line.substring(6, line.length());
 				} else if (line.startsWith("method")) {
 					config.method = line.substring(7, line.length());
@@ -72,7 +74,7 @@ public class AOTTraceGen implements Plugin {
 			System.err.println("Couldn't read config file");
 		}
 		
-		if (config.clazz != "" && config.method != "" && config.signature != "" && config.numTraces > 0) {
+		if (config.app != "" && config.clazz != "" && config.method != "" && config.signature != "" && config.numTraces > 0) {
 			validConfigFileLoaded = true;
 		}
 	}
@@ -155,7 +157,7 @@ public class AOTTraceGen implements Plugin {
 			return;
 		}
 		
-		CodeGenContext context = new CodeGenContext(dexFile, methodToUse);
+		CodeGenContext context = new CodeGenContext(dexFile, methodToUse, config);
 		
 		// Enumerate all the traces in the method
 		TraceFinder traceFinder = new TraceFinder();
@@ -183,6 +185,7 @@ public class AOTTraceGen implements Plugin {
 	private void printConfig() {
 		if (isConfigFileValid()) {
 			System.out.println("Printing Config...");
+			System.out.println("  App: " + config.app);
 			System.out.println("  Class: " + config.clazz);
 			System.out.println("  Method: " + config.method);
 			System.out.println("  Signature: " + config.signature);

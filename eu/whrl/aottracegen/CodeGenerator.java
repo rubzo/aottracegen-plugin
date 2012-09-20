@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 
 import eu.whrl.aottracegen.exceptions.CGeneratorFaultException;
 import eu.whrl.aottracegen.exceptions.CompilationException;
+import eu.whrl.aottracegen.exceptions.ITraceDescGeneratorFaultException;
 import eu.whrl.aottracegen.exceptions.ITraceGeneratorFaultException;
 import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
@@ -42,10 +43,10 @@ public class CodeGenerator {
 			}
 			
 			// Take the list of generated asm files, and produce a 'injectable trace' asm file.
-			emitInjectableTraceAssembly(context, asmTraceFileNames, "InjectableTrace.S");
+			emitITrace(context, asmTraceFileNames, "InjectableTrace.S");
 			
 			// Produce the trace description file that the VM will read to know when to inject traces.
-			emitInjectableTraceDescriptionFile(context, "trace_inject_desc.cfg");
+			emitITraceDesc(context, "trace_inject_desc.cfg");
 			
 		} catch (UnimplementedInstructionException e) {
 			
@@ -63,6 +64,10 @@ public class CodeGenerator {
 		} catch (ITraceGeneratorFaultException e) {
 			
 			System.err.println("Fault in the injectable trace generator. Cannot continue.");
+			
+		} catch (ITraceDescGeneratorFaultException e) {
+			
+			System.err.println("Fault in the injectable trace description generator. Cannot continue.");
 			
 		}
 		
@@ -127,17 +132,19 @@ public class CodeGenerator {
 	/*
 	 * Convert all the provided asmFileNames into one asm file in the format that can link with the DVM.
 	 */
-	public void emitInjectableTraceAssembly(CodeGenContext context, String[] asmFileNames, String injectableTraceName) throws ITraceGeneratorFaultException {
+	public void emitITrace(CodeGenContext context, String[] asmFileNames, String iTraceName) throws ITraceGeneratorFaultException {
 		System.out.println("Producing linkable assembly file...");
-		InjectableTraceGenerator asmLoader = new InjectableTraceGenerator();
+		ITraceGenerator asmLoader = new ITraceGenerator();
 		asmLoader.loadAsmFiles(context, asmFileNames);
-		asmLoader.createInjectableTrace(context, injectableTraceName);
+		asmLoader.createITrace(context, iTraceName);
 	}
 	
 	/*
 	 * Produce the injectable trace description file that the DVM looks for to know which traces can be injected.
 	 */
-	public void emitInjectableTraceDescriptionFile(CodeGenContext context, String name) {
+	public void emitITraceDesc(CodeGenContext context, String fileName) throws ITraceDescGeneratorFaultException {
 		System.out.println("Producing trace description file...");
+		ITraceDescGenerator iTraceDescGen = new ITraceDescGenerator();
+		iTraceDescGen.createInjectableTraceDesc(context, fileName);
 	}
 }
