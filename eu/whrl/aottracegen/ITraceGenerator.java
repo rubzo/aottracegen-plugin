@@ -201,7 +201,7 @@ public class ITraceGenerator {
 			writer.write(String.format("ITrace_0x%x_ChainingCells:\n", curTrace.addresses[0]));
 			
 			for (int successor : curTrace.successors) {
-				writer.write(String.format("\t.word LT0x%x_CC_0x%x_value:\n", curTrace.addresses[0], successor));
+				writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.addresses[0], successor));
 			}
 		}
 	}
@@ -248,7 +248,7 @@ public class ITraceGenerator {
 		// exception handlers
 		for (Integer exceptionCodeAddress : curTrace.meta.codeAddressesRaisingExceptions) {
 			writer.write(String.format("LT0x%x_EH_0x%x:\n", traceEntry, exceptionCodeAddress.intValue()));
-			writer.write(String.format("\tadr.w\tr0, ITrace_0x%x_BasePC:\n", traceEntry));
+			writer.write(String.format("\tadr.w\tr0, ITrace_0x%x_BasePC\n", traceEntry));
 			writer.write("\tldr\tr0, [r0]\n");
 			writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress.intValue()*2));
 			writer.write("\tldr\tr1, [r6, #108]\n");

@@ -43,7 +43,7 @@ public class CodeGenerator {
 			}
 			
 			// Take the list of generated asm files, and produce a 'injectable trace' asm file.
-			emitITrace(context, asmTraceFileNames, "InjectableTrace.S");
+			emitITrace(context, asmTraceFileNames, "InjectableTraces.S");
 			
 			// Produce the trace description file that the VM will read to know when to inject traces.
 			emitITraceDesc(context, "trace_inject_desc.cfg");
