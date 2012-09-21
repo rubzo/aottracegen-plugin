@@ -53,6 +53,21 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case GOTO_16:
+		{
+			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
+			int targetAddress = codeAddress + targetAddressOffset;
+			
+			String labelPrefix = "__";
+			if (!curTrace.containsCodeAddress(targetAddress)) {
+				labelPrefix = "__exit_";
+			}
+			
+			result = String.format("  goto %sL0x%x;",
+					labelPrefix, targetAddress);
+			break;
+		}
+		
 		case IF_EQ:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();

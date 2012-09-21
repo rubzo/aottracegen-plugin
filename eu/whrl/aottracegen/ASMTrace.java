@@ -37,6 +37,10 @@ public class ASMTrace {
 		int pushIdx = 0;
 		int popIdx = 0;
 		String exitLabel = "";
+		
+		Trace curTrace = context.getCurrentTrace();
+		int curTraceEntry = curTrace.entries[0];
+		
 		for (int i = 0; i < traceBody.size(); i++) {
 			String line = traceBody.get(i);
 			
@@ -77,7 +81,7 @@ public class ASMTrace {
 			String line = traceBody.get(i);
 			
 			if (line.contains(".L")) {
-				line = line.replaceFirst(".L(\\d+)", String.format(".LT0x%x_$1", context.getCurrentTraceEntryAddress()));
+				line = line.replaceFirst(".L(\\d+)", String.format(".LT0x%x_$1", curTraceEntry));
 			}
 			
 			traceBody.remove(i);
@@ -91,9 +95,9 @@ public class ASMTrace {
 			String line = traceBody.get(i);
 			
 			if (line.contains("bl\texception")) {
-				line = line.replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT0x%x_EH_$1", context.getCurrentTraceEntryAddress()));
+				line = line.replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTraceEntry));
 			} else if (line.contains("bl\texit")) {
-				line = line.replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT0x%x_CC_$1", context.getCurrentTraceEntryAddress()));
+				line = line.replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT0x%x_CC_$1", curTraceEntry));
 			}
 			
 			traceBody.remove(i);

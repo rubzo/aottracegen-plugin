@@ -8,9 +8,15 @@ public class Trace {
 	public boolean valid;
 	public int[] addresses;
 	public int length;
+	
 	public int[] successors;
 	public int successorsCount;
 	private int successorsMax;
+	
+	public int[] entries;
+	public int entriesCount;
+	private int entriesMax;
+	
 	public TraceMetadata meta;
 	
 	public Trace() {
@@ -19,6 +25,8 @@ public class Trace {
 		length = 0;
 		successors = null;
 		successorsCount = 0;
+		entries = null;
+		entriesCount = 0;
 		meta = new TraceMetadata();
 	}
 	
@@ -55,6 +63,34 @@ public class Trace {
 		}
 	}
 	
+	public void addSingleEntry(int codeAddress) {
+		entries = new int[1];
+		entries[0] = codeAddress;
+		entriesCount = 1;
+		entriesMax = 1;
+	}
+	
+	public int getPrimaryEntry() {
+		return entries[0];
+	}
+	
+	public void allocMultipleEntries(int count) {
+		entries = new int[count];
+		entriesCount = 0;
+		entriesMax = count;
+	}
+	
+	public void addEntry(int codeAddress) {
+		if (entries != null && entriesCount != entriesMax) {
+			entries[entriesCount] = codeAddress;
+			entriesCount++;
+		}
+	}
+	
+	public boolean hasMultipleEntries() {
+		return (entries.length > 1);
+	}
+	
 	/*
 	 * Check if this trace contains a given code address.
 	 */
@@ -71,7 +107,7 @@ public class Trace {
 	 * Print out the trace.
 	 */
 	public void print(CodeGenContext context) {
-		System.out.println(String.format("Trace starting at 0x%x", addresses[0]));
+		System.out.println(String.format("Trace starting at 0x%x", getPrimaryEntry()));
     	System.out.println();
 
     	for (int i = 0; i < length; i++) {

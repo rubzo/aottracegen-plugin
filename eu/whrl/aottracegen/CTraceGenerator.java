@@ -117,6 +117,10 @@ public class CTraceGenerator {
 			emitExitFunctionPrototypes(writer);
 			emitFunctionStart(writer);
 			
+			//if (curTrace.hasMultipleEntries()) {
+				emitJumpTable(writer);
+			//}
+			
 			for (int i = 0; i < curTrace.length; i++) {
 				emitForCodeAddress(writer, curTrace.addresses[i]);
 				
@@ -138,6 +142,20 @@ public class CTraceGenerator {
 		}
 	}
 	
+	private void emitJumpTable(Writer writer) throws IOException {
+		writer.write("  // --- JUMP TABLE ---\n");
+		writer.write("  int basePc = *(lit - 1);\n");
+		writer.write("  int offsetPc = (pc - basePc) >> 1;\n");
+		
+		Trace curTrace = context.getCurrentTrace();
+		
+		writer.write("  switch (offsetPc) {\n");
+		for (int entry : curTrace.entries) {
+			writer.write(String.format("    case 0x%1$x: goto __L0x%1$x;\n", entry));
+		}
+		writer.write("  }\n");
+	}
+
 	/*
 	 * Emit the helper functions that will be used within the trace function.
 	 */
@@ -193,8 +211,8 @@ public class CTraceGenerator {
 	 * Emit the function signature, basically.
 	 */
 	private void emitFunctionStart(Writer writer) throws IOException {
-		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.getCurrentTraceEntryAddress()));
-		writer.write("void trace(int* v, char* self, int *lit) {\n");
+		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.getCurrentTrace().getPrimaryEntry()));
+		writer.write("void trace(int pc, int* v, char* self, int *lit) {\n");
 	}
 	
 	/*

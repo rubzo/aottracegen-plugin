@@ -24,8 +24,8 @@ public class CodeGenerator {
 		
 		// Generate all the file names.
 		for (int i = 0; i < numTraces; i++) {
-			cTraceFileNames[i] = String.format("trace_0x%x.c", context.traceEntryAddresses.get(i));
-			asmTraceFileNames[i] = String.format("trace_0x%x.S", context.traceEntryAddresses.get(i));
+			cTraceFileNames[i] = String.format("trace_0x%x.c", context.traces.get(i).getPrimaryEntry());
+			asmTraceFileNames[i] = String.format("trace_0x%x.S", context.traces.get(i).getPrimaryEntry());
 		}
 		
 		try {
@@ -34,7 +34,7 @@ public class CodeGenerator {
 				
 				// Makes sure the generateC() and compileC() functions use the correct trace!
 				context.setCurrentTraceIndex(i);
-				System.out.println(String.format("Handling trace at 0x%x", context.getCurrentTraceEntryAddress()));
+				System.out.println(String.format("Handling trace at 0x%x", context.getCurrentTrace().getPrimaryEntry()));
 				
 				// Do the generation and compilation.
 				generateC(context, cTraceFileNames[i]);

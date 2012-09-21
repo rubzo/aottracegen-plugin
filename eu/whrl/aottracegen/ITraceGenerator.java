@@ -163,10 +163,10 @@ public class ITraceGenerator {
 	}
 	
 	private void emitTables(Writer writer, CodeGenContext context) throws IOException {
-		int[] traceEntries = new int[context.traceEntryAddresses.size()];
+		int[] traceEntries = new int[context.traces.size()];
 		int idx = 0;
-		for (Integer traceEntry : context.traceEntryAddresses) {
-			traceEntries[idx] = traceEntry.intValue();
+		for (Trace trace : context.traces) {
+			traceEntries[idx] = trace.getPrimaryEntry();
 			idx++;
 		}
 		
@@ -198,10 +198,10 @@ public class ITraceGenerator {
 			context.setCurrentTraceIndex(traceIdx);
 			Trace curTrace = context.getCurrentTrace();
 			
-			writer.write(String.format("ITrace_0x%x_ChainingCells:\n", curTrace.addresses[0]));
+			writer.write(String.format("ITrace_0x%x_ChainingCells:\n", curTrace.getPrimaryEntry()));
 			
 			for (int successor : curTrace.successors) {
-				writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.addresses[0], successor));
+				writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.getPrimaryEntry(), successor));
 			}
 		}
 	}
@@ -217,20 +217,29 @@ public class ITraceGenerator {
 	private void emitTrace(Writer writer, CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		ASMTrace curAsmTrace = asmTraces.get(context.getCurrentTraceIndex());
-		int traceEntry = curTrace.addresses[0];
+		int traceEntry = curTrace.getPrimaryEntry();
 		
 		// start of the trace
 		writer.write(String.format("ITrace_0x%x_Start:\n", traceEntry));
 		writer.write("\n");
 		
-		// trace body - start off with putting fp, self and litpool pointers in the right place
-		writer.write("\tmov\tr0, r5\n");
-		writer.write("\tmov\tr1, r6\n");
+		// trace body - start off with putting pc, fp, self and litpool pointers in the right place
+		// we know upon entry to the trace that the pc is in r4, fp is in r5, the self pointer is in r6,
+		//  and what the name of the label we used for our literal pool is.
+		writer.write("\tmov\tr0, r4\n");
+		writer.write("\tmov\tr1, r5\n");
+		writer.write("\tmov\tr2, r6\n");
 		if (curTrace.meta.literalPoolSize > 0) {
-			writer.write(String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool\n", curTrace.addresses[0]));
+			writer.write(String.format("\tadr.w\tr3, ITrace_0x%x_LiteralPool\n", curTrace.getPrimaryEntry()));
 		}
 		// and the actual trace body now...
 		writer.write(curAsmTrace.getFullStringTraceBody());
+		writer.write("\n");
+		
+		// base pc location
+		// NB: this MUST come just before the literal pool!
+		writer.write(String.format("ITrace_0x%x_BasePC:\n", traceEntry));
+		writer.write("\t.word 0x00000000\n");
 		writer.write("\n");
 		
 		// its literal pool
@@ -238,11 +247,6 @@ public class ITraceGenerator {
 		for (int litPoolIdx = 0; litPoolIdx < curTrace.meta.literalPoolSize; litPoolIdx++) {
 			writer.write("\t.word 0x00000000\n");
 		}
-		writer.write("\n");
-		
-		// base pc location
-		writer.write(String.format("ITrace_0x%x_BasePC:\n", traceEntry));
-		writer.write("\t.word 0x00000000\n");
 		writer.write("\n");
 		
 		// exception handlers

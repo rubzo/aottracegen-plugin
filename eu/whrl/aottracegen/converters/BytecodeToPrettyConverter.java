@@ -44,6 +44,15 @@ public class BytecodeToPrettyConverter {
 			result += String.format("goto +0x%x;", targetAddress);
 			break;
 		}
+		
+		case GOTO_16:
+		{
+			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
+			int targetAddress = codeAddress + targetAddressOffset;
+			
+			result += String.format("goto/16 +0x%x;", targetAddress);
+			break;
+		}
 
 		case IF_EQ:
 		{

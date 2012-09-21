@@ -15,7 +15,6 @@ import org.jf.dexlib.Util.SparseIntArray;
  */
 public class CodeGenContext {
 	public List<Trace> traces;
-	public List<Integer> traceEntryAddresses;
 	private int currentTraceIdx;
 	
 	public int methodIndex;
@@ -42,7 +41,6 @@ public class CodeGenContext {
 	public CodeGenContext(DexFile df, EncodedMethod method, Config config) {
 		dexFile = df;
 		traces = new ArrayList<Trace>();
-		traceEntryAddresses = new ArrayList<Integer>();
 		currentTraceIdx = 0;
 		
 		this.config = config;
@@ -85,9 +83,8 @@ public class CodeGenContext {
 	/*
 	 * Add a trace to this context.
 	 */
-	public void addTrace(Trace trace, int traceEntryAddress) {
+	public void addTrace(Trace trace) {
 		traces.add(trace);
-		traceEntryAddresses.add(new Integer(traceEntryAddress));
 	}
 	
 	/*
@@ -103,14 +100,7 @@ public class CodeGenContext {
 	public Trace getCurrentTrace() {
 		return traces.get(currentTraceIdx);
 	}
-	
-	/*
-	 * Get the currently selected trace entry address during generateC() or compileC().
-	 */
-	public int getCurrentTraceEntryAddress() {
-		return traceEntryAddresses.get(currentTraceIdx).intValue();
-	}
-	
+		
 	/*
 	 * Get the index of the currently selected trace.
 	 */

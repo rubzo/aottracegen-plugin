@@ -174,7 +174,7 @@ public class AOTTraceGen implements Plugin {
 		for (int traceEntry : config.traceEntries) {
 			Trace trace = traceMap.get(new Integer(traceEntry));			
 			trace.print(context);
-			context.addTrace(trace, traceEntry);
+			context.addTrace(trace);
 		}
 		codeGen.generateCodeFromContext(context);
 	}
