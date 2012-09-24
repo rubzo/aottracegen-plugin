@@ -82,7 +82,7 @@ public class ASMTrace {
 			String line = traceBody.get(i);
 			
 			if (line.contains(".L")) {
-				line = line.replaceFirst(".L(\\d+)", String.format(".LT0x%x_$1", curTraceEntry));
+				line = line.replaceAll(".L(\\d+)", String.format(".LT0x%x_$1", curTraceEntry));
 			}
 			
 			traceBody.remove(i);
@@ -107,24 +107,27 @@ public class ASMTrace {
 		
 		// Remove redundant labels
 		//
-		Set<String> referencedLabels = new HashSet<String>();
-		for (int i = 0; i < traceBody.size(); i++) {
-			String line = traceBody.get(i);
-			
-			if (line.matches(".*\\.L.*[^:]$")) {
-				Pattern p = Pattern.compile(".*(\\.L.*)$");
-				Matcher m = p.matcher(line);
-				if (m.find()) {
-					referencedLabels.add(m.group(1));
+		// NB: don't do this for traces containing switches just now - some teething troubles need ironed out.
+		if (!curTrace.meta.containsSwitch) {
+			Set<String> referencedLabels = new HashSet<String>();
+			for (int i = 0; i < traceBody.size(); i++) {
+				String line = traceBody.get(i);
+
+				if (line.matches(".*\\.L.*[^:]$")) {
+					Pattern p = Pattern.compile(".*(\\.L.*)$");
+					Matcher m = p.matcher(line);
+					if (m.find()) {
+						referencedLabels.add(m.group(1));
+					}
 				}
 			}
-		}
-		for (int i = 0; i < traceBody.size(); i++) {
-			String line = traceBody.get(i);
-			
-			if (line.matches("^\\.L.*:$") && !referencedLabels.contains(line.substring(0, line.length() - 1))) {
-				traceBody.remove(i);
-				i--;
+			for (int i = 0; i < traceBody.size(); i++) {
+				String line = traceBody.get(i);
+
+				if (line.matches("^\\.L.*:$") && !referencedLabels.contains(line.substring(0, line.length() - 1))) {
+					traceBody.remove(i);
+					i--;
+				}
 			}
 		}
 		

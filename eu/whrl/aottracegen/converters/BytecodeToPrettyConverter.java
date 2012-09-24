@@ -5,6 +5,7 @@ import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.LiteralInstruction;
 import org.jf.dexlib.Code.OdexedFieldAccess;
 import org.jf.dexlib.Code.OffsetInstruction;
+import org.jf.dexlib.Code.Opcode;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
@@ -51,6 +52,23 @@ public class BytecodeToPrettyConverter {
 			int targetAddress = codeAddress + targetAddressOffset;
 			
 			result += String.format("goto/16 +0x%x;", targetAddress);
+			break;
+		}
+		
+		case GOTO_32:
+		{
+			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
+			int targetAddress = codeAddress + targetAddressOffset;
+			
+			result += String.format("goto/32 +0x%x;", targetAddress);
+			break;
+		}
+		
+		case PACKED_SWITCH:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result += String.format("packed-switch v%d", vA);
 			break;
 		}
 

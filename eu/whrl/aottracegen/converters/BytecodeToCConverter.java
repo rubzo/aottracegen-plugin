@@ -1,5 +1,7 @@
 package eu.whrl.aottracegen.converters;
 
+import java.util.Iterator;
+
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.LiteralInstruction;
@@ -8,6 +10,8 @@ import org.jf.dexlib.Code.OffsetInstruction;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
+import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction;
+import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction.PackedSwitchTarget;
 
 import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.Trace;
@@ -43,13 +47,7 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  goto %sL0x%x;",
-					labelPrefix, targetAddress);
+			result = "  " + getGotoLabel(curTrace, targetAddress) + ";\n";
 			break;
 		}
 		
@@ -58,13 +56,43 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
+			result = "  " + getGotoLabel(curTrace, targetAddress) + ";\n";
+			break;
+		}
+		
+		case GOTO_32:
+		{
+			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
+			int targetAddress = codeAddress + targetAddressOffset;
+			
+			result = "  " + getGotoLabel(curTrace, targetAddress) + ";\n";
+			break;
+		}
+		
+		case PACKED_SWITCH: 
+		{
+			curTrace.meta.containsSwitch = true;
+			
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int dataOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
+			
+			PackedSwitchDataPseudoInstruction dataInstruction = (PackedSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(codeAddress + dataOffset);
+			
+			result = String.format("  switch (v[%d]) {\n", vA);
+			
+			Iterator<PackedSwitchTarget> targetIterator = dataInstruction.iterateKeysAndTargets();
+			while (targetIterator.hasNext()) {
+				PackedSwitchTarget target = targetIterator.next();
+				
+				int targetAddress = codeAddress + target.targetAddressOffset;
+				
+				result += String.format("    case %d: %s;\n", target.value, getGotoLabel(curTrace, targetAddress));
 			}
 			
-			result = String.format("  goto %sL0x%x;",
-					labelPrefix, targetAddress);
+			int fallthroughAddress = codeAddress + instruction.getSize(codeAddress);
+			result += String.format("    default: %s;\n", getGotoLabel(curTrace, fallthroughAddress));
+			
+			result += "  }";
 			break;
 		}
 		
@@ -76,13 +104,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] == v[%d]) { goto %sL0x%x; }",
-					vA, vB, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] == v[%d]) { %s; }",
+					vA, vB, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -94,13 +117,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] != v[%d]) { goto %sL0x%x; }",
-					vA, vB, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] != v[%d]) { %s; }",
+					vA, vB, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -112,13 +130,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] < v[%d]) { goto %sL0x%x; }",
-					vA, vB, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] < v[%d]) { %s; }",
+					vA, vB, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -130,13 +143,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] >= v[%d]) { goto %sL0x%x; }",
-					vA, vB, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] >= v[%d]) { %s; }",
+					vA, vB, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -148,13 +156,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] > v[%d]) { goto %sL0x%x; }",
-					vA, vB, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] > v[%d]) { %s; }",
+					vA, vB, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -166,13 +169,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] <= v[%d]) { goto %sL0x%x; }",
-					vA, vB, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] <= v[%d]) { %s; }",
+					vA, vB, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -183,13 +181,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] == 0) { goto %sL0x%x; }",
-					vA, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] == 0) { %s; }",
+					vA, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -200,13 +193,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] != 0) { goto %sL0x%x; }",
-					vA, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] != 0) { %s; }",
+					vA, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -217,13 +205,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] < 0) { goto %sL0x%x; }",
-					vA, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] < 0) { %s; }",
+					vA, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -234,13 +217,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] >= 0) { goto %sL0x%x; }",
-					vA, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] >= 0) { %s; }",
+					vA, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -251,13 +229,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] > 0) { goto %sL0x%x; }",
-					vA, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] > 0) { %s; }",
+					vA, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -268,13 +241,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			String labelPrefix = "__";
-			if (!curTrace.containsCodeAddress(targetAddress)) {
-				labelPrefix = "__exit_";
-			}
-			
-			result = String.format("  if (v[%d] <= 0) { goto %sL0x%x; }",
-					vA, labelPrefix, targetAddress);
+			result = String.format("  if (v[%d] <= 0) { %s; }",
+					vA, getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -389,5 +357,13 @@ public class BytecodeToCConverter {
 		}
 		
 		return result + "\n\n";
+	}
+	
+	public String getGotoLabel(Trace trace, int codeAddress) {
+		String labelPrefix = "__";
+		if (!trace.containsCodeAddress(codeAddress)) {
+			labelPrefix = "__exit_";
+		}
+		return String.format("goto %sL0x%x", labelPrefix, codeAddress);
 	}
 }

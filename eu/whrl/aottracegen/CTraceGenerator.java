@@ -131,11 +131,7 @@ public class CTraceGenerator {
 				int nextAddress = context.getNextCodeAddress(codeAddress, instruction);
 				
 				if (i == curTrace.length - 1 || curTrace.addresses[i+1] != nextAddress) {
-					String labelPrefix = "__";
-					if (!curTrace.containsCodeAddress(nextAddress)) {
-						labelPrefix = "__exit_";
-					}
-					writer.write(String.format("  goto %sL0x%x;\n", labelPrefix, nextAddress));
+					writer.write("  " + converter.getGotoLabel(curTrace, nextAddress) + ";\n\n");
 				}
 			}
 			
