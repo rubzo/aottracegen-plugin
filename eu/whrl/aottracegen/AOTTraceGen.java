@@ -12,6 +12,8 @@ import org.jf.dexlib.ClassDataItem.EncodedMethod;
 import org.jf.dexlib.ClassDefItem;
 import org.jf.dexlib.DexFile;
 
+import eu.whrl.aottracegen.exceptions.TraceMergingException;
+
 public class AOTTraceGen implements Plugin {
 	private boolean validConfigFileLoaded = false;
 	private Config config = null;
@@ -166,7 +168,12 @@ public class AOTTraceGen implements Plugin {
 		// Do merging if needed
 		if (config.produceMerged) {
 			TraceMerger traceMerger = new TraceMerger();
-			traceMap = traceMerger.mergeTraces(context, config, traceMap);
+			try {
+				traceMap = traceMerger.mergeTraces(context, config, traceMap);
+			} catch (TraceMergingException e) {
+				System.err.println("Couldn't merge traces. Could not continue.");
+			}
+			
 		}
 		
 		// Generate code for the selected traces

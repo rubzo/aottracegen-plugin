@@ -107,4 +107,22 @@ public class CodeGenContext {
 	public int getCurrentTraceIndex() {
 		return currentTraceIdx;
 	}
+	
+	/*
+	 * Calculates, based on the current code address and instruction, where the next code address is.
+	 * (Basically handling things like GOTO.)
+	 */
+	public int getNextCodeAddress(int currentCodeAddress, Instruction instruction) {
+		int nextCodeAddress = currentCodeAddress + instruction.getSize(currentCodeAddress);
+		if (instruction.opcode == Opcode.GOTO || 
+				instruction.opcode == Opcode.GOTO_16 || 
+				instruction.opcode == Opcode.GOTO_32) {
+			nextCodeAddress = currentCodeAddress + ((OffsetInstruction) instruction).getTargetAddressOffset();
+		} 
+		if (nextCodeAddress == currentCodeAddress) {
+			// We have a loop
+			return -1;
+		}
+		return nextCodeAddress;
+	}
 }

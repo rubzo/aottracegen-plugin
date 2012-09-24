@@ -29,8 +29,8 @@ public class ITraceDescGenerator {
 
 	public void prepare(String name) {
 		try {
-			File cFile = new File(name);
-			writer = new FileWriter(cFile);			
+			File file = new File(name);
+			writer = new FileWriter(file);			
 			prepared = true;	
 		} catch (IOException e) {
 			System.err.println("Couldn't open injectable trace file for writing!");
@@ -38,7 +38,7 @@ public class ITraceDescGenerator {
 	}
 	
 	/*
-	 * Closes the file we've been writing C to.
+	 * Closes the file we've been writing an injectable trace description to.
 	 */
 	public void finish() {
 		if (!prepared) {
@@ -58,7 +58,7 @@ public class ITraceDescGenerator {
 			throw new ITraceDescGeneratorFaultException();
 		}
 		
-		// Reset the context, just in case.
+		// Reset the context.
 		context.setCurrentTraceIndex(0);
 		
 		try {

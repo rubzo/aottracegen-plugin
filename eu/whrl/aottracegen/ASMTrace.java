@@ -1,5 +1,6 @@
 package eu.whrl.aottracegen;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -31,27 +32,27 @@ public class ASMTrace {
 	 * - remove any redundant labels
 	 */
 	public void cleanupTrace(CodeGenContext context) {
+		Trace curTrace = context.getCurrentTrace();
+		int curTraceEntry = curTrace.entries[0];
+		
 		// Find the push/pop instructions,
 		// as well as where the exit label is (just before pop)
 		//
 		int pushIdx = 0;
 		int popIdx = 0;
 		String exitLabel = "";
-		
-		Trace curTrace = context.getCurrentTrace();
-		int curTraceEntry = curTrace.entries[0];
-		
+
 		for (int i = 0; i < traceBody.size(); i++) {
 			String line = traceBody.get(i);
 			
-			if (line.equals("\tpop\t{r4, pc}")) {
+			if (line.startsWith("\tpop\t{") || line.startsWith("\tldmfd\t")) {
 				// The exit label must be the line before...
 				exitLabel = traceBody.get(i-1);
 				// Cut off the :
 				exitLabel = exitLabel.substring(0, exitLabel.length() - 1);
 				
 				popIdx = i;
-			} else if (line.equals("\tpush\t{r4, lr}")) {
+			} else if (line.startsWith("\tpush\t{") || line.startsWith("\tstmfd\t")) {
 				pushIdx = i;
 			}
 	
@@ -125,6 +126,41 @@ public class ASMTrace {
 				traceBody.remove(i);
 				i--;
 			}
+		}
+		
+		// Find all clobbered registers
+		//
+		Set<Integer> clobberedRegs = new HashSet<Integer>();
+		for (int i = 0; i < traceBody.size(); i++) {
+			String line = traceBody.get(i);
+			
+			if (line.contains("r4")) {
+				clobberedRegs.add(new Integer(4));
+			} 
+			if (line.contains("r5")) {
+				clobberedRegs.add(new Integer(5));
+			} 
+			if (line.contains("r6")) {
+				clobberedRegs.add(new Integer(6));
+			} 
+			if (line.contains("r7")) {
+				clobberedRegs.add(new Integer(7));
+			} 
+			if (line.contains("r8")) {
+				clobberedRegs.add(new Integer(8));
+			} 
+		}		
+		if (!clobberedRegs.isEmpty()) {
+			curTrace.meta.hasClobberedRegisters = true;
+			curTrace.meta.clobberedRegisters = new int[clobberedRegs.size()];
+			
+			int i = 0;
+			for (Integer elem : clobberedRegs) {
+				curTrace.meta.clobberedRegisters[i] = elem.intValue();
+				i++;
+			}
+			
+			Arrays.sort(curTrace.meta.clobberedRegisters);
 		}
 	}
 }

@@ -95,7 +95,7 @@ public class CodeGenerator {
 	 * Will throw a CompilationException if it encounters any errors during compilation.
 	 */
 	public void compileC(String cTraceFileName, String asmTraceFileName) throws CompilationException {
-		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=softfp -mthumb -O3 -S -o %s %s", asmTraceFileName, cTraceFileName);
+		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=softfp -mthumb -Os -S -o %s %s", asmTraceFileName, cTraceFileName);
 		System.out.println("Compiling C...");
 		System.out.println("  (cmd: " + command + ")");
 		try {

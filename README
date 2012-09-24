@@ -22,6 +22,7 @@ baksmali -P aottracegen-plugin.jar,eu.whrl.aottracegen.AOTTraceGen,<trace select
 Example 'trace selection file' contents
 =======================================
 
+app com.eembc.coremark
 class Lcom/eembc/coremark/ee_state;
 method core_state_transition_switch
 signature ([BI[I)Lcom/eembc/coremark/ee_state$CORE_STATE;

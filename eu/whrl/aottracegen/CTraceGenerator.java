@@ -33,6 +33,7 @@ public class CTraceGenerator {
 	static {
 		opcodesThatNeedHelperFunctions = new TreeSet<Opcode>();
 		opcodesThatNeedHelperFunctions.add(Opcode.IGET_QUICK);
+		opcodesThatNeedHelperFunctions.add(Opcode.IPUT_QUICK);
 		
 		// ...
 	}
@@ -45,6 +46,10 @@ public class CTraceGenerator {
 		opcodeFunctionHelpers.put(Opcode.IGET_QUICK, 
 				"inline int iget_quick(int obj, int idx) {\n" +
 				"  return *((int*) (((char*)obj) + idx));\n" +
+				"}\n");
+		opcodeFunctionHelpers.put(Opcode.IPUT_QUICK, 
+				"inline int iput_quick(int value, int obj, int idx) {\n" +
+				"  *((int*) (((char*)obj) + idx)) = value;\n" +
 				"}\n");
 		
 		// ...
@@ -117,19 +122,20 @@ public class CTraceGenerator {
 			emitExitFunctionPrototypes(writer);
 			emitFunctionStart(writer);
 			
-			//if (curTrace.hasMultipleEntries()) {
-				emitJumpTable(writer);
-			//}
-			
 			for (int i = 0; i < curTrace.length; i++) {
 				emitForCodeAddress(writer, curTrace.addresses[i]);
 				
 				// If we're the last instruction, make sure we jump to the correct exit.
-				if (i == curTrace.length - 1) {
-					int codeAddress = curTrace.addresses[i];
-					Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
-					int fallThroughAddress = codeAddress + instruction.getSize(codeAddress);
-					writer.write(String.format("  goto __exit_L0x%x;\n\n", fallThroughAddress));
+				int codeAddress = curTrace.addresses[i];
+				Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
+				int nextAddress = context.getNextCodeAddress(codeAddress, instruction);
+				
+				if (i == curTrace.length - 1 || curTrace.addresses[i+1] != nextAddress) {
+					String labelPrefix = "__";
+					if (!curTrace.containsCodeAddress(nextAddress)) {
+						labelPrefix = "__exit_";
+					}
+					writer.write(String.format("  goto %sL0x%x;\n", labelPrefix, nextAddress));
 				}
 			}
 			
@@ -140,20 +146,6 @@ public class CTraceGenerator {
 			System.err.println("Couldn't write to C file!");
 			throw new CGeneratorFaultException();
 		}
-	}
-	
-	private void emitJumpTable(Writer writer) throws IOException {
-		writer.write("  // --- JUMP TABLE ---\n");
-		writer.write("  int basePc = *(lit - 1);\n");
-		writer.write("  int offsetPc = (pc - basePc) >> 1;\n");
-		
-		Trace curTrace = context.getCurrentTrace();
-		
-		writer.write("  switch (offsetPc) {\n");
-		for (int entry : curTrace.entries) {
-			writer.write(String.format("    case 0x%1$x: goto __L0x%1$x;\n", entry));
-		}
-		writer.write("  }\n");
 	}
 
 	/*
@@ -223,6 +215,8 @@ public class CTraceGenerator {
 		writer.write(String.format("  __L0x%x:\n", codeAddress));
 		
 		writer.write(converter.convert(context, codeAddress));
+		
+		
 		
 		writer.write("\n");
 	}

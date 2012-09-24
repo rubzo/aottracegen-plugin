@@ -98,8 +98,8 @@ public class ITraceGenerator {
 
 	public void prepare(String name) {
 		try {
-			File cFile = new File(name);
-			writer = new FileWriter(cFile);			
+			File file = new File(name);
+			writer = new FileWriter(file);			
 			prepared = true;	
 		} catch (IOException e) {
 			System.err.println("Couldn't open injectable trace file for writing!");
@@ -107,7 +107,7 @@ public class ITraceGenerator {
 	}
 	
 	/*
-	 * Closes the file we've been writing C to.
+	 * Closes the file we've been writing an injectable trace to.
 	 */
 	public void finish() {
 		if (!prepared) {
@@ -127,7 +127,7 @@ public class ITraceGenerator {
 			throw new ITraceGeneratorFaultException();
 		}
 		
-		// Reset the context, just in case.
+		// Reset the context.
 		context.setCurrentTraceIndex(0);
 	
 		try {
@@ -214,6 +214,23 @@ public class ITraceGenerator {
 		}
 	}
 	
+	private void emitClobberedRegisterSaving(Writer writer, CodeGenContext context, String operation) throws IOException {
+		Trace curTrace = context.getCurrentTrace();
+		
+		if (curTrace.meta.hasClobberedRegisters) {
+			writer.write(String.format("\t%s\t{", operation));
+			int i = 0;
+			for (int reg : curTrace.meta.clobberedRegisters) {
+				i++;
+				writer.write(String.format("r%d", reg));
+				if (i != curTrace.meta.clobberedRegisters.length) {
+					writer.write(", ");
+				}
+			}
+			writer.write("}\n");
+		}
+	}
+	
 	private void emitTrace(Writer writer, CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		ASMTrace curAsmTrace = asmTraces.get(context.getCurrentTraceIndex());
@@ -232,6 +249,9 @@ public class ITraceGenerator {
 		if (curTrace.meta.literalPoolSize > 0) {
 			writer.write(String.format("\tadr.w\tr3, ITrace_0x%x_LiteralPool\n", curTrace.getPrimaryEntry()));
 		}
+		emitClobberedRegisterSaving(writer, context, "push");
+		
+		
 		// and the actual trace body now...
 		writer.write(curAsmTrace.getFullStringTraceBody());
 		writer.write("\n");
@@ -256,14 +276,16 @@ public class ITraceGenerator {
 			writer.write("\tldr\tr0, [r0]\n");
 			writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress.intValue()*2));
 			writer.write("\tldr\tr1, [r6, #108]\n");
+			emitClobberedRegisterSaving(writer, context, "pop");
 			writer.write("\tblx\tr1\n");
 		}
 		writer.write("\n");
 		
 		// chaining cells
 		for (int successor : curTrace.successors) {
-			writer.write("\t.align 4\n");
 			writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
+			emitClobberedRegisterSaving(writer, context, "pop");
+			writer.write("\t.align 4\n");
 			writer.write(String.format("\tb\tLT0x%x_CC_0x%x_next\n", traceEntry, successor));
 			writer.write("\torrs\tr0, r0\n");
 			writer.write(String.format("LT0x%x_CC_0x%x_next:\n", traceEntry, successor));

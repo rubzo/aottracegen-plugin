@@ -257,6 +257,17 @@ public class BytecodeToPrettyConverter {
 					vA, vB, offset);
 			break;
 		}
+		
+		case IPUT_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+
+			result += String.format("+iput-quick v%d, v%d, [obj+v%d]",
+					vA, vB, offset);
+			break;
+		}
 
 		default:
 		{

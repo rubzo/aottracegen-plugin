@@ -370,6 +370,16 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case IPUT_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+			
+			result = String.format("  iput_quick(v[%d], v[%d], 0x%x);", vA, vB, offset);
+			break;
+		}
+		
 		default:
 		{
 			result = "  //\n  // Not implemented!!\n  //";

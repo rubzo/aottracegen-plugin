@@ -14,6 +14,8 @@ public class TraceMetadata {
 	public int literalPoolSize;
 	public List<Integer> literalPoolIndices;
 	public List<Opcode> literalPoolOpcodes;
+	public int[] clobberedRegisters;
+	public boolean hasClobberedRegisters = false;
 	
 	public TraceMetadata() {
 		opcodesUsedThatNeedHelperFunctions = new TreeSet<Opcode>();
@@ -21,5 +23,7 @@ public class TraceMetadata {
 		literalPoolSize = 0;
 		literalPoolIndices = new ArrayList<Integer>();
 		literalPoolOpcodes = new ArrayList<Opcode>();
+		clobberedRegisters = null;
+		hasClobberedRegisters = false;
 	}
 }

@@ -2,7 +2,6 @@ package eu.whrl.aottracegen;
 
 import java.util.HashMap;
 
-import org.jf.dexlib.ClassDataItem.EncodedMethod;
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InvokeInstruction;
 import org.jf.dexlib.Code.OffsetInstruction;
@@ -36,49 +35,49 @@ public class TraceFinder {
 	/*
 	 * Checks if a given instruction should cause the tracer to stop.
 	 */
-	private boolean isTraceEndingInstruction(CodeGenContext context, int codeAddress, Instruction i) {
+	private boolean isTraceEndingInstruction(CodeGenContext context, int codeAddress, Instruction instruction) {
 		// Conditional branch? That's a trace ender.
-		if (i.opcode == Opcode.IF_EQ ||
-				i.opcode == Opcode.IF_EQZ ||
-				i.opcode == Opcode.IF_GE ||
-				i.opcode == Opcode.IF_GEZ ||
-				i.opcode == Opcode.IF_GT ||
-				i.opcode == Opcode.IF_GTZ ||
-				i.opcode == Opcode.IF_LE ||
-				i.opcode == Opcode.IF_LEZ ||
-				i.opcode == Opcode.IF_LT ||
-				i.opcode == Opcode.IF_LTZ ||
-				i.opcode == Opcode.IF_NE ||
-				i.opcode == Opcode.IF_NEZ) {
+		if (instruction.opcode == Opcode.IF_EQ ||
+				instruction.opcode == Opcode.IF_EQZ ||
+				instruction.opcode == Opcode.IF_GE ||
+				instruction.opcode == Opcode.IF_GEZ ||
+				instruction.opcode == Opcode.IF_GT ||
+				instruction.opcode == Opcode.IF_GTZ ||
+				instruction.opcode == Opcode.IF_LE ||
+				instruction.opcode == Opcode.IF_LEZ ||
+				instruction.opcode == Opcode.IF_LT ||
+				instruction.opcode == Opcode.IF_LTZ ||
+				instruction.opcode == Opcode.IF_NE ||
+				instruction.opcode == Opcode.IF_NEZ) {
 			return true;
 		}
 		
 		// Invoke instruction? That's a trace ender.
-		if (isInvokeInstruction(i)) {
+		if (isInvokeInstruction(instruction)) {
 			return true;
 		}
 		
 		// Switch statement? That's a trace ender.
-		if (i.opcode == Opcode.PACKED_SWITCH || i.opcode == Opcode.SPARSE_SWITCH) {
+		if (instruction.opcode == Opcode.PACKED_SWITCH || instruction.opcode == Opcode.SPARSE_SWITCH) {
 			return true;
 		}
 		
 		// Return statement? That's a trace ender.
-		if (i.opcode == Opcode.RETURN ||
-				i.opcode == Opcode.RETURN_OBJECT ||
-				i.opcode == Opcode.RETURN_VOID ||
-				i.opcode == Opcode.RETURN_VOID_BARRIER ||
-				i.opcode == Opcode.RETURN_WIDE) {
+		if (instruction.opcode == Opcode.RETURN ||
+				instruction.opcode == Opcode.RETURN_OBJECT ||
+				instruction.opcode == Opcode.RETURN_VOID ||
+				instruction.opcode == Opcode.RETURN_VOID_BARRIER ||
+				instruction.opcode == Opcode.RETURN_WIDE) {
 			return true;
 		}
 		
 		// Throwing an exception on purpose? That's a trace ender.
-		if (i.opcode == Opcode.THROW) {
+		if (instruction.opcode == Opcode.THROW) {
 			return true;
 		}
 		
 		// The instruction after you's going to be a switch statement? Oh, you better believe that's a trace ender.
-		int nextCodeAddress = getNextCodeAddress(codeAddress, i);
+		int nextCodeAddress = context.getNextCodeAddress(codeAddress, instruction);
 		Instruction nextInstruction = context.getInstructionAtCodeAddress(nextCodeAddress);
 		if (nextInstruction.opcode == Opcode.PACKED_SWITCH ||
 				nextInstruction.opcode == Opcode.SPARSE_SWITCH) {
@@ -90,29 +89,11 @@ public class TraceFinder {
 	}
 	
 	/*
-	 * Calculates, based on the current code address and instruction, where the next code address is.
-	 * (Basically handling things like GOTO.)
-	 */
-	private int getNextCodeAddress(int currentCodeAddress, Instruction instruction) {
-		int nextCodeAddress = currentCodeAddress + instruction.getSize(currentCodeAddress);
-		if (instruction.opcode == Opcode.GOTO || 
-				instruction.opcode == Opcode.GOTO_16 || 
-				instruction.opcode == Opcode.GOTO_32) {
-			nextCodeAddress = currentCodeAddress + ((OffsetInstruction) instruction).getTargetAddressOffset();
-		} 
-		if (nextCodeAddress == currentCodeAddress) {
-			// We have a loop
-			return -1;
-		}
-		return nextCodeAddress;
-	}
-	
-	/*
 	 * Allocates the correct space for successors in the trace, and adds all successor code addresses to that array.
 	 */
 	private void handleSuccessors(CodeGenContext context, Trace trace, int currentCodeAddress, Instruction currentInstruction) {
 		// Get the address where we'll be going next.
-		int fallthruCodeAddress = getNextCodeAddress(currentCodeAddress, currentInstruction);
+		int fallthruCodeAddress = context.getNextCodeAddress(currentCodeAddress, currentInstruction);
 		
 		if (currentInstruction.opcode == Opcode.IF_EQ ||
 				currentInstruction.opcode == Opcode.IF_EQZ ||
@@ -193,7 +174,7 @@ public class TraceFinder {
 		
 		// Trace!
 		while (!isTraceEndingInstruction(context, currentCodeAddress, currentInstruction)) {
-			currentCodeAddress = getNextCodeAddress(currentCodeAddress, currentInstruction);
+			currentCodeAddress = context.getNextCodeAddress(currentCodeAddress, currentInstruction);
 			if (currentCodeAddress == -1) {
 				// We have a loop, bailout
 				return;
@@ -206,7 +187,7 @@ public class TraceFinder {
 		// If the last instruction in the trace is an invoke, extend it to include the
 		// return-* instruction.
 		if (isInvokeInstruction(currentInstruction)) {
-			currentCodeAddress = getNextCodeAddress(currentCodeAddress, currentInstruction);
+			currentCodeAddress = context.getNextCodeAddress(currentCodeAddress, currentInstruction);
 			if (currentCodeAddress == -1) {
 				// We have a loop, bailout
 				return;
