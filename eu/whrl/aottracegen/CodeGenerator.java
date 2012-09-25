@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 
 import eu.whrl.aottracegen.exceptions.CGeneratorFaultException;
+import eu.whrl.aottracegen.exceptions.CommandException;
 import eu.whrl.aottracegen.exceptions.CompilationException;
 import eu.whrl.aottracegen.exceptions.ITraceDescGeneratorFaultException;
 import eu.whrl.aottracegen.exceptions.ITraceGeneratorFaultException;
@@ -43,10 +44,12 @@ public class CodeGenerator {
 			}
 			
 			// Take the list of generated asm files, and produce a 'injectable trace' asm file.
-			emitITrace(context, asmTraceFileNames, "InjectableTraces.S");
+			emitITrace(context, asmTraceFileNames, "ITraces.S");
 			
 			// Produce the trace description file that the VM will read to know when to inject traces.
-			emitITraceDesc(context, "trace_inject_desc.cfg");
+			emitITraceDesc(context, "ITracesDesc.cfg");
+			
+			emitSharedObjectITrace(context, "ITraces.S", "ITraces.o", "ITraces.so");
 			
 		} catch (UnimplementedInstructionException e) {
 			
@@ -73,6 +76,22 @@ public class CodeGenerator {
 		
 	}
 	
+	private void emitSharedObjectITrace(CodeGenContext context, String iTraceSName, String iTraceOName, String iTraceSOName) {
+		String assembleCommand = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=softfp -mthumb -c -Os -fno-rtti -fPIC -o %s %s", iTraceOName, iTraceSName);
+		String sharedObjectCommand = String.format("arm-linux-androideabi-gcc -shared -L/Volumes/Android/4.0.4/out/target/product/maguro/system/lib -o %s %s", iTraceSOName, iTraceOName);
+		try {
+			System.out.println("Assembling O file...");
+			System.out.println("  (cmd: " + assembleCommand + ")");
+			runCommand(assembleCommand);
+			
+			System.out.println("Creating SO file...");
+			System.out.println("  (cmd: " + sharedObjectCommand + ")");
+			runCommand(sharedObjectCommand);
+		} catch (CommandException e) {
+			System.err.println("Couldn't create shared object?");
+		}
+	}
+
 	/*
 	 * Takes the current context (a trace must have been selected using context.setCurrentTraceIndex(int)!)
 	 * and generates a C file called called cTraceFileName that represents the currently selected trace.
@@ -89,17 +108,8 @@ public class CodeGenerator {
 		generator.finish();
 	}
 	
-	/*
-	 * Compile the C file called cTraceFileName into the .S file called asmTraceFileName using GCC.
-	 * 
-	 * Will throw a CompilationException if it encounters any errors during compilation.
-	 */
-	public void compileC(String cTraceFileName, String asmTraceFileName) throws CompilationException {
-		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=softfp -mthumb -Os -S -o %s %s", asmTraceFileName, cTraceFileName);
-		System.out.println("Compiling C...");
-		System.out.println("  (cmd: " + command + ")");
+	private void runCommand(String command) throws CommandException {
 		try {
-			// Compile the C
 			Process process = Runtime.getRuntime().exec(command);
 			BufferedReader errorStreamReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
 			
@@ -118,13 +128,29 @@ public class CodeGenerator {
 				}
 			}
 			if (error) {
-				throw new CompilationException();
+				throw new CommandException();
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
-			throw new CompilationException();
+			System.err.println("IO Exception encountered when executing command?");
+			throw new CommandException();
 		} catch (InterruptedException e) {
-			e.printStackTrace();
+			System.err.println("InterruptedException encountered when executing command?");
+			throw new CommandException();
+		}
+	}
+	
+	/*
+	 * Compile the C file called cTraceFileName into the .S file called asmTraceFileName using GCC.
+	 * 
+	 * Will throw a CompilationException if it encounters any errors during compilation.
+	 */
+	public void compileC(String cTraceFileName, String asmTraceFileName) throws CompilationException {
+		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=softfp -mthumb -Os -S -o %s %s", asmTraceFileName, cTraceFileName);
+		System.out.println("Compiling C...");
+		System.out.println("  (cmd: " + command + ")");
+		try {
+			runCommand(command);
+		} catch (CommandException e) {
 			throw new CompilationException();
 		}
 	}

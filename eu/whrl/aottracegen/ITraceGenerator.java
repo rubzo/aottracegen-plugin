@@ -159,6 +159,7 @@ public class ITraceGenerator {
 		writer.write("\n");
 		writer.write("\t.syntax unified\n");
 		writer.write("\t.thumb\n");
+		writer.write("\t.word 0xDEADBEEF\n");
 		
 	}
 	
