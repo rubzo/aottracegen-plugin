@@ -117,12 +117,21 @@ public class TraceFinder {
 		if (currentInstruction.opcode == Opcode.PACKED_SWITCH) {
 			int switchDataAddress = currentCodeAddress + 
 					((OffsetInstruction)currentInstruction).getTargetAddressOffset();
+			
 			PackedSwitchDataPseudoInstruction switchData = (PackedSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(switchDataAddress);
 			
+			boolean fallthruWasInTargets = false;
 			trace.allocSuccessors(switchData.getTargetCount() + 1);
 			trace.addSuccessor(fallthruCodeAddress);
 			for (int target : switchData.getTargets()) {
-				trace.addSuccessor(currentCodeAddress + target);
+				if (currentCodeAddress + target != fallthruCodeAddress) {
+					trace.addSuccessor(currentCodeAddress + target);
+				} else {
+					fallthruWasInTargets = true;
+				}
+			}
+			if (fallthruWasInTargets) {
+				trace.shrinkSuccessors(switchData.getTargetCount());
 			}
 			return;
 		}
@@ -130,12 +139,21 @@ public class TraceFinder {
 		if (currentInstruction.opcode == Opcode.SPARSE_SWITCH) {
 			int switchDataAddress = currentCodeAddress + 
 					((OffsetInstruction)currentInstruction).getTargetAddressOffset();
+			
 			SparseSwitchDataPseudoInstruction switchData = (SparseSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(switchDataAddress);
 			
+			boolean fallthruWasInTargets = false;
 			trace.allocSuccessors(switchData.getTargetCount() + 1);
 			trace.addSuccessor(fallthruCodeAddress);
 			for (int target : switchData.getTargets()) {
-				trace.addSuccessor(currentCodeAddress + target);
+				if (currentCodeAddress + target != fallthruCodeAddress) {
+					trace.addSuccessor(currentCodeAddress + target);
+				} else {
+					fallthruWasInTargets = true;
+				}
+			}
+			if (fallthruWasInTargets) {
+				trace.shrinkSuccessors(switchData.getTargetCount());
 			}
 			return;
 		}

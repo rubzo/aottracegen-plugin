@@ -53,6 +53,15 @@ public class Trace {
 		successorsMax = count;
 	}
 	
+	public void shrinkSuccessors(int count) {
+		int[] newSuccessors = new int[count];
+		for (int i = 0; i < count; i++) {
+			newSuccessors[i] = successors[i];
+		}
+		successorsMax = count;
+		successorsCount = count;
+	}
+	
 	/*
 	 * Add a successor address to this trace.
 	 */

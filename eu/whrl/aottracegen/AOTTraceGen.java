@@ -65,6 +65,8 @@ public class AOTTraceGen implements Plugin {
 					config.signature = line.substring(10, line.length());
 				} else if (line.startsWith("merge")) {
 					config.produceMerged = true;
+				} else if (line.startsWith("trace all")) {
+					config.traceAll = true;
 				} else if (line.startsWith("trace")) {
 					config.addEntry(Integer.parseInt(line.substring(8, line.length()), 16));
 				} else {
@@ -76,7 +78,7 @@ public class AOTTraceGen implements Plugin {
 			System.err.println("Couldn't read config file");
 		}
 		
-		if (config.app != "" && config.clazz != "" && config.method != "" && config.signature != "" && config.numTraces > 0) {
+		if (config.app != "" && config.clazz != "" && config.method != "" && config.signature != "" && (config.numTraces > 0 || config.traceAll)) {
 			validConfigFileLoaded = true;
 		}
 	}
@@ -176,6 +178,13 @@ public class AOTTraceGen implements Plugin {
 			
 		}
 		
+		// Add all the traces to the config, now that we've found them, if necessary.
+		if (config.traceAll) {
+			for (Integer traceEntry : traceMap.keySet()) {
+				config.addEntry(traceEntry.intValue());
+			}
+		}
+		
 		// Generate code for the selected traces
 		CodeGenerator codeGen = new CodeGenerator();
 		for (int traceEntry : config.traceEntries) {
@@ -196,7 +205,11 @@ public class AOTTraceGen implements Plugin {
 			System.out.println("  Class: " + config.clazz);
 			System.out.println("  Method: " + config.method);
 			System.out.println("  Signature: " + config.signature);
-			System.out.println("  Number of traces: " + config.numTraces);
+			if (!config.traceAll) {
+				System.out.println("  Number of traces: " + config.numTraces);
+			} else {
+				System.out.println("  Number of traces: all");
+			}
 			System.out.println();
 		} else {
 			System.out.println("Cannot print config, as it's invalid!");

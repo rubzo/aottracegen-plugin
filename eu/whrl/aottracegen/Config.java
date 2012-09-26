@@ -11,6 +11,7 @@ public class Config {
 	public int numTraces = 0;
 	public int[] traceEntries = null;
 	public boolean produceMerged = false;
+	public boolean traceAll = false;
 	
 	public void addEntry(int e) {
 		numTraces++;
