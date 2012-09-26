@@ -241,14 +241,12 @@ public class ITraceGenerator {
 		writer.write(String.format("ITrace_0x%x_Start:\n", traceEntry));
 		writer.write("\n");
 		
-		// trace body - start off with putting pc, fp, self and litpool pointers in the right place
-		// we know upon entry to the trace that the pc is in r4, fp is in r5, the self pointer is in r6,
+		// trace body - start off with putting fp and litpool pointers in the right place
+		// we know upon entry to the trace that the fp is in r5,
 		//  and what the name of the label we used for our literal pool is.
-		writer.write("\tmov\tr0, r4\n");
-		writer.write("\tmov\tr1, r5\n");
-		writer.write("\tmov\tr2, r6\n");
+		writer.write("\tmov\tr0, r5\n");
 		if (curTrace.meta.literalPoolSize > 0) {
-			writer.write(String.format("\tadr.w\tr3, ITrace_0x%x_LiteralPool\n", curTrace.getPrimaryEntry()));
+			writer.write(String.format("\tadr.w\tr1, ITrace_0x%x_LiteralPool\n", curTrace.getPrimaryEntry()));
 		}
 		emitClobberedRegisterSaving(writer, context, "push");
 		
@@ -276,17 +274,23 @@ public class ITraceGenerator {
 			writer.write(String.format("\tadr.w\tr0, ITrace_0x%x_BasePC\n", traceEntry));
 			writer.write("\tldr\tr0, [r0]\n");
 			writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress.intValue()*2));
-			writer.write("\tldr\tr1, [r6, #108]\n");
 			emitClobberedRegisterSaving(writer, context, "pop");
+			writer.write("\tldr\tr1, [r6, #108]\n");
 			writer.write("\tblx\tr1\n");
 		}
 		writer.write("\n");
 		
 		// chaining cells
 		for (int successor : curTrace.successors) {
-			writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
-			emitClobberedRegisterSaving(writer, context, "pop");
-			writer.write("\t.align 4\n");
+			
+			if (curTrace.meta.hasClobberedRegisters) {
+				writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
+				emitClobberedRegisterSaving(writer, context, "pop");
+				writer.write("\t.align 4\n");
+			} else {
+				writer.write("\t.align 4\n");
+				writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
+			}
 			writer.write(String.format("\tb\tLT0x%x_CC_0x%x_next\n", traceEntry, successor));
 			writer.write("\torrs\tr0, r0\n");
 			writer.write(String.format("LT0x%x_CC_0x%x_next:\n", traceEntry, successor));

@@ -200,7 +200,7 @@ public class CTraceGenerator {
 	 */
 	private void emitFunctionStart(Writer writer) throws IOException {
 		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.getCurrentTrace().getPrimaryEntry()));
-		writer.write("void trace(int pc, int* v, char* self, int *lit) {\n");
+		writer.write("void trace(int* v, int *lit) {\n");
 	}
 	
 	/*
@@ -209,11 +209,7 @@ public class CTraceGenerator {
 	private void emitForCodeAddress(Writer writer, int codeAddress) throws IOException, UnimplementedInstructionException {
 		writer.write(stringConverter.convert(context, codeAddress));
 		writer.write(String.format("  __L0x%x:\n", codeAddress));
-		
 		writer.write(converter.convert(context, codeAddress));
-		
-		
-		
 		writer.write("\n");
 	}
 	

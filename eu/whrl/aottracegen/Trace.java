@@ -60,6 +60,7 @@ public class Trace {
 		}
 		successorsMax = count;
 		successorsCount = count;
+		successors = newSuccessors;
 	}
 	
 	/*
