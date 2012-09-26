@@ -83,13 +83,13 @@ public class TraceMerger {
 			newSuccessors[i] = s;
 			i++;
 		}
-		assert(i == newSuccessorsCount);
 		
 		newSuccessors = removeDuplicates(newSuccessors);
 		newSuccessorsCount = newSuccessors.length;
 		
 		mergedTrace.successors = newSuccessors;
 		mergedTrace.successorsCount = newSuccessorsCount;
+		
 		
 		int newLength = mergedTrace.length + nextTrace.length;
 		int[] newAddresses = new int[newLength];
@@ -100,26 +100,34 @@ public class TraceMerger {
 		for (int idx = 0; idx < nextTrace.length; idx++) {
 			newAddresses[mergedTrace.length + idx] = nextTrace.addresses[idx];
 		}
-		assert(i == newLength);
+		
+		newAddresses = removeDuplicates(newAddresses);
+		newLength = newAddresses.length;
 		
 		mergedTrace.addresses = newAddresses;
 		mergedTrace.length = newLength;
 	}
 	
+	/*
+	 * Removes duplicates from a list, preserves ordering.
+	 */
 	private int[] removeDuplicates(int[] list) {
 		Set<Integer> s = new HashSet<Integer>();
 		
+		int[] tempList = new int[list.length];
+		int idx = 0;
 		for (int i : list) {
 			if (!s.contains(new Integer(i))) {
 				s.add(new Integer(i));
+				tempList[idx] = i;
+				idx++;
 			}
 		}
 		
+		// Copy slightly too large array into a snug array.
 		int[] newList = new int[s.size()];
-		int i = 0;
-		for (Integer element : s) {
-			newList[i] = element.intValue();
-			i++;
+		for (int i = 0; i < s.size(); i++) {
+			newList[i] = tempList[i];
 		}
 		
 		return newList;
