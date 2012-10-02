@@ -9,7 +9,7 @@ import org.jf.dexlib.Code.Opcode;
 
 public class TraceMetadata {
 	public Set<Opcode> opcodesUsedThatNeedHelperFunctions;
-	public List<Integer> codeAddressesRaisingExceptions;
+	public List<Integer> codeAddressesThatThrowExceptions;
 	
 	public int literalPoolSize;
 	public List<Integer> literalPoolIndices;
@@ -20,7 +20,7 @@ public class TraceMetadata {
 	
 	public TraceMetadata() {
 		opcodesUsedThatNeedHelperFunctions = new TreeSet<Opcode>();
-		codeAddressesRaisingExceptions = new ArrayList<Integer>();
+		codeAddressesThatThrowExceptions = new ArrayList<Integer>();
 		literalPoolSize = 0;
 		literalPoolIndices = new ArrayList<Integer>();
 		literalPoolOpcodes = new ArrayList<Opcode>();

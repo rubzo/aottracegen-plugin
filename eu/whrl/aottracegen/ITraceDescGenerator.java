@@ -21,12 +21,6 @@ public class ITraceDescGenerator {
 		opcodeTypeMap.put(Opcode.SGET_OBJECT, "static_field");
 	}
 
-	public void createInjectableTraceDesc(CodeGenContext context, String fileName) throws ITraceDescGeneratorFaultException {
-		prepare(fileName);
-		generate(context);
-		finish();
-	}
-
 	public void prepare(String name) {
 		try {
 			File file = new File(name);
@@ -52,7 +46,7 @@ public class ITraceDescGenerator {
 		}
 	}
 	
-	private void generate(CodeGenContext context) throws ITraceDescGeneratorFaultException {
+	public void generate(CodeGenContext context) throws ITraceDescGeneratorFaultException {
 		if (!prepared) {
 			System.err.println("Injectable trace generator wasn't prepared?");
 			throw new ITraceDescGeneratorFaultException();

@@ -1,9 +1,7 @@
 package eu.whrl.aottracegen;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,7 +28,7 @@ public class TraceMerger {
 		int tracesLeft = tracesToBeMerged.size();
 		
 		while (!tracesToBeMerged.isEmpty()) {
-			mergeTraces(mergedTrace, tracesToBeMerged);
+			mergeTwoTraces(mergedTrace, tracesToBeMerged);
 			
 			if (tracesToBeMerged.size() == tracesLeft) {
 				// i.e. nothing has changed
@@ -48,7 +46,7 @@ public class TraceMerger {
 		return traceMap;
 	}
 
-	private void mergeTraces(Trace mergedTrace, Map<Integer, Trace> tracesToBeMerged) {
+	private void mergeTwoTraces(Trace mergedTrace, Map<Integer, Trace> tracesToBeMerged) {
 		
 		boolean foundNextTrace = false;
 		int nextSuccessor = 0;

@@ -160,9 +160,11 @@ public class CodeGenerator {
 	 */
 	public void emitITrace(CodeGenContext context, String[] asmFileNames, String iTraceName) throws ITraceGeneratorFaultException {
 		System.out.println("Producing linkable assembly file...");
-		ITraceGenerator asmLoader = new ITraceGenerator();
-		asmLoader.loadAsmFiles(context, asmFileNames);
-		asmLoader.createITrace(context, iTraceName);
+		ITraceGenerator iTraceGen = new ITraceGenerator();
+		iTraceGen.loadAsmFiles(context, asmFileNames);
+		iTraceGen.prepare(iTraceName);
+		iTraceGen.generate(context);
+		iTraceGen.finish();
 	}
 	
 	/*
@@ -171,6 +173,8 @@ public class CodeGenerator {
 	public void emitITraceDesc(CodeGenContext context, String fileName) throws ITraceDescGeneratorFaultException {
 		System.out.println("Producing trace description file...");
 		ITraceDescGenerator iTraceDescGen = new ITraceDescGenerator();
-		iTraceDescGen.createInjectableTraceDesc(context, fileName);
+		iTraceDescGen.prepare(fileName);
+		iTraceDescGen.generate(context);
+		iTraceDescGen.finish();
 	}
 }

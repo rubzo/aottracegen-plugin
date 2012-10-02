@@ -54,20 +54,20 @@ public class CTraceGenerator {
 		// ...
 	}
 	
-	// This is a set of Opcodes that will raise exceptions.
-	private static Set<Opcode> opcodesThatRaiseExceptions;
+	// This is a set of Opcodes that will throw exceptions.
+	private static Set<Opcode> opcodesThatThrowExceptions;
 	static {
-		opcodesThatRaiseExceptions = new TreeSet<Opcode>();
-		opcodesThatRaiseExceptions.add(Opcode.AGET);
-		opcodesThatRaiseExceptions.add(Opcode.AGET_BYTE);
-		opcodesThatRaiseExceptions.add(Opcode.APUT);
-		opcodesThatRaiseExceptions.add(Opcode.RETURN);
-		opcodesThatRaiseExceptions.add(Opcode.RETURN_OBJECT);
-		opcodesThatRaiseExceptions.add(Opcode.RETURN_VOID);
-		opcodesThatRaiseExceptions.add(Opcode.RETURN_VOID_BARRIER);
-		opcodesThatRaiseExceptions.add(Opcode.RETURN_WIDE);
-		opcodesThatRaiseExceptions.add(Opcode.IPUT_QUICK);
-		opcodesThatRaiseExceptions.add(Opcode.IGET_QUICK);
+		opcodesThatThrowExceptions = new TreeSet<Opcode>();
+		opcodesThatThrowExceptions.add(Opcode.AGET);
+		opcodesThatThrowExceptions.add(Opcode.AGET_BYTE);
+		opcodesThatThrowExceptions.add(Opcode.APUT);
+		opcodesThatThrowExceptions.add(Opcode.RETURN);
+		opcodesThatThrowExceptions.add(Opcode.RETURN_OBJECT);
+		opcodesThatThrowExceptions.add(Opcode.RETURN_VOID);
+		opcodesThatThrowExceptions.add(Opcode.RETURN_VOID_BARRIER);
+		opcodesThatThrowExceptions.add(Opcode.RETURN_WIDE);
+		opcodesThatThrowExceptions.add(Opcode.IPUT_QUICK);
+		opcodesThatThrowExceptions.add(Opcode.IGET_QUICK);
 		
 		// ...
 	}
@@ -111,19 +111,6 @@ public class CTraceGenerator {
 		}
 	}
 	
-	public boolean needControlFlow(Trace trace, int currentAddressIdx, int nextAddress) {
-		if (currentAddressIdx == (trace.length - 1) && !trace.successors.isEmpty()) {
-			return true;
-		}
-		if (currentAddressIdx == (trace.length - 1) && trace.successors.isEmpty()) {
-			return false;
-		}
-		if (trace.addresses[currentAddressIdx+1] != nextAddress) {
-			return true;
-		}
-		return false;
-	}
-	
 	/*
 	 * Perform the actual generation of C.
 	 */
@@ -163,6 +150,19 @@ public class CTraceGenerator {
 		}
 	}
 
+	private boolean needControlFlow(Trace trace, int currentAddressIdx, int nextAddress) {
+		if (currentAddressIdx == (trace.length - 1) && !trace.successors.isEmpty()) {
+			return true;
+		}
+		if (currentAddressIdx == (trace.length - 1) && trace.successors.isEmpty()) {
+			return false;
+		}
+		if (trace.addresses[currentAddressIdx+1] != nextAddress) {
+			return true;
+		}
+		return false;
+	}
+	
 	/*
 	 * Emit the helper functions that will be used within the trace function.
 	 */
@@ -198,9 +198,9 @@ public class CTraceGenerator {
 			
 			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
-			if (opcodesThatRaiseExceptions.contains(instruction.opcode)) {
+			if (opcodesThatThrowExceptions.contains(instruction.opcode)) {
 				writer.write(String.format("void exception_L%#x() {return;}\n", codeAddress));
-				curTrace.meta.codeAddressesRaisingExceptions.add(codeAddress);
+				curTrace.meta.codeAddressesThatThrowExceptions.add(codeAddress);
 			}
 			
 			if (opcodesThatCanReturn.contains(instruction.opcode)) {
@@ -249,7 +249,7 @@ public class CTraceGenerator {
 			
 			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
-			if (opcodesThatRaiseExceptions.contains(instruction.opcode)) {
+			if (opcodesThatThrowExceptions.contains(instruction.opcode)) {
 				writer.write(String.format("  __exception_L%1$#x: exception_L%1$#x(); return;\n", codeAddress));
 			}
 			

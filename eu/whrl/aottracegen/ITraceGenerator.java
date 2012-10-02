@@ -88,14 +88,6 @@ public class ITraceGenerator {
 		return traceBody;
 	}
 
-	public void createITrace(CodeGenContext context, String iTraceName) throws ITraceGeneratorFaultException {
-		prepare(iTraceName);
-		generate(context);
-		finish();
-	}
-	
-	
-
 	public void prepare(String name) {
 		try {
 			File file = new File(name);
@@ -121,7 +113,7 @@ public class ITraceGenerator {
 		}
 	}
 	
-	private void generate(CodeGenContext context) throws ITraceGeneratorFaultException {
+	public void generate(CodeGenContext context) throws ITraceGeneratorFaultException {
 		if (!prepared) {
 			System.err.println("Injectable trace generator wasn't prepared?");
 			throw new ITraceGeneratorFaultException();
@@ -270,7 +262,7 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		// exception handlers
-		for (int exceptionCodeAddress : curTrace.meta.codeAddressesRaisingExceptions) {
+		for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
 			writer.write(String.format("LT0x%x_EH_0x%x:\n", traceEntry, exceptionCodeAddress));
 			writer.write(String.format("\tadr.w\tr0, ITrace_0x%x_BasePC\n", traceEntry));
 			writer.write("\tldr\tr0, [r0]\n");
