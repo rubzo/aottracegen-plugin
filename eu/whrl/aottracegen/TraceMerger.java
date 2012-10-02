@@ -1,7 +1,9 @@
 package eu.whrl.aottracegen;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -14,16 +16,16 @@ public class TraceMerger {
 		Map<Integer,Trace> tracesToBeMerged = new HashMap<Integer,Trace>();
 		
 		for (int traceEntry : config.traceEntries) {
-			if (!traceMap.containsKey(new Integer(traceEntry))) {
+			if (!traceMap.containsKey(traceEntry)) {
 				System.err.println("Unable to find a requested trace for merging in this method.");
 				throw new TraceMergingException();
 			}
-			tracesToBeMerged.put(new Integer(traceEntry), traceMap.get(new Integer(traceEntry)));
+			tracesToBeMerged.put(traceEntry, traceMap.get(traceEntry));
 		}
 		
 		// Merge all traces into the first one.
-		Trace mergedTrace = tracesToBeMerged.get(new Integer(config.traceEntries[0]));
-		tracesToBeMerged.remove(new Integer(config.traceEntries[0]));
+		Trace mergedTrace = tracesToBeMerged.get(config.traceEntries[0]);
+		tracesToBeMerged.remove(config.traceEntries[0]);
 		
 		int tracesLeft = tracesToBeMerged.size();
 		
@@ -38,7 +40,7 @@ public class TraceMerger {
 		}
 		
 		traceMap.clear();
-		traceMap.put(new Integer(mergedTrace.entry), mergedTrace);
+		traceMap.put(mergedTrace.entry, mergedTrace);
 		
 		config.numTraces = 1;
 		config.traceEntries = new int[] {mergedTrace.entry};
@@ -51,7 +53,7 @@ public class TraceMerger {
 		boolean foundNextTrace = false;
 		int nextSuccessor = 0;
 		for (int successor : mergedTrace.successors) {
-			if (tracesToBeMerged.containsKey(new Integer(successor))) {
+			if (tracesToBeMerged.containsKey(successor)) {
 				foundNextTrace = true;
 				nextSuccessor = successor;
 			}
@@ -62,32 +64,23 @@ public class TraceMerger {
 			return;
 		}
 		
-		merge(mergedTrace, tracesToBeMerged.get(new Integer(nextSuccessor)));
+		merge(mergedTrace, tracesToBeMerged.get(nextSuccessor));
 		
-		tracesToBeMerged.remove(new Integer(nextSuccessor));
+		tracesToBeMerged.remove(nextSuccessor);
 	}
 
 	private void merge(Trace mergedTrace, Trace nextTrace) {
-		int newSuccessorsCount = mergedTrace.successorsCount + nextTrace.successorsCount - 1;
-		int[] newSuccessors = new int[newSuccessorsCount];
-		int i = 0;
+		Set<Integer> newSuccessors = new HashSet<Integer>();
 		for (int s : mergedTrace.successors) {
 			if (s != nextTrace.entry) {
-				newSuccessors[i] = s;
-				i++;
+				newSuccessors.add(s);
 			}
 		}
 		for (int s : nextTrace.successors) {
-			newSuccessors[i] = s;
-			i++;
+			newSuccessors.add(s);
 		}
 		
-		newSuccessors = removeDuplicates(newSuccessors);
-		newSuccessorsCount = newSuccessors.length;
-		
 		mergedTrace.successors = newSuccessors;
-		mergedTrace.successorsCount = newSuccessorsCount;
-		
 		
 		int newLength = mergedTrace.length + nextTrace.length;
 		int[] newAddresses = new int[newLength];
@@ -115,8 +108,8 @@ public class TraceMerger {
 		int[] tempList = new int[list.length];
 		int idx = 0;
 		for (int i : list) {
-			if (!s.contains(new Integer(i))) {
-				s.add(new Integer(i));
+			if (!s.contains(i)) {
+				s.add(i);
 				tempList[idx] = i;
 				idx++;
 			}

@@ -112,10 +112,10 @@ public class CTraceGenerator {
 	}
 	
 	public boolean needControlFlow(Trace trace, int currentAddressIdx, int nextAddress) {
-		if (currentAddressIdx == (trace.length - 1) && trace.successorsCount > 0) {
+		if (currentAddressIdx == (trace.length - 1) && !trace.successors.isEmpty()) {
 			return true;
 		}
-		if (currentAddressIdx == (trace.length - 1) && trace.successorsCount == 0) {
+		if (currentAddressIdx == (trace.length - 1) && trace.successors.isEmpty()) {
 			return false;
 		}
 		if (trace.addresses[currentAddressIdx+1] != nextAddress) {
@@ -200,7 +200,7 @@ public class CTraceGenerator {
 		
 			if (opcodesThatRaiseExceptions.contains(instruction.opcode)) {
 				writer.write(String.format("void exception_L%#x() {return;}\n", codeAddress));
-				curTrace.meta.codeAddressesRaisingExceptions.add(new Integer(codeAddress));
+				curTrace.meta.codeAddressesRaisingExceptions.add(codeAddress);
 			}
 			
 			if (opcodesThatCanReturn.contains(instruction.opcode)) {
@@ -209,9 +209,7 @@ public class CTraceGenerator {
 		}
 		
 		// Generate the exit function prototypes.
-		for (int i = 0; i < curTrace.successorsCount; i++) {
-			int successorAddress = curTrace.successors[i];
-			
+		for (int successorAddress : curTrace.successors) {
 			writer.write(String.format("void exit_L0x%x() {return;}\n", successorAddress));
 		}
 		
@@ -261,9 +259,7 @@ public class CTraceGenerator {
 		}
 		
 		// Generate the exit labels.
-		for (int i = 0; i < curTrace.successorsCount; i++) {
-			int successorAddress = curTrace.successors[i];
-			
+		for (int successorAddress : curTrace.successors) {
 			writer.write(String.format("  __exit_L0x%1$x: exit_L0x%1$x(); return;\n", successorAddress));
 		}
 		

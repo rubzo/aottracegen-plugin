@@ -315,7 +315,7 @@ public class BytecodeToCConverter {
 			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
 			
 			int literalPoolLoc = curTrace.meta.literalPoolSize;
-			curTrace.meta.literalPoolIndices.add(new Integer(field));
+			curTrace.meta.literalPoolIndices.add(field);
 			curTrace.meta.literalPoolOpcodes.add(instruction.opcode);
 			curTrace.meta.literalPoolSize++;
 			

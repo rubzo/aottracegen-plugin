@@ -201,10 +201,8 @@ public class ITraceGenerator {
 			
 			writer.write(String.format("ITrace_0x%x_ChainingCells:\n", curTrace.entry));
 			
-			if (curTrace.successorsCount > 0) {
-				for (int successor : curTrace.successors) {
-					writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.entry, successor));
-				}
+			for (int successor : curTrace.successors) {
+				writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.entry, successor));
 			}
 		}
 	}
@@ -272,11 +270,11 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		// exception handlers
-		for (Integer exceptionCodeAddress : curTrace.meta.codeAddressesRaisingExceptions) {
-			writer.write(String.format("LT0x%x_EH_0x%x:\n", traceEntry, exceptionCodeAddress.intValue()));
+		for (int exceptionCodeAddress : curTrace.meta.codeAddressesRaisingExceptions) {
+			writer.write(String.format("LT0x%x_EH_0x%x:\n", traceEntry, exceptionCodeAddress));
 			writer.write(String.format("\tadr.w\tr0, ITrace_0x%x_BasePC\n", traceEntry));
 			writer.write("\tldr\tr0, [r0]\n");
-			writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress.intValue()*2));
+			writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
 			emitClobberedRegisterSaving(writer, context, "pop");
 			writer.write("\tldr\tr1, [r6, #108]\n");
 			writer.write("\tblx\tr1\n");
@@ -284,25 +282,23 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		// chaining cells
-		if (curTrace.successorsCount > 0 ) {
-			for (int successor : curTrace.successors) {
+		for (int successor : curTrace.successors) {
 
-				if (curTrace.meta.hasClobberedRegisters) {
-					writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
-					emitClobberedRegisterSaving(writer, context, "pop");
-					writer.write("\t.align 4\n");
-				} else {
-					writer.write("\t.align 4\n");
-					writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
-				}
-				writer.write(String.format("\tb\tLT0x%x_CC_0x%x_next\n", traceEntry, successor));
-				writer.write("\torrs\tr0, r0\n");
-				writer.write(String.format("LT0x%x_CC_0x%x_next:\n", traceEntry, successor));
-				writer.write("\tldr\tr0, [r6, #100]\n");
-				writer.write("\tblx\tr0\n");
-				writer.write(String.format("LT0x%x_CC_0x%x_value:\n", traceEntry, successor));
-				writer.write("\t.word 0x00000000\n");
+			if (curTrace.meta.hasClobberedRegisters) {
+				writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
+				emitClobberedRegisterSaving(writer, context, "pop");
+				writer.write("\t.align 4\n");
+			} else {
+				writer.write("\t.align 4\n");
+				writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
 			}
+			writer.write(String.format("\tb\tLT0x%x_CC_0x%x_next\n", traceEntry, successor));
+			writer.write("\torrs\tr0, r0\n");
+			writer.write(String.format("LT0x%x_CC_0x%x_next:\n", traceEntry, successor));
+			writer.write("\tldr\tr0, [r6, #100]\n");
+			writer.write("\tblx\tr0\n");
+			writer.write(String.format("LT0x%x_CC_0x%x_value:\n", traceEntry, successor));
+			writer.write("\t.word 0x00000000\n");
 		}
 		writer.write("\n");
 		

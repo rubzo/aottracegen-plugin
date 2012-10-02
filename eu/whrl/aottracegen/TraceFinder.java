@@ -100,7 +100,6 @@ public class TraceFinder {
 				currentInstruction.opcode == Opcode.RETURN_OBJECT ||
 				currentInstruction.opcode == Opcode.RETURN_VOID_BARRIER ||
 				currentInstruction.opcode == Opcode.RETURN_WIDE) {
-			trace.markHasNoSuccessors();
 			return;
 		}
 		
@@ -117,7 +116,6 @@ public class TraceFinder {
 				currentInstruction.opcode == Opcode.IF_NE ||
 				currentInstruction.opcode == Opcode.IF_NEZ) {
 			
-			trace.allocSuccessors(2);
 			trace.addSuccessor(fallthruCodeAddress);
 			trace.addSuccessor(currentCodeAddress + ((OffsetInstruction)currentInstruction).getTargetAddressOffset());
 			return;
@@ -129,18 +127,11 @@ public class TraceFinder {
 			
 			PackedSwitchDataPseudoInstruction switchData = (PackedSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(switchDataAddress);
 			
-			boolean fallthruWasInTargets = false;
-			trace.allocSuccessors(switchData.getTargetCount() + 1);
 			trace.addSuccessor(fallthruCodeAddress);
 			for (int target : switchData.getTargets()) {
 				if (currentCodeAddress + target != fallthruCodeAddress) {
 					trace.addSuccessor(currentCodeAddress + target);
-				} else {
-					fallthruWasInTargets = true;
 				}
-			}
-			if (fallthruWasInTargets) {
-				trace.shrinkSuccessors(switchData.getTargetCount());
 			}
 			return;
 		}
@@ -150,25 +141,17 @@ public class TraceFinder {
 					((OffsetInstruction)currentInstruction).getTargetAddressOffset();
 			
 			SparseSwitchDataPseudoInstruction switchData = (SparseSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(switchDataAddress);
-			
-			boolean fallthruWasInTargets = false;
-			trace.allocSuccessors(switchData.getTargetCount() + 1);
+		
 			trace.addSuccessor(fallthruCodeAddress);
 			for (int target : switchData.getTargets()) {
 				if (currentCodeAddress + target != fallthruCodeAddress) {
 					trace.addSuccessor(currentCodeAddress + target);
-				} else {
-					fallthruWasInTargets = true;
 				}
-			}
-			if (fallthruWasInTargets) {
-				trace.shrinkSuccessors(switchData.getTargetCount());
 			}
 			return;
 		}
 		
 		// If we get here, there's only the fallthrough successor.
-		trace.allocSuccessors(1);
 		trace.addSuccessor(fallthruCodeAddress);
 		return;
 	}
@@ -185,7 +168,7 @@ public class TraceFinder {
 	 */
 	private void generateTracesFromCodeAddress(CodeGenContext context, HashMap<Integer,Trace> traceMap, int codeAddress) {
 		// First check, have we already generated the traces starting from this point?
-		if (traceMap.containsKey(new Integer(codeAddress))) {
+		if (traceMap.containsKey(codeAddress)) {
 			return;
 		}
 		
@@ -229,13 +212,11 @@ public class TraceFinder {
 		trace.entry = trace.addresses[0];
 		
 		// Add to the map
-		traceMap.put(new Integer(codeAddress), trace);
+		traceMap.put(codeAddress, trace);
 		
 		// Recurse into the successors to get their traces
-		if (trace.successorsCount > 0) {
-			for (int successor : trace.successors) {
-				generateTracesFromCodeAddress(context, traceMap, successor);
-			}
+		for (int successor : trace.successors) {
+			generateTracesFromCodeAddress(context, traceMap, successor);
 		}
 	}
 }

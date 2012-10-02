@@ -97,11 +97,9 @@ public class ITraceDescGenerator {
 	private void emitChainingCellInfo(FileWriter writer2, CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		int i = 0;
-		if (curTrace.successorsCount > 0) {
-			for (int successor : curTrace.successors) {
-				writer.write(String.format("chaining_cell %d 0x%x\n", i, successor));
-				i++;
-			}
+		for (int successor : curTrace.successors) {
+			writer.write(String.format("chaining_cell %d 0x%x\n", i, successor));
+			i++;
 		}
 	}
 

@@ -1,5 +1,8 @@
 package eu.whrl.aottracegen;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.jf.dexlib.Code.Instruction;
 
 public class Trace {
@@ -9,9 +12,7 @@ public class Trace {
 	public int[] addresses;
 	public int length;
 	
-	public int[] successors;
-	public int successorsCount;
-	private int successorsMax;
+	public Set<Integer> successors;
 	
 	public int entry;
 	
@@ -21,8 +22,7 @@ public class Trace {
 		valid = false;
 		addresses = new int[MAX_LENGTH];
 		length = 0;
-		successors = null;
-		successorsCount = 0;
+		successors = new HashSet<Integer>();
 		entry = 0;
 		meta = new TraceMetadata();
 	}
@@ -43,37 +43,14 @@ public class Trace {
 	}
 	
 	/*
-	 * Allocate array space for all the successors of this trace.
-	 */
-	public void allocSuccessors(int count) {
-		successors = new int[count];
-		successorsMax = count;
-	}
-	
-	public void shrinkSuccessors(int count) {
-		int[] newSuccessors = new int[count];
-		for (int i = 0; i < count; i++) {
-			newSuccessors[i] = successors[i];
-		}
-		successorsMax = count;
-		successorsCount = count;
-		successors = newSuccessors;
-	}
-	
-	public void markHasNoSuccessors() {
-		successorsMax = 0;
-		successorsCount = 0;
-		successors = null;
-	}
-	
-	/*
 	 * Add a successor address to this trace.
 	 */
 	public void addSuccessor(int codeAddress) {
-		if (successors != null && successorsCount != successorsMax) {
-			successors[successorsCount] = codeAddress;
-			successorsCount++;
-		}
+		successors.add(codeAddress);
+	}
+	
+	public void removeSuccessor(int codeAddress) {
+		successors.remove(codeAddress);
 	}
 	
 	public void setEntry(int codeAddress) {

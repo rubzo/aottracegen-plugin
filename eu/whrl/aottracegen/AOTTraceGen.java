@@ -180,15 +180,15 @@ public class AOTTraceGen implements Plugin {
 		
 		// Add all the traces to the config, now that we've found them, if necessary.
 		if (config.traceAll) {
-			for (Integer traceEntry : traceMap.keySet()) {
-				config.addEntry(traceEntry.intValue());
+			for (int traceEntry : traceMap.keySet()) {
+				config.addEntry(traceEntry);
 			}
 		}
 		
 		// Generate code for the selected traces
 		CodeGenerator codeGen = new CodeGenerator();
 		for (int traceEntry : config.traceEntries) {
-			Trace trace = traceMap.get(new Integer(traceEntry));			
+			Trace trace = traceMap.get(traceEntry);			
 			trace.print(context);
 			context.addTrace(trace);
 		}

@@ -137,19 +137,19 @@ public class ASMTrace {
 			String line = traceBody.get(i);
 			
 			if (line.contains("r4")) {
-				clobberedRegs.add(new Integer(4));
+				clobberedRegs.add(4);
 			} 
 			if (line.contains("r5")) {
-				clobberedRegs.add(new Integer(5));
+				clobberedRegs.add(5);
 			} 
 			if (line.contains("r6")) {
-				clobberedRegs.add(new Integer(6));
+				clobberedRegs.add(6);
 			} 
 			if (line.contains("r7")) {
-				clobberedRegs.add(new Integer(7));
+				clobberedRegs.add(7);
 			} 
 			if (line.contains("r8")) {
-				clobberedRegs.add(new Integer(8));
+				clobberedRegs.add(8);
 			} 
 		}		
 		if (!clobberedRegs.isEmpty()) {
@@ -157,8 +157,8 @@ public class ASMTrace {
 			curTrace.meta.clobberedRegisters = new int[clobberedRegs.size()];
 			
 			int i = 0;
-			for (Integer elem : clobberedRegs) {
-				curTrace.meta.clobberedRegisters[i] = elem.intValue();
+			for (int reg : clobberedRegs) {
+				curTrace.meta.clobberedRegisters[i] = reg;
 				i++;
 			}
 			
