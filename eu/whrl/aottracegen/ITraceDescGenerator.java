@@ -68,7 +68,7 @@ public class ITraceDescGenerator {
 			for (int i = 0; i < context.traces.size(); i++) {
 				context.setCurrentTraceIndex(i);
 			
-				int curTraceEntryAddress = context.getCurrentTrace().getPrimaryEntry();
+				int curTraceEntryAddress = context.getCurrentTrace().entry;
 				
 				writer.write(String.format("trace_desc %d\n", i+1));
 				writer.write(String.format("trace_entry 0x%x\n", curTraceEntryAddress));

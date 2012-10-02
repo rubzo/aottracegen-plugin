@@ -167,7 +167,7 @@ public class ITraceGenerator {
 		int[] traceEntries = new int[context.traces.size()];
 		int idx = 0;
 		for (Trace trace : context.traces) {
-			traceEntries[idx] = trace.getPrimaryEntry();
+			traceEntries[idx] = trace.entry;
 			idx++;
 		}
 		
@@ -199,11 +199,11 @@ public class ITraceGenerator {
 			context.setCurrentTraceIndex(traceIdx);
 			Trace curTrace = context.getCurrentTrace();
 			
-			writer.write(String.format("ITrace_0x%x_ChainingCells:\n", curTrace.getPrimaryEntry()));
+			writer.write(String.format("ITrace_0x%x_ChainingCells:\n", curTrace.entry));
 			
 			if (curTrace.successorsCount > 0) {
 				for (int successor : curTrace.successors) {
-					writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.getPrimaryEntry(), successor));
+					writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.entry, successor));
 				}
 			}
 		}
@@ -237,7 +237,7 @@ public class ITraceGenerator {
 	private void emitTrace(Writer writer, CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		ASMTrace curAsmTrace = asmTraces.get(context.getCurrentTraceIndex());
-		int traceEntry = curTrace.getPrimaryEntry();
+		int traceEntry = curTrace.entry;
 		
 		// start of the trace
 		writer.write(String.format("ITrace_0x%x_Start:\n", traceEntry));
@@ -249,7 +249,7 @@ public class ITraceGenerator {
 		writer.write("\tmov\tr0, r5\n");
 		writer.write("\tmov\tr1, r6\n");
 		if (curTrace.meta.literalPoolSize > 0) {
-			writer.write(String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool\n", curTrace.getPrimaryEntry()));
+			writer.write(String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool\n", curTrace.entry));
 		}
 		emitClobberedRegisterSaving(writer, context, "push");
 		

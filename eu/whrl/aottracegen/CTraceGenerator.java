@@ -222,7 +222,7 @@ public class CTraceGenerator {
 	 * Emit the function signature, basically.
 	 */
 	private void emitFunctionStart(Writer writer) throws IOException {
-		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.getCurrentTrace().getPrimaryEntry()));
+		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.getCurrentTrace().entry));
 		writer.write("void trace(int* v, char *self, int *lit) {\n");
 	}
 	

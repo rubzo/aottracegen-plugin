@@ -8,9 +8,7 @@ import java.util.Set;
 import eu.whrl.aottracegen.exceptions.TraceMergingException;
 
 public class TraceMerger {
-	/*
-	 * TODO: Implement this.
-	 */
+
 	public Map<Integer, Trace> mergeTraces(CodeGenContext context, Config config, Map<Integer,Trace> traceMap) throws TraceMergingException {
 		
 		Map<Integer,Trace> tracesToBeMerged = new HashMap<Integer,Trace>();
@@ -40,10 +38,10 @@ public class TraceMerger {
 		}
 		
 		traceMap.clear();
-		traceMap.put(new Integer(mergedTrace.getPrimaryEntry()), mergedTrace);
+		traceMap.put(new Integer(mergedTrace.entry), mergedTrace);
 		
 		config.numTraces = 1;
-		config.traceEntries = new int[] {mergedTrace.getPrimaryEntry()};
+		config.traceEntries = new int[] {mergedTrace.entry};
 		
 		return traceMap;
 	}
@@ -74,7 +72,7 @@ public class TraceMerger {
 		int[] newSuccessors = new int[newSuccessorsCount];
 		int i = 0;
 		for (int s : mergedTrace.successors) {
-			if (s != nextTrace.getPrimaryEntry()) {
+			if (s != nextTrace.entry) {
 				newSuccessors[i] = s;
 				i++;
 			}

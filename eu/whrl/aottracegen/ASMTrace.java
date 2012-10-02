@@ -33,7 +33,7 @@ public class ASMTrace {
 	 */
 	public void cleanupTrace(CodeGenContext context) {
 		Trace curTrace = context.getCurrentTrace();
-		int curTraceEntry = curTrace.getPrimaryEntry();
+		int curTraceEntry = curTrace.entry;
 		
 		// Find the push/pop instructions,
 		// as well as where the exit label is (just before pop)
@@ -168,7 +168,7 @@ public class ASMTrace {
 	
 	private int handleExit(CodeGenContext context, int currentLineIdx) {
 		Trace curTrace = context.getCurrentTrace();
-		int curTraceEntry = curTrace.getPrimaryEntry();
+		int curTraceEntry = curTrace.entry;
 		
 		String line = traceBody.get(currentLineIdx);
 		
@@ -182,7 +182,7 @@ public class ASMTrace {
 	
 	private int handleException(CodeGenContext context, int currentLineIdx) {
 		Trace curTrace = context.getCurrentTrace();
-		int curTraceEntry = curTrace.getPrimaryEntry();
+		int curTraceEntry = curTrace.entry;
 		
 		String line = traceBody.get(currentLineIdx);
 		
