@@ -32,10 +32,18 @@ public class CTraceGenerator {
 	private static Set<Opcode> opcodesThatNeedHelperFunctions;
 	static {
 		opcodesThatNeedHelperFunctions = new TreeSet<Opcode>();
-		opcodesThatNeedHelperFunctions.add(Opcode.IGET_QUICK);
-		opcodesThatNeedHelperFunctions.add(Opcode.IPUT_QUICK);
 		
 		// ...
+	}
+	
+	private static Set<Opcode> opcodesThatCanReturn;
+	static {
+		opcodesThatCanReturn = new TreeSet<Opcode>();
+		opcodesThatCanReturn.add(Opcode.RETURN);
+		opcodesThatCanReturn.add(Opcode.RETURN_OBJECT);
+		opcodesThatCanReturn.add(Opcode.RETURN_VOID);
+		opcodesThatCanReturn.add(Opcode.RETURN_VOID_BARRIER);
+		opcodesThatCanReturn.add(Opcode.RETURN_WIDE);
 	}
 	
 	// This is a mapping from the Opcodes that need helper functions
@@ -43,15 +51,6 @@ public class CTraceGenerator {
 	private static Map<Opcode,String> opcodeFunctionHelpers;
 	static {
 		opcodeFunctionHelpers = new TreeMap<Opcode,String>();
-		opcodeFunctionHelpers.put(Opcode.IGET_QUICK, 
-				"inline int iget_quick(int obj, int idx) {\n" +
-				"  return *((int*) (((char*)obj) + idx));\n" +
-				"}\n");
-		opcodeFunctionHelpers.put(Opcode.IPUT_QUICK, 
-				"inline int iput_quick(int value, int obj, int idx) {\n" +
-				"  *((int*) (((char*)obj) + idx)) = value;\n" +
-				"}\n");
-		
 		// ...
 	}
 	
@@ -62,6 +61,13 @@ public class CTraceGenerator {
 		opcodesThatRaiseExceptions.add(Opcode.AGET);
 		opcodesThatRaiseExceptions.add(Opcode.AGET_BYTE);
 		opcodesThatRaiseExceptions.add(Opcode.APUT);
+		opcodesThatRaiseExceptions.add(Opcode.RETURN);
+		opcodesThatRaiseExceptions.add(Opcode.RETURN_OBJECT);
+		opcodesThatRaiseExceptions.add(Opcode.RETURN_VOID);
+		opcodesThatRaiseExceptions.add(Opcode.RETURN_VOID_BARRIER);
+		opcodesThatRaiseExceptions.add(Opcode.RETURN_WIDE);
+		opcodesThatRaiseExceptions.add(Opcode.IPUT_QUICK);
+		opcodesThatRaiseExceptions.add(Opcode.IGET_QUICK);
 		
 		// ...
 	}
@@ -105,6 +111,19 @@ public class CTraceGenerator {
 		}
 	}
 	
+	public boolean needControlFlow(Trace trace, int currentAddressIdx, int nextAddress) {
+		if (currentAddressIdx == (trace.length - 1) && trace.successorsCount > 0) {
+			return true;
+		}
+		if (currentAddressIdx == (trace.length - 1) && trace.successorsCount == 0) {
+			return false;
+		}
+		if (trace.addresses[currentAddressIdx+1] != nextAddress) {
+			return true;
+		}
+		return false;
+	}
+	
 	/*
 	 * Perform the actual generation of C.
 	 */
@@ -118,7 +137,7 @@ public class CTraceGenerator {
 		
 		try {
 			// Everything that this calls MUST throw the IOException back up here!
-			emitFunctions(writer);
+			emitHelperFunctions(writer);
 			emitExitFunctionPrototypes(writer);
 			emitFunctionStart(writer);
 			
@@ -130,7 +149,7 @@ public class CTraceGenerator {
 				Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 				int nextAddress = context.getNextCodeAddress(codeAddress, instruction);
 				
-				if (i == curTrace.length - 1 || curTrace.addresses[i+1] != nextAddress) {
+				if (needControlFlow(curTrace, i, nextAddress)) {
 					writer.write("  " + converter.getGotoLabel(curTrace, nextAddress) + ";\n\n");
 				}
 			}
@@ -147,7 +166,7 @@ public class CTraceGenerator {
 	/*
 	 * Emit the helper functions that will be used within the trace function.
 	 */
-	private void emitFunctions(Writer writer) throws IOException {
+	private void emitHelperFunctions(Writer writer) throws IOException {
 		writer.write("// --- FUNCTIONS ---\n");
 		
 		Trace curTrace = context.getCurrentTrace();
@@ -180,8 +199,12 @@ public class CTraceGenerator {
 			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
 			if (opcodesThatRaiseExceptions.contains(instruction.opcode)) {
-				writer.write(String.format("void exception_L0x%x() {return;}\n", codeAddress));
+				writer.write(String.format("void exception_L%#x() {return;}\n", codeAddress));
 				curTrace.meta.codeAddressesRaisingExceptions.add(new Integer(codeAddress));
+			}
+			
+			if (opcodesThatCanReturn.contains(instruction.opcode)) {
+				writer.write(String.format("void return_L%#x() {return;}\n", codeAddress));
 			}
 		}
 		
@@ -200,7 +223,7 @@ public class CTraceGenerator {
 	 */
 	private void emitFunctionStart(Writer writer) throws IOException {
 		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.getCurrentTrace().getPrimaryEntry()));
-		writer.write("void trace(int* v, int *lit) {\n");
+		writer.write("void trace(int* v, char *self, int *lit) {\n");
 	}
 	
 	/*
@@ -229,7 +252,11 @@ public class CTraceGenerator {
 			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
 			if (opcodesThatRaiseExceptions.contains(instruction.opcode)) {
-				writer.write(String.format("  __exception_L0x%1$x: exception_L0x%1$x(); return;\n", codeAddress));
+				writer.write(String.format("  __exception_L%1$#x: exception_L%1$#x(); return;\n", codeAddress));
+			}
+			
+			if (opcodesThatCanReturn.contains(instruction.opcode)) {
+				writer.write(String.format("  __return_L%1$#x: return_L%1$#x(); return;\n", codeAddress));
 			}
 		}
 		

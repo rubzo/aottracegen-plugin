@@ -63,6 +63,12 @@ public class Trace {
 		successors = newSuccessors;
 	}
 	
+	public void markHasNoSuccessors() {
+		successorsMax = 0;
+		successorsCount = 0;
+		successors = null;
+	}
+	
 	/*
 	 * Add a successor address to this trace.
 	 */

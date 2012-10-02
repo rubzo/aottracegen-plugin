@@ -33,6 +33,15 @@ public class BytecodeToCConverter {
 		
 		switch (instruction.opcode) {
 		
+		case RETURN_OBJECT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result = String.format("  *((int*) (self+16)) = v[%d];\n", vA) +
+					String.format("  goto __return_L%#x;", codeAddress);
+			break;
+		}
+		
 		case CONST_16:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
@@ -274,7 +283,7 @@ public class BytecodeToCConverter {
 					 "  char *array = (char*) v[%2$d];\n" + 
 					 "  int array_size = *((int*) (array + 8));\n" +
 					 "  if (array == 0) goto __exception_L0x%4$x;\n" +
-					 "  if (v[%3$d] >= array_size || v[3] < 0) goto __exception_L0x%4$x;\n" +
+					 "  if (v[%3$d] >= array_size || v[%3$d] < 0) goto __exception_L0x%4$x;\n" +
 					 "  char *array_contents = (char*) (array + 16);\n" +
 					 "  v[%1$d] = (char) array_contents[v[%3$d]];\n" +
 					 "  }",
@@ -292,7 +301,7 @@ public class BytecodeToCConverter {
 					 "  char *array = (char*) v[%2$d];\n" + 
 					 "  int array_size = *((int*) (array + 8));\n" +
 					 "  if (array == 0) goto __exception_L0x%4$x;\n" +
-					 "  if (v[%3$d] >= array_size || v[3] < 0) goto __exception_L0x%4$x;\n" +
+					 "  if (v[%3$d] >= array_size || v[%3$d] < 0) goto __exception_L0x%4$x;\n" +
 					 "  int *array_contents = array + 16;\n" +
 					 "  array_contents[v[%3$d]] = v[%1$d];\n" +
 					 "  }",
@@ -334,7 +343,8 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  v[%d] = iget_quick(v[%d], 0x%x);", vA, vB, offset);
+			result = String.format("  if (v[%2$d] == 0) goto __exception_L%4$#x;\n" +
+		               			   "  v[%1$d] = *((int*) (((char*)v[%2$d]) + %3$#x));", vA, vB, offset, codeAddress);
 			break;
 		}
 		
@@ -344,7 +354,8 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  iput_quick(v[%d], v[%d], 0x%x);", vA, vB, offset);
+			result = String.format("  if (v[%2$d] == 0) goto __exception_L%4$#x;\n" +
+					               "  *((int*) (((char*)v[%2$d]) + %3$#x)) = v[%1$d];", vA, vB, offset, codeAddress);
 			break;
 		}
 		

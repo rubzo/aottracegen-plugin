@@ -33,7 +33,7 @@ public class ASMTrace {
 	 */
 	public void cleanupTrace(CodeGenContext context) {
 		Trace curTrace = context.getCurrentTrace();
-		int curTraceEntry = curTrace.entries[0];
+		int curTraceEntry = curTrace.getPrimaryEntry();
 		
 		// Find the push/pop instructions,
 		// as well as where the exit label is (just before pop)
@@ -96,13 +96,12 @@ public class ASMTrace {
 			String line = traceBody.get(i);
 			
 			if (line.contains("bl\texception")) {
-				line = line.replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTraceEntry));
+				i = handleException(context, i);
 			} else if (line.contains("bl\texit")) {
-				line = line.replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT0x%x_CC_$1", curTraceEntry));
+				i = handleExit(context, i);
+			} else if (line.contains("bl\treturn")) {
+				i = handleReturn(context, i);
 			}
-			
-			traceBody.remove(i);
-			traceBody.add(i, line);
 		}
 		
 		// Remove redundant labels
@@ -165,5 +164,37 @@ public class ASMTrace {
 			
 			Arrays.sort(curTrace.meta.clobberedRegisters);
 		}
+	}
+	
+	private int handleExit(CodeGenContext context, int currentLineIdx) {
+		Trace curTrace = context.getCurrentTrace();
+		int curTraceEntry = curTrace.getPrimaryEntry();
+		
+		String line = traceBody.get(currentLineIdx);
+		
+		line = line.replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT0x%x_CC_$1", curTraceEntry));
+		
+		traceBody.remove(currentLineIdx);
+		traceBody.add(currentLineIdx, line);
+		
+		return currentLineIdx;
+	}
+	
+	private int handleException(CodeGenContext context, int currentLineIdx) {
+		Trace curTrace = context.getCurrentTrace();
+		int curTraceEntry = curTrace.getPrimaryEntry();
+		
+		String line = traceBody.get(currentLineIdx);
+		
+		line = line.replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTraceEntry));
+		
+		traceBody.remove(currentLineIdx);
+		traceBody.add(currentLineIdx, line);
+		
+		return currentLineIdx;
+	}
+	
+	private int handleReturn(CodeGenContext context, int currentLineIdx) {
+		return currentLineIdx;
 	}
 }

@@ -28,6 +28,15 @@ public class BytecodeToPrettyConverter {
 		String result = String.format("  // BYTECODE AT 0x%x: ", codeAddress);
 		
 		switch (instruction.opcode) {
+		
+		case RETURN_OBJECT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result += String.format("return-object v%d", vA);
+			break;
+		}
+		
 		case CONST_16:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
@@ -271,7 +280,7 @@ public class BytecodeToPrettyConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 
-			result += String.format("+iget-quick v%d, v%d, [obj+v%d]",
+			result += String.format("+iget-quick v%d, v%d, [obj+%d]",
 					vA, vB, offset);
 			break;
 		}
@@ -282,7 +291,7 @@ public class BytecodeToPrettyConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 
-			result += String.format("+iput-quick v%d, v%d, [obj+v%d]",
+			result += String.format("+iput-quick v%d, v%d, [obj+%d]",
 					vA, vB, offset);
 			break;
 		}

@@ -95,6 +95,15 @@ public class TraceFinder {
 		// Get the address where we'll be going next.
 		int fallthruCodeAddress = context.getNextCodeAddress(currentCodeAddress, currentInstruction);
 		
+		if (currentInstruction.opcode == Opcode.RETURN ||
+				currentInstruction.opcode == Opcode.RETURN_VOID ||
+				currentInstruction.opcode == Opcode.RETURN_OBJECT ||
+				currentInstruction.opcode == Opcode.RETURN_VOID_BARRIER ||
+				currentInstruction.opcode == Opcode.RETURN_WIDE) {
+			trace.markHasNoSuccessors();
+			return;
+		}
+		
 		if (currentInstruction.opcode == Opcode.IF_EQ ||
 				currentInstruction.opcode == Opcode.IF_EQZ ||
 				currentInstruction.opcode == Opcode.IF_GE ||
@@ -223,8 +232,10 @@ public class TraceFinder {
 		traceMap.put(new Integer(codeAddress), trace);
 		
 		// Recurse into the successors to get their traces
-		for (int successor : trace.successors) {
-			generateTracesFromCodeAddress(context, traceMap, successor);
+		if (trace.successorsCount > 0) {
+			for (int successor : trace.successors) {
+				generateTracesFromCodeAddress(context, traceMap, successor);
+			}
 		}
 	}
 }

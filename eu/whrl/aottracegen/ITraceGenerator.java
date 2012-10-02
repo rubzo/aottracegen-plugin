@@ -201,8 +201,10 @@ public class ITraceGenerator {
 			
 			writer.write(String.format("ITrace_0x%x_ChainingCells:\n", curTrace.getPrimaryEntry()));
 			
-			for (int successor : curTrace.successors) {
-				writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.getPrimaryEntry(), successor));
+			if (curTrace.successorsCount > 0) {
+				for (int successor : curTrace.successors) {
+					writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.getPrimaryEntry(), successor));
+				}
 			}
 		}
 	}
@@ -241,12 +243,13 @@ public class ITraceGenerator {
 		writer.write(String.format("ITrace_0x%x_Start:\n", traceEntry));
 		writer.write("\n");
 		
-		// trace body - start off with putting fp and litpool pointers in the right place
-		// we know upon entry to the trace that the fp is in r5,
+		// trace body - start off with putting fp, self and litpool pointers in the right place
+		// we know upon entry to the trace that the fp is in r5, self is in r6, 
 		//  and what the name of the label we used for our literal pool is.
 		writer.write("\tmov\tr0, r5\n");
+		writer.write("\tmov\tr1, r6\n");
 		if (curTrace.meta.literalPoolSize > 0) {
-			writer.write(String.format("\tadr.w\tr1, ITrace_0x%x_LiteralPool\n", curTrace.getPrimaryEntry()));
+			writer.write(String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool\n", curTrace.getPrimaryEntry()));
 		}
 		emitClobberedRegisterSaving(writer, context, "push");
 		
@@ -281,23 +284,25 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		// chaining cells
-		for (int successor : curTrace.successors) {
-			
-			if (curTrace.meta.hasClobberedRegisters) {
-				writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
-				emitClobberedRegisterSaving(writer, context, "pop");
-				writer.write("\t.align 4\n");
-			} else {
-				writer.write("\t.align 4\n");
-				writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
+		if (curTrace.successorsCount > 0 ) {
+			for (int successor : curTrace.successors) {
+
+				if (curTrace.meta.hasClobberedRegisters) {
+					writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
+					emitClobberedRegisterSaving(writer, context, "pop");
+					writer.write("\t.align 4\n");
+				} else {
+					writer.write("\t.align 4\n");
+					writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
+				}
+				writer.write(String.format("\tb\tLT0x%x_CC_0x%x_next\n", traceEntry, successor));
+				writer.write("\torrs\tr0, r0\n");
+				writer.write(String.format("LT0x%x_CC_0x%x_next:\n", traceEntry, successor));
+				writer.write("\tldr\tr0, [r6, #100]\n");
+				writer.write("\tblx\tr0\n");
+				writer.write(String.format("LT0x%x_CC_0x%x_value:\n", traceEntry, successor));
+				writer.write("\t.word 0x00000000\n");
 			}
-			writer.write(String.format("\tb\tLT0x%x_CC_0x%x_next\n", traceEntry, successor));
-			writer.write("\torrs\tr0, r0\n");
-			writer.write(String.format("LT0x%x_CC_0x%x_next:\n", traceEntry, successor));
-			writer.write("\tldr\tr0, [r6, #100]\n");
-			writer.write("\tblx\tr0\n");
-			writer.write(String.format("LT0x%x_CC_0x%x_value:\n", traceEntry, successor));
-			writer.write("\t.word 0x00000000\n");
 		}
 		writer.write("\n");
 		
