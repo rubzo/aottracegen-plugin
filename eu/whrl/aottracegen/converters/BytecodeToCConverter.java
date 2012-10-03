@@ -7,6 +7,7 @@ import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.LiteralInstruction;
 import org.jf.dexlib.Code.OdexedFieldAccess;
 import org.jf.dexlib.Code.OffsetInstruction;
+import org.jf.dexlib.Code.Opcode;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
@@ -36,6 +37,16 @@ public class BytecodeToCConverter {
 		case RETURN_OBJECT:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			// If we add this opcode to the literal pool, then the return 
+			// handler will be loaded into this literal pool location.
+			//
+			// We just need to jump there, so we can't do that in C,
+			// so we'll do it in the ASMTrace cleanup routine instead...
+			//
+			curTrace.meta.literalPoolIndices.add(0);
+			curTrace.meta.literalPoolOpcodes.add(Opcode.RETURN);
+			curTrace.meta.literalPoolSize++;
 			
 			result = String.format("  *((int*) (self+16)) = v[%d];\n", vA) +
 					String.format("  goto __return_L%#x;", codeAddress);

@@ -7,6 +7,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jf.dexlib.Code.Opcode;
+
 public class ASMTrace {
 	private List<String> traceBody;
 	
@@ -33,7 +35,6 @@ public class ASMTrace {
 	 */
 	public void cleanupTrace(CodeGenContext context) {
 		Trace curTrace = context.getCurrentTrace();
-		int curTraceEntry = curTrace.entry;
 		
 		// Find the push/pop instructions,
 		// as well as where the exit label is (just before pop)
@@ -82,7 +83,7 @@ public class ASMTrace {
 			String line = traceBody.get(i);
 			
 			if (line.contains(".L")) {
-				line = line.replaceAll(".L(\\d+)", String.format(".LT0x%x_$1", curTraceEntry));
+				line = line.replaceAll(".L(\\d+)", String.format(".LT0x%x_$1", curTrace.entry));
 			}
 			
 			traceBody.remove(i);
@@ -168,33 +169,44 @@ public class ASMTrace {
 	
 	private int handleExit(CodeGenContext context, int currentLineIdx) {
 		Trace curTrace = context.getCurrentTrace();
-		int curTraceEntry = curTrace.entry;
 		
-		String line = traceBody.get(currentLineIdx);
-		
-		line = line.replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT0x%x_CC_$1", curTraceEntry));
-		
-		traceBody.remove(currentLineIdx);
-		traceBody.add(currentLineIdx, line);
+		currentLineIdx = replaceLine(currentLineIdx, traceBody.get(currentLineIdx).replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT0x%x_CC_$1", curTrace.entry)));
 		
 		return currentLineIdx;
 	}
 	
 	private int handleException(CodeGenContext context, int currentLineIdx) {
 		Trace curTrace = context.getCurrentTrace();
-		int curTraceEntry = curTrace.entry;
 		
-		String line = traceBody.get(currentLineIdx);
+		currentLineIdx = replaceLine(currentLineIdx, traceBody.get(currentLineIdx).replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTrace.entry)));
 		
-		line = line.replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTraceEntry));
+		return currentLineIdx;
+	}
+	
+	private int handleReturn(CodeGenContext context, int currentLineIdx) {
+		Trace curTrace = context.getCurrentTrace();
 		
+		// Create the jump to the return handler
+		currentLineIdx = addLine(currentLineIdx, String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool", curTrace.entry));
+		currentLineIdx = addLine(currentLineIdx, String.format("\tldr\tr0, [r2,#%d]", curTrace.meta.literalPoolOpcodes.indexOf(Opcode.RETURN)*4));
+		currentLineIdx = addLine(currentLineIdx, "\tblx\tr0");
+		
+		
+		currentLineIdx = replaceLine(currentLineIdx, traceBody.get(currentLineIdx).replaceFirst("\tbl\treturn_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTrace.entry)));
+		
+		return currentLineIdx;
+	}
+	
+	private int replaceLine(int currentLineIdx, String line) {
 		traceBody.remove(currentLineIdx);
 		traceBody.add(currentLineIdx, line);
 		
 		return currentLineIdx;
 	}
 	
-	private int handleReturn(CodeGenContext context, int currentLineIdx) {
-		return currentLineIdx;
+	private int addLine(int currentLineIdx, String line) {
+		traceBody.add(currentLineIdx, line);
+		
+		return currentLineIdx + 1;
 	}
 }

@@ -19,6 +19,7 @@ public class ITraceDescGenerator {
 	static {
 		opcodeTypeMap = new HashMap<Opcode,String>();
 		opcodeTypeMap.put(Opcode.SGET_OBJECT, "static_field");
+		opcodeTypeMap.put(Opcode.RETURN, "return_handler");
 	}
 
 	public void prepare(String name) {
