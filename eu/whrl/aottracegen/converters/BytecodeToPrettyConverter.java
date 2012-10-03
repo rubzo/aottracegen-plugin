@@ -28,6 +28,14 @@ public class BytecodeToPrettyConverter {
 		
 		switch (instruction.opcode) {
 		
+		case MOVE_RESULT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result += String.format("move-result v%d", vA);
+			break;
+		}
+		
 		case RETURN_OBJECT:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();

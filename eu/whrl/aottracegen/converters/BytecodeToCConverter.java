@@ -19,7 +19,9 @@ import eu.whrl.aottracegen.Trace;
 import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
 public class BytecodeToCConverter {
-
+	
+	private static final int offsetThreadRetValue = 16; 
+	
 	/*
 	 * Return a string representing the instruction at codeAddress,
 	 * as a C implementation. ALSO HAS SIDE EFFECTS OF UPDATING
@@ -33,6 +35,14 @@ public class BytecodeToCConverter {
 		Trace curTrace = context.getCurrentTrace();
 		
 		switch (instruction.opcode) {
+		
+		case MOVE_RESULT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadRetValue);
+			break;
+		}
 		
 		case RETURN_OBJECT:
 		{
@@ -48,7 +58,7 @@ public class BytecodeToCConverter {
 			curTrace.meta.literalPoolOpcodes.add(Opcode.RETURN);
 			curTrace.meta.literalPoolSize++;
 			
-			result = String.format("  *((int*) (self+16)) = v[%d];\n", vA) +
+			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
 					String.format("  goto __return_L%#x;", codeAddress);
 			break;
 		}
