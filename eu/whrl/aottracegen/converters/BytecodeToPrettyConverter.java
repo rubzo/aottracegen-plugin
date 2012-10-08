@@ -1,9 +1,11 @@
 package eu.whrl.aottracegen.converters;
 
+import org.jf.dexlib.Code.FiveRegisterInstruction;
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.LiteralInstruction;
 import org.jf.dexlib.Code.OdexedFieldAccess;
+import org.jf.dexlib.Code.OdexedInvokeVirtual;
 import org.jf.dexlib.Code.OffsetInstruction;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
@@ -300,6 +302,50 @@ public class BytecodeToPrettyConverter {
 
 			result += String.format("+iput-quick v%d, v%d, [obj+%d]",
 					vA, vB, offset);
+			break;
+		}
+		
+		case INVOKE_VIRTUAL_QUICK:
+		{
+			
+			int vtableIndex = ((OdexedInvokeVirtual)instruction).getVtableIndex();
+			
+			String argsString = "{";
+			
+			FiveRegisterInstruction regRef = ((FiveRegisterInstruction)instruction); 
+			int regCount = regRef.getRegCount();
+			
+			if (regCount > 0) {
+				argsString += "v" + regRef.getRegisterD();
+				if (regCount != 1) {
+					argsString += ", ";
+				}
+			}
+			if (regCount > 1) {
+				argsString += "v" + regRef.getRegisterE();
+				if (regCount != 2) {
+					argsString += ", ";
+				}
+			}
+			if (regCount > 2) {
+				argsString += "v" + regRef.getRegisterF();
+				if (regCount != 3) {
+					argsString += ", ";
+				}
+			}
+			if (regCount > 3) {
+				argsString += "v" + regRef.getRegisterG();
+				if (regCount != 4) {
+					argsString += ", ";
+				}
+			}
+			if (regCount > 4) {
+				argsString += "v" + regRef.getRegisterA();
+			}
+	
+			argsString += "}";
+			
+			result += String.format("+invoke-virtual-quick %s, [%#x]", argsString, vtableIndex);
 			break;
 		}
 

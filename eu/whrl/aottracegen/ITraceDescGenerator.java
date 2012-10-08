@@ -15,11 +15,13 @@ public class ITraceDescGenerator {
 	private FileWriter writer;
 	private boolean prepared;
 	
-	static Map<Opcode,String> opcodeTypeMap;
+	static Map<LiteralPoolType,String> literalPoolTypeMap;
 	static {
-		opcodeTypeMap = new HashMap<Opcode,String>();
-		opcodeTypeMap.put(Opcode.SGET_OBJECT, "static_field");
-		opcodeTypeMap.put(Opcode.RETURN, "return_handler");
+		literalPoolTypeMap = new HashMap<LiteralPoolType,String>();
+		literalPoolTypeMap.put(LiteralPoolType.STATIC_FIELD, "static_field");
+		literalPoolTypeMap.put(LiteralPoolType.RETURN_HANDLER, "return_handler");
+		literalPoolTypeMap.put(LiteralPoolType.DPC_OFFSET, "dpc_offset");
+		literalPoolTypeMap.put(LiteralPoolType.METHOD_PREDICTED_CHAIN_HANDLER, "method_predicted_chain_handler");
 	}
 
 	public void prepare(String name) {
@@ -81,11 +83,13 @@ public class ITraceDescGenerator {
 	private void emitLiteralPoolInfo(FileWriter writer2, CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		for (int i = 0; i < curTrace.meta.literalPoolSize; i++) {
-			Opcode opcode = curTrace.meta.literalPoolOpcodes.get(i);
-			int value = curTrace.meta.literalPoolIndices.get(i).intValue();
-			String type = opcodeTypeMap.get(opcode);
 			
-			writer.write(String.format("literal_pool %d %s 0x%x\n", i, type, value));
+			int value = curTrace.meta.literalPoolIndices.get(i);
+			
+			LiteralPoolType type = curTrace.meta.literalPoolTypes.get(i);
+			String typeName = literalPoolTypeMap.get(type);
+			
+			writer.write(String.format("literal_pool %d %s 0x%x\n", i, typeName, value));
 		}
 	}
 	

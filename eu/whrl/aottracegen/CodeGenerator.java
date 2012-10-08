@@ -120,7 +120,7 @@ public class CodeGenerator {
 			
 			while (errorStreamReader.ready()) {
 				line = errorStreamReader.readLine();
-				if (line.contains("error")) {
+				if (line.contains("error") || line.contains("Error")) {
 					System.err.println(line);
 					if (!error) {
 						error = true;

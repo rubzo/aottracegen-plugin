@@ -13,7 +13,7 @@ public class TraceMetadata {
 	
 	public int literalPoolSize;
 	public List<Integer> literalPoolIndices;
-	public List<Opcode> literalPoolOpcodes;
+	public List<LiteralPoolType> literalPoolTypes;
 	public int[] clobberedRegisters;
 	public boolean hasClobberedRegisters;
 	public boolean containsSwitch;
@@ -23,9 +23,15 @@ public class TraceMetadata {
 		codeAddressesThatThrowExceptions = new ArrayList<Integer>();
 		literalPoolSize = 0;
 		literalPoolIndices = new ArrayList<Integer>();
-		literalPoolOpcodes = new ArrayList<Opcode>();
+		literalPoolTypes = new ArrayList<LiteralPoolType>();
 		clobberedRegisters = null;
 		hasClobberedRegisters = false;
 		containsSwitch = false;
+	}
+	
+	public void addLiteralPoolEntry(LiteralPoolType type, int value) {
+		literalPoolSize++;
+		literalPoolIndices.add(value);
+		literalPoolTypes.add(type);
 	}
 }

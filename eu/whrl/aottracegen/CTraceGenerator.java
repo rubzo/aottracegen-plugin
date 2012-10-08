@@ -68,6 +68,7 @@ public class CTraceGenerator {
 		opcodesThatThrowExceptions.add(Opcode.RETURN_WIDE);
 		opcodesThatThrowExceptions.add(Opcode.IPUT_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.IGET_QUICK);
+		opcodesThatThrowExceptions.add(Opcode.INVOKE_VIRTUAL_QUICK);
 		
 		// ...
 	}
@@ -205,6 +206,10 @@ public class CTraceGenerator {
 			
 			if (opcodesThatCanReturn.contains(instruction.opcode)) {
 				writer.write(String.format("void return_L%#x() {return;}\n", codeAddress));
+			}
+			
+			if (instruction.opcode == Opcode.INVOKE_VIRTUAL_QUICK) {
+				writer.write(String.format("void invoke_virtual_quick_L%#x() {return;}\n", codeAddress));
 			}
 		}
 		

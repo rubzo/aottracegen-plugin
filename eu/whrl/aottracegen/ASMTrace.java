@@ -7,7 +7,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.jf.dexlib.Code.Opcode;
+import org.jf.dexlib.Code.FiveRegisterInstruction;
+import org.jf.dexlib.Code.Instruction;
 
 public class ASMTrace {
 	private List<String> traceBody;
@@ -43,18 +44,18 @@ public class ASMTrace {
 		int popIdx = 0;
 		String exitLabel = "";
 
-		for (int i = 0; i < traceBody.size(); i++) {
-			String line = traceBody.get(i);
+		for (int cl = 0; cl < traceBody.size(); cl++) {
+			String line = traceBody.get(cl);
 			
 			if (line.startsWith("\tpop\t{") || line.startsWith("\tldmfd\t")) {
 				// The exit label must be the line before...
-				exitLabel = traceBody.get(i-1);
+				exitLabel = traceBody.get(cl-1);
 				// Cut off the :
 				exitLabel = exitLabel.substring(0, exitLabel.length() - 1);
 				
-				popIdx = i;
+				popIdx = cl;
 			} else if (line.startsWith("\tpush\t{") || line.startsWith("\tstmfd\t")) {
-				pushIdx = i;
+				pushIdx = cl;
 			}
 	
 		}
@@ -67,41 +68,43 @@ public class ASMTrace {
 		// Remove any branches to the exit label
 		//
 		String branchToExit = "\tb\t" + exitLabel;
-		for (int i = 0; i < traceBody.size(); i++) {
-			String line = traceBody.get(i);
+		for (int cl = 0; cl < traceBody.size(); cl++) {
+			String line = traceBody.get(cl);
 			
 			if (line.equals(branchToExit)) {
-				traceBody.remove(i);
-				i--;
+				traceBody.remove(cl);
+				cl--;
 			}
 		}
 		
 		// Rename all the .L labels, so they don't clash if we're pasting them together
 		// with other asm traces to form an injectable trace.
 		//
-		for (int i = 0; i < traceBody.size(); i++) {
-			String line = traceBody.get(i);
+		for (int cl = 0; cl < traceBody.size(); cl++) {
+			String line = traceBody.get(cl);
 			
 			if (line.contains(".L")) {
 				line = line.replaceAll(".L(\\d+)", String.format(".LT0x%x_$1", curTrace.entry));
 			}
 			
-			traceBody.remove(i);
-			traceBody.add(i, line);
+			traceBody.remove(cl);
+			traceBody.add(cl, line);
 		}
 		
 		// Replace all the bl's to exit/exception functions with b's to labels we'll generate
 		// in the injectable trace.
 		//
-		for (int i = 0; i < traceBody.size(); i++) {
-			String line = traceBody.get(i);
+		for (int cl = 0; cl < traceBody.size(); cl++) {
+			String line = traceBody.get(cl);
 			
 			if (line.contains("bl\texception")) {
-				i = handleException(context, i);
+				cl = handleException(context, cl);
 			} else if (line.contains("bl\texit")) {
-				i = handleExit(context, i);
+				cl = handleExit(context, cl);
 			} else if (line.contains("bl\treturn")) {
-				i = handleReturn(context, i);
+				cl = handleReturn(context, cl);
+			} else if (line.contains("bl\tinvoke_virtual_quick")) {
+				cl = handleInvokeVirtualQuick(context, cl);
 			}
 		}
 		
@@ -110,8 +113,8 @@ public class ASMTrace {
 		// NB: don't do this for traces containing switches just now - some teething troubles need ironed out.
 		if (!curTrace.meta.containsSwitch) {
 			Set<String> referencedLabels = new HashSet<String>();
-			for (int i = 0; i < traceBody.size(); i++) {
-				String line = traceBody.get(i);
+			for (int cl = 0; cl < traceBody.size(); cl++) {
+				String line = traceBody.get(cl);
 
 				if (line.matches(".*\\.L.*[^:]$")) {
 					Pattern p = Pattern.compile(".*(\\.L.*)$");
@@ -121,12 +124,12 @@ public class ASMTrace {
 					}
 				}
 			}
-			for (int i = 0; i < traceBody.size(); i++) {
-				String line = traceBody.get(i);
+			for (int cl = 0; cl < traceBody.size(); cl++) {
+				String line = traceBody.get(cl);
 
 				if (line.matches("^\\.L.*:$") && !referencedLabels.contains(line.substring(0, line.length() - 1))) {
-					traceBody.remove(i);
-					i--;
+					traceBody.remove(cl);
+					cl--;
 				}
 			}
 		}
@@ -134,8 +137,8 @@ public class ASMTrace {
 		// Find all clobbered registers
 		//
 		Set<Integer> clobberedRegs = new HashSet<Integer>();
-		for (int i = 0; i < traceBody.size(); i++) {
-			String line = traceBody.get(i);
+		for (int cl = 0; cl < traceBody.size(); cl++) {
+			String line = traceBody.get(cl);
 			
 			if (line.contains("r4")) {
 				clobberedRegs.add(4);
@@ -167,46 +170,187 @@ public class ASMTrace {
 		}
 	}
 	
-	private int handleExit(CodeGenContext context, int currentLineIdx) {
+	private int handleExit(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
 		
-		currentLineIdx = replaceLine(currentLineIdx, traceBody.get(currentLineIdx).replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT0x%x_CC_$1", curTrace.entry)));
+		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT0x%x_CC_$1", curTrace.entry)));
 		
-		return currentLineIdx;
+		return cl;
 	}
 	
-	private int handleException(CodeGenContext context, int currentLineIdx) {
+	private int handleException(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
 		
-		currentLineIdx = replaceLine(currentLineIdx, traceBody.get(currentLineIdx).replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTrace.entry)));
+		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTrace.entry)));
 		
-		return currentLineIdx;
+		return cl;
 	}
 	
-	private int handleReturn(CodeGenContext context, int currentLineIdx) {
+	private int handleReturn(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
+		
+		// If we add an entry to the literal pool, then the return 
+		// handler will be loaded into this literal pool location.
+		//
+		int literalPoolLoc = curTrace.meta.literalPoolSize;
+		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.RETURN_HANDLER, 0);
 		
 		// Create the jump to the return handler
-		currentLineIdx = addLine(currentLineIdx, String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool", curTrace.entry));
-		currentLineIdx = addLine(currentLineIdx, String.format("\tldr\tr0, [r2,#%d]", curTrace.meta.literalPoolOpcodes.indexOf(Opcode.RETURN)*4));
-		currentLineIdx = addLine(currentLineIdx, "\tblx\tr0");
+		cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool", curTrace.entry));
+		cl = addLine(cl, String.format("\tldr\tr0, [r2, #%d]", literalPoolLoc*4));
+		cl = addLine(cl, "\tblx\tr0");
 		
 		
-		currentLineIdx = replaceLine(currentLineIdx, traceBody.get(currentLineIdx).replaceFirst("\tbl\treturn_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTrace.entry)));
+		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\treturn_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTrace.entry)));
 		
-		return currentLineIdx;
+		return cl;
 	}
 	
-	private int replaceLine(int currentLineIdx, String line) {
-		traceBody.remove(currentLineIdx);
-		traceBody.add(currentLineIdx, line);
+	private int handleInvokeVirtualQuick(CodeGenContext context, int cl) {
+		Trace curTrace = context.getCurrentTrace();
 		
-		return currentLineIdx;
+		String line = traceBody.get(cl);
+		
+		int codeAddress = 0;
+		Pattern p = Pattern.compile("bl\tinvoke_virtual_quick_L0x(.*)$");
+		Matcher m = p.matcher(line);
+		if (m.find()) {
+			codeAddress = Integer.parseInt(m.group(1), 16);
+		}
+		
+		Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
+		
+		// Remove the bl placeholder instruction
+		//
+		cl = removeLine(cl);
+		
+		// Handle arguments
+		//
+		cl = handleArgumentLoading(context, cl, codeAddress);
+		
+		// Load DPC from literal pool into r4
+		//
+		int literalPoolLoc = curTrace.meta.literalPoolSize;
+		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.DPC_OFFSET, codeAddress);
+		cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool", curTrace.entry));
+		cl = addLine(cl, String.format("\tldr\tr4, [r2, #%d]", literalPoolLoc*4));
+		
+		// Load the address of the beginning of the next instruction into r1
+		//
+		cl = addLine(cl, String.format("\tadr.w\tr1, JumpAfter_%#x", codeAddress));
+		
+		// Load the address of the predicted chaining cell into r2
+		// 
+		
+		// Load the method predicted chain handler's address, blx to it
+		//
+		literalPoolLoc = curTrace.meta.literalPoolSize;
+		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.METHOD_PREDICTED_CHAIN_HANDLER, 0);
+		cl = addLine(cl, String.format("\tadr.w\tr3, ITrace_0x%x_LiteralPool", curTrace.entry));
+		cl = addLine(cl, String.format("\tldr\tr3, [r3, #%d]", literalPoolLoc*4));
+		cl = addLine(cl, "\tblx\tr3");
+		
+		// Jump to the predicted chaining cell
+		//
+		
+		// Jump to the exception handler
+		//
+		
+		// Load vtable[methodIdx] into r0
+		//
+		
+		// Compare r1 to 0
+		//
+		
+		// If gt, jump past this next function call
+		//
+		
+		// load dvmJitToPatchPredictedChain pointer
+		//
+		
+		// blx to method
+		//
+		
+		// load address of next instruction into r1
+		//
+		cl = addLine(cl, String.format("\tadr.w\tr1, JumpAfter_%#x", codeAddress));
+		
+		// load the invoke method no opt handler, blx to it
+		//
+		
+		// If there's an exception in the handler, we'll return here, so jump to our exception handler.
+		//
+		
+		// Emit this label that we use as the return point after function invocation.
+		//
+		cl = addLine(cl, String.format("JumpAfter_%#x:", codeAddress));
+		
+		return cl;
 	}
 	
-	private int addLine(int currentLineIdx, String line) {
-		traceBody.add(currentLineIdx, line);
+	private int handleArgumentLoading(CodeGenContext context, int cl, int codeAddress) {
+		Trace curTrace = context.getCurrentTrace();
 		
-		return currentLineIdx + 1;
+		Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
+		
+		cl = addLine(cl, "  # begin arg loading");
+		
+		int regCount = ((FiveRegisterInstruction)instruction).getRegCount();
+		
+		if (regCount > 0) {
+			cl = addLine(cl, String.format("\tldr\tr0, [r5, #%d]", ((FiveRegisterInstruction)instruction).getRegisterD()*4 ) );
+		}
+		if (regCount > 1) {
+			cl = addLine(cl, String.format("\tldr\tr1, [r5, #%d]", ((FiveRegisterInstruction)instruction).getRegisterE()*4 ) );
+		}
+		if (regCount > 2) {
+			cl = addLine(cl, String.format("\tldr\tr2, [r5, #%d]", ((FiveRegisterInstruction)instruction).getRegisterF()*4 ) );
+		}
+		if (regCount > 3) {
+			cl = addLine(cl, String.format("\tldr\tr3, [r5, #%d]", ((FiveRegisterInstruction)instruction).getRegisterG()*4 ) );
+		}
+		if (regCount > 4) {
+			cl = addLine(cl, String.format("\tldr\tr4, [r5, #%d]", ((FiveRegisterInstruction)instruction).getRegisterA()*4 ) );
+		}
+		
+		cl = addLine(cl, String.format("\tsub\tr7, r5, #%d", 20 /*size of StackSaveArea*/ + ((FiveRegisterInstruction)instruction).getRegCount()*4));
+		
+		if (regCount > 0) {
+			cl = addLine(cl, "\tcmp\tr0, #0");
+			
+			cl = addLine(cl, String.format("\tbeq\tLT%#x_EH_%#x", curTrace.entry, codeAddress));
+			
+			String argsToPush = "";
+			for (int i = 0; i < regCount; i++) {
+				argsToPush += String.format("r%d",i);
+				if (i != (regCount-1)) {
+					argsToPush += ",";
+				}
+			}
+			
+			cl = addLine(cl, String.format("\tstmia\tr7, {%s}", argsToPush));
+		}
+		cl = addLine(cl, "  # end arg loading");
+		
+		return cl;
+	}
+	
+	private int removeLine(int cl) {
+		traceBody.remove(cl);
+		
+		return cl;
+	}
+	
+	private int replaceLine(int cl, String line) {
+		traceBody.remove(cl);
+		traceBody.add(cl, line);
+		
+		return cl;
+	}
+	
+	private int addLine(int cl, String line) {
+		traceBody.add(cl, line);
+		
+		return cl + 1;
 	}
 }

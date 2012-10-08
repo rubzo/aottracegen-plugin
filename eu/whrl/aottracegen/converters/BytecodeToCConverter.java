@@ -15,6 +15,7 @@ import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction;
 import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction.PackedSwitchTarget;
 
 import eu.whrl.aottracegen.CodeGenContext;
+import eu.whrl.aottracegen.LiteralPoolType;
 import eu.whrl.aottracegen.Trace;
 import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
@@ -47,16 +48,6 @@ public class BytecodeToCConverter {
 		case RETURN_OBJECT:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
-			
-			// If we add this opcode to the literal pool, then the return 
-			// handler will be loaded into this literal pool location.
-			//
-			// We just need to jump there, so we can't do that in C,
-			// so we'll do it in the ASMTrace cleanup routine instead...
-			//
-			curTrace.meta.literalPoolIndices.add(0);
-			curTrace.meta.literalPoolOpcodes.add(Opcode.RETURN);
-			curTrace.meta.literalPoolSize++;
 			
 			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
 					String.format("  goto __return_L%#x;", codeAddress);
@@ -336,9 +327,7 @@ public class BytecodeToCConverter {
 			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
 			
 			int literalPoolLoc = curTrace.meta.literalPoolSize;
-			curTrace.meta.literalPoolIndices.add(field);
-			curTrace.meta.literalPoolOpcodes.add(instruction.opcode);
-			curTrace.meta.literalPoolSize++;
+			curTrace.meta.addLiteralPoolEntry(LiteralPoolType.STATIC_FIELD, field);
 			
 			result = String.format("  {\n" +
 					 "  int *obj = (int*) lit[%d];\n" +
@@ -377,6 +366,12 @@ public class BytecodeToCConverter {
 			
 			result = String.format("  if (v[%2$d] == 0) goto __exception_L%4$#x;\n" +
 					               "  *((int*) (((char*)v[%2$d]) + %3$#x)) = v[%1$d];", vA, vB, offset, codeAddress);
+			break;
+		}
+		
+		case INVOKE_VIRTUAL_QUICK:
+		{
+			result = String.format("  invoke_virtual_quick_L%#x();", codeAddress);
 			break;
 		}
 		
