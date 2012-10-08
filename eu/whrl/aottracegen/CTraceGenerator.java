@@ -215,7 +215,7 @@ public class CTraceGenerator {
 		
 		// Generate the exit function prototypes.
 		for (int successorAddress : curTrace.successors) {
-			writer.write(String.format("void exit_L0x%x() {return;}\n", successorAddress));
+			writer.write(String.format("void exit_L%#x() {return;}\n", successorAddress));
 		}
 		
 		writer.write("\n");
@@ -225,7 +225,7 @@ public class CTraceGenerator {
 	 * Emit the function signature, basically.
 	 */
 	private void emitFunctionStart(Writer writer) throws IOException {
-		writer.write(String.format("// --- TRACE 0x%x START ---\n", context.getCurrentTrace().entry));
+		writer.write(String.format("// --- TRACE %#x START ---\n", context.getCurrentTrace().entry));
 		writer.write("void trace(int* v, char *self, int *lit) {\n");
 	}
 	
@@ -234,7 +234,7 @@ public class CTraceGenerator {
 	 */
 	private void emitForCodeAddress(Writer writer, int codeAddress) throws IOException, UnimplementedInstructionException {
 		writer.write(stringConverter.convert(context, codeAddress));
-		writer.write(String.format("  __L0x%x:\n", codeAddress));
+		writer.write(String.format("  __L%#x:\n", codeAddress));
 		writer.write(converter.convert(context, codeAddress));
 		writer.write("\n");
 	}
@@ -265,7 +265,7 @@ public class CTraceGenerator {
 		
 		// Generate the exit labels.
 		for (int successorAddress : curTrace.successors) {
-			writer.write(String.format("  __exit_L0x%1$x: exit_L0x%1$x(); return;\n", successorAddress));
+			writer.write(String.format("  __exit_L%1$#x: exit_L%1$#x(); return;\n", successorAddress));
 		}
 		
 		writer.write("\n");

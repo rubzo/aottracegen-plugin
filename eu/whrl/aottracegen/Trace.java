@@ -74,13 +74,13 @@ public class Trace {
 	 * Print out the trace.
 	 */
 	public void print(CodeGenContext context) {
-		System.out.println(String.format("Trace starting at 0x%x", entry));
+		System.out.println(String.format("Trace starting at %#x", entry));
     	System.out.println();
 
     	for (int i = 0; i < length; i++) {
     		int codeAddress = addresses[i];
     		Instruction inst = context.getInstructionAtCodeAddress(codeAddress);
-    		System.out.println(String.format("0x%x: %s", codeAddress, inst.opcode.name));
+    		System.out.println(String.format("%#x: %s", codeAddress, inst.opcode.name));
     	}
     	
     	System.out.println();

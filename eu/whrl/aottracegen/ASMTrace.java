@@ -84,7 +84,7 @@ public class ASMTrace {
 			String line = traceBody.get(cl);
 			
 			if (line.contains(".L")) {
-				line = line.replaceAll(".L(\\d+)", String.format(".LT0x%x_$1", curTrace.entry));
+				line = line.replaceAll(".L(\\d+)", String.format(".LT%#x_$1", curTrace.entry));
 			}
 			
 			traceBody.remove(cl);
@@ -173,7 +173,7 @@ public class ASMTrace {
 	private int handleExit(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
 		
-		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT0x%x_CC_$1", curTrace.entry)));
+		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT%#x_CC_$1", curTrace.entry)));
 		
 		return cl;
 	}
@@ -181,7 +181,7 @@ public class ASMTrace {
 	private int handleException(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
 		
-		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTrace.entry)));
+		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT%#x_EH_$1", curTrace.entry)));
 		
 		return cl;
 	}
@@ -196,12 +196,12 @@ public class ASMTrace {
 		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.RETURN_HANDLER, 0);
 		
 		// Create the jump to the return handler
-		cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool", curTrace.entry));
+		cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr0, [r2, #%d]", literalPoolLoc*4));
 		cl = addLine(cl, "\tblx\tr0");
 		
 		
-		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\treturn_L(.+)", String.format("\tb\tLT0x%x_EH_$1", curTrace.entry)));
+		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\treturn_L(.+)", String.format("\tb\tLT%#x_EH_$1", curTrace.entry)));
 		
 		return cl;
 	}
@@ -232,7 +232,7 @@ public class ASMTrace {
 		//
 		int literalPoolLoc = curTrace.meta.literalPoolSize;
 		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.DPC_OFFSET, codeAddress);
-		cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool", curTrace.entry));
+		cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr4, [r2, #%d]", literalPoolLoc*4));
 		
 		// Load the address of the beginning of the next instruction into r1
@@ -246,7 +246,7 @@ public class ASMTrace {
 		//
 		literalPoolLoc = curTrace.meta.literalPoolSize;
 		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.METHOD_PREDICTED_CHAIN_HANDLER, 0);
-		cl = addLine(cl, String.format("\tadr.w\tr3, ITrace_0x%x_LiteralPool", curTrace.entry));
+		cl = addLine(cl, String.format("\tadr.w\tr3, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr3, [r3, #%d]", literalPoolLoc*4));
 		cl = addLine(cl, "\tblx\tr3");
 		

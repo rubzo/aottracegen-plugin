@@ -26,7 +26,7 @@ public class BytecodeToPrettyConverter {
 		
 		Trace curTrace = context.getCurrentTrace();
 		
-		String result = String.format("  // BYTECODE AT 0x%x: ", codeAddress);
+		String result = String.format("  // BYTECODE AT %#x: ", codeAddress);
 		
 		switch (instruction.opcode) {
 		
@@ -60,7 +60,7 @@ public class BytecodeToPrettyConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result += String.format("goto +0x%x;", targetAddress);
+			result += String.format("goto +%#x;", targetAddress);
 			break;
 		}
 		
@@ -69,7 +69,7 @@ public class BytecodeToPrettyConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result += String.format("goto/16 +0x%x;", targetAddress);
+			result += String.format("goto/16 +%#x;", targetAddress);
 			break;
 		}
 		
@@ -78,7 +78,7 @@ public class BytecodeToPrettyConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result += String.format("goto/32 +0x%x;", targetAddress);
+			result += String.format("goto/32 +%#x;", targetAddress);
 			break;
 		}
 		
@@ -97,7 +97,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-eq v%d, v%d, +0x%x",
+			result += String.format("if-eq v%d, v%d, +%#x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -109,7 +109,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-ne v%d, v%d, +0x%x",
+			result += String.format("if-ne v%d, v%d, +%#x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -121,7 +121,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-lt v%d, v%d, +0x%x",
+			result += String.format("if-lt v%d, v%d, +%#x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -133,7 +133,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-ge v%d, v%d, +0x%x",
+			result += String.format("if-ge v%d, v%d, +%#x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -145,7 +145,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-gt v%d, v%d, +0x%x",
+			result += String.format("if-gt v%d, v%d, +%#x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -157,7 +157,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-le v%d, v%d, +0x%x",
+			result += String.format("if-le v%d, v%d, +%#x",
 					vA, vB, targetAddressOffset);
 			break;
 		}
@@ -168,7 +168,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-eqz v%d, +0x%x",
+			result += String.format("if-eqz v%d, +%#x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -179,7 +179,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-nez v%d, +0x%x",
+			result += String.format("if-nez v%d, +%#x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -190,7 +190,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-ltz v%d, +0x%x",
+			result += String.format("if-ltz v%d, +%#x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -201,7 +201,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-gez v%d, +0x%x",
+			result += String.format("if-gez v%d, +%#x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -212,7 +212,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-gtz v%d, +0x%x",
+			result += String.format("if-gtz v%d, +%#x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -223,7 +223,7 @@ public class BytecodeToPrettyConverter {
 
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 
-			result += String.format("if-lez v%d, +0x%x",
+			result += String.format("if-lez v%d, +%#x",
 					vA, targetAddressOffset);
 			break;
 		}
@@ -268,7 +268,7 @@ public class BytecodeToPrettyConverter {
 			
 			int literalPoolLoc = curTrace.meta.literalPoolSize;
 			
-			result += String.format("sget-object v%d, field@0x%x (lit pool idx: %d)",
+			result += String.format("sget-object v%d, field@%#x (lit pool idx: %d)",
 					 vA, field, literalPoolLoc);
 			break;
 		}

@@ -165,23 +165,23 @@ public class ITraceGenerator {
 		
 		writer.write("dvmITraceStartTable:\n");
 		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_0x%x_Start\n", traceEntry));
+			writer.write(String.format("\t.word ITrace_%#x_Start\n", traceEntry));
 		}
 		writer.write("dvmITraceEndTable:\n");
 		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_0x%x_End\n", traceEntry));
+			writer.write(String.format("\t.word ITrace_%#x_End\n", traceEntry));
 		}
 		writer.write("dvmITraceBasePCTable:\n");
 		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_0x%x_BasePC\n", traceEntry));
+			writer.write(String.format("\t.word ITrace_%#x_BasePC\n", traceEntry));
 		}
 		writer.write("dvmITraceChainingCellsTable:\n");
 		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_0x%x_ChainingCells\n", traceEntry));
+			writer.write(String.format("\t.word ITrace_%#x_ChainingCells\n", traceEntry));
 		}
 		writer.write("dvmITraceLiteralPoolTable:\n");
 		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_0x%x_LiteralPool\n", traceEntry));
+			writer.write(String.format("\t.word ITrace_%#x_LiteralPool\n", traceEntry));
 		}
 		
 	}
@@ -191,10 +191,10 @@ public class ITraceGenerator {
 			context.setCurrentTraceIndex(traceIdx);
 			Trace curTrace = context.getCurrentTrace();
 			
-			writer.write(String.format("ITrace_0x%x_ChainingCells:\n", curTrace.entry));
+			writer.write(String.format("ITrace_%#x_ChainingCells:\n", curTrace.entry));
 			
 			for (int successor : curTrace.successors) {
-				writer.write(String.format("\t.word LT0x%x_CC_0x%x_value\n", curTrace.entry, successor));
+				writer.write(String.format("\t.word LT%#x_CC_%#x_value\n", curTrace.entry, successor));
 			}
 		}
 	}
@@ -227,10 +227,9 @@ public class ITraceGenerator {
 	private void emitTrace(Writer writer, CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		ASMTrace curAsmTrace = asmTraces.get(context.getCurrentTraceIndex());
-		int traceEntry = curTrace.entry;
 		
 		// start of the trace
-		writer.write(String.format("ITrace_0x%x_Start:\n", traceEntry));
+		writer.write(String.format("ITrace_%#x_Start:\n", curTrace.entry));
 		writer.write("\n");
 		
 		// trace body - start off with putting fp, self and litpool pointers in the right place
@@ -239,7 +238,7 @@ public class ITraceGenerator {
 		writer.write("\tmov\tr0, r5\n");
 		writer.write("\tmov\tr1, r6\n");
 		if (curTrace.meta.literalPoolSize > 0) {
-			writer.write(String.format("\tadr.w\tr2, ITrace_0x%x_LiteralPool\n", curTrace.entry));
+			writer.write(String.format("\tadr.w\tr2, ITrace_%#x_LiteralPool\n", curTrace.entry));
 		}
 		emitClobberedRegisterSaving(writer, context, "push");
 		
@@ -250,12 +249,12 @@ public class ITraceGenerator {
 		
 		// base pc location
 		// NB: this MUST come just before the literal pool!
-		writer.write(String.format("ITrace_0x%x_BasePC:\n", traceEntry));
+		writer.write(String.format("ITrace_%#x_BasePC:\n", curTrace.entry));
 		writer.write("\t.word 0x00000000\n");
 		writer.write("\n");
 		
 		// its literal pool
-		writer.write(String.format("ITrace_0x%x_LiteralPool:\n", traceEntry));
+		writer.write(String.format("ITrace_%#x_LiteralPool:\n", curTrace.entry));
 		for (int litPoolIdx = 0; litPoolIdx < curTrace.meta.literalPoolSize; litPoolIdx++) {
 			writer.write("\t.word 0x00000000\n");
 		}
@@ -263,8 +262,8 @@ public class ITraceGenerator {
 		
 		// exception handlers
 		for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
-			writer.write(String.format("LT0x%x_EH_0x%x:\n", traceEntry, exceptionCodeAddress));
-			writer.write(String.format("\tadr.w\tr0, ITrace_0x%x_BasePC\n", traceEntry));
+			writer.write(String.format("LT%#x_EH_%#x:\n", curTrace.entry, exceptionCodeAddress));
+			writer.write(String.format("\tadr.w\tr0, ITrace_%#x_BasePC\n", curTrace.entry));
 			writer.write("\tldr\tr0, [r0]\n");
 			writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
 			emitClobberedRegisterSaving(writer, context, "pop");
@@ -277,25 +276,25 @@ public class ITraceGenerator {
 		for (int successor : curTrace.successors) {
 
 			if (curTrace.meta.hasClobberedRegisters) {
-				writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
+				writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, successor));
 				emitClobberedRegisterSaving(writer, context, "pop");
 				writer.write("\t.align 4\n");
 			} else {
 				writer.write("\t.align 4\n");
-				writer.write(String.format("LT0x%x_CC_0x%x:\n", traceEntry, successor));
+				writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, successor));
 			}
-			writer.write(String.format("\tb\tLT0x%x_CC_0x%x_next\n", traceEntry, successor));
+			writer.write(String.format("\tb\tLT%#x_CC_%#x_next\n", curTrace.entry, successor));
 			writer.write("\torrs\tr0, r0\n");
-			writer.write(String.format("LT0x%x_CC_0x%x_next:\n", traceEntry, successor));
+			writer.write(String.format("LT%#x_CC_%#x_next:\n", curTrace.entry, successor));
 			writer.write("\tldr\tr0, [r6, #100]\n");
 			writer.write("\tblx\tr0\n");
-			writer.write(String.format("LT0x%x_CC_0x%x_value:\n", traceEntry, successor));
+			writer.write(String.format("LT%#x_CC_%#x_value:\n", curTrace.entry, successor));
 			writer.write("\t.word 0x00000000\n");
 		}
 		writer.write("\n");
 		
 		// end of the trace
-		writer.write(String.format("ITrace_0x%x_End:\n", traceEntry));
+		writer.write(String.format("ITrace_%#x_End:\n", curTrace.entry));
 		writer.write("\t.word 0x00000000\n");
 	}
 }

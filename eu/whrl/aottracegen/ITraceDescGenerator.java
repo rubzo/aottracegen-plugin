@@ -68,7 +68,7 @@ public class ITraceDescGenerator {
 				int curTraceEntryAddress = context.getCurrentTrace().entry;
 				
 				writer.write(String.format("trace_desc %d\n", i+1));
-				writer.write(String.format("trace_entry 0x%x\n", curTraceEntryAddress));
+				writer.write(String.format("trace_entry %#x\n", curTraceEntryAddress));
 				emitLiteralPoolInfo(writer, context);
 				emitChainingCellInfo(writer, context);
 				writer.write(String.format("end_trace_desc %d\n", i+1));
@@ -89,7 +89,7 @@ public class ITraceDescGenerator {
 			LiteralPoolType type = curTrace.meta.literalPoolTypes.get(i);
 			String typeName = literalPoolTypeMap.get(type);
 			
-			writer.write(String.format("literal_pool %d %s 0x%x\n", i, typeName, value));
+			writer.write(String.format("literal_pool %d %s %#x\n", i, typeName, value));
 		}
 	}
 	
@@ -97,14 +97,14 @@ public class ITraceDescGenerator {
 		Trace curTrace = context.getCurrentTrace();
 		int i = 0;
 		for (int successor : curTrace.successors) {
-			writer.write(String.format("chaining_cell %d 0x%x\n", i, successor));
+			writer.write(String.format("chaining_cell %d %#x\n", i, successor));
 			i++;
 		}
 	}
 
 	private void emitHeader(CodeGenContext context) throws IOException {
 		writer.write("application_name " + context.config.app + "\n");
-		writer.write(String.format("method_index 0x%x\n", context.methodIndex));
+		writer.write(String.format("method_index %#x\n", context.methodIndex));
 		writer.write(String.format("num_traces %d\n", context.traces.size()));
 	}
 }

@@ -25,8 +25,8 @@ public class CodeGenerator {
 		
 		// Generate all the file names.
 		for (int i = 0; i < numTraces; i++) {
-			cTraceFileNames[i] = String.format("trace_0x%x.c", context.traces.get(i).entry);
-			asmTraceFileNames[i] = String.format("trace_0x%x.S", context.traces.get(i).entry);
+			cTraceFileNames[i] = String.format("trace_%#x.c", context.traces.get(i).entry);
+			asmTraceFileNames[i] = String.format("trace_%#x.S", context.traces.get(i).entry);
 		}
 		
 		try {
@@ -35,7 +35,7 @@ public class CodeGenerator {
 				
 				// Makes sure the generateC() and compileC() functions use the correct trace!
 				context.setCurrentTraceIndex(i);
-				System.out.println(String.format("Handling trace at 0x%x", context.getCurrentTrace().entry));
+				System.out.println(String.format("Handling trace at %#x", context.getCurrentTrace().entry));
 				
 				// Do the generation and compilation.
 				generateC(context, cTraceFileNames[i]);
@@ -53,7 +53,7 @@ public class CodeGenerator {
 			
 		} catch (UnimplementedInstructionException e) {
 			
-			System.err.println(String.format("Unimplemented instruction: '%s' at 0x%x. Cannot generate code.", 
+			System.err.println(String.format("Unimplemented instruction: '%s' at %#x. Cannot generate code.", 
 					e.getUnimplementedInstructionName(), e.getUnimplementedInstructionCodeAddress()));
 			
 		} catch (CompilationException e) {
