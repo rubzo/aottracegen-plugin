@@ -208,23 +208,6 @@ public class ITraceGenerator {
 		}
 	}
 	
-	private void emitClobberedRegisterSaving(CodeGenContext context, String operation) throws IOException {
-		Trace curTrace = context.getCurrentTrace();
-		
-		if (curTrace.meta.hasClobberedRegisters) {
-			writer.write(String.format("\t%s\t{", operation));
-			int i = 0;
-			for (int reg : curTrace.meta.clobberedRegisters) {
-				i++;
-				writer.write(String.format("r%d", reg));
-				if (i != curTrace.meta.clobberedRegisters.length) {
-					writer.write(", ");
-				}
-			}
-			writer.write("}\n");
-		}
-	}
-	
 	private void emitTrace(CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		ASMTrace curAsmTrace = asmTraces.get(context.getCurrentTraceIndex());
@@ -236,13 +219,7 @@ public class ITraceGenerator {
 		// trace body - start off with putting fp, self and litpool pointers in the right place
 		// we know upon entry to the trace that the fp is in r5, self is in r6, 
 		//  and what the name of the label we used for our literal pool is.
-		writer.write("\tmov\tr0, r5\n");
-		writer.write("\tmov\tr1, r6\n");
-		if (curTrace.meta.literalPoolSize > 0) {
-			writer.write(String.format("\tadr.w\tr2, ITrace_%#x_LiteralPool\n", curTrace.entry));
-		}
-		emitClobberedRegisterSaving(context, "push");
-		
+		writer.write(String.format("\tadr.w\tr0, ITrace_%#x_LiteralPool\n", curTrace.entry));		
 		
 		// and the actual trace body now...
 		writer.write(curAsmTrace.getFullStringTraceBody());
@@ -267,7 +244,6 @@ public class ITraceGenerator {
 			writer.write(String.format("\tadr.w\tr0, ITrace_%#x_BasePC\n", curTrace.entry));
 			writer.write("\tldr\tr0, [r0]\n");
 			writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
-			emitClobberedRegisterSaving(context, "pop");
 			writer.write("\tldr\tr1, [r6, #108]\n");
 			writer.write("\tblx\tr1\n");
 		}
@@ -284,14 +260,8 @@ public class ITraceGenerator {
 					writer.write("\t.2byte 0x0000\n");
 				}
 			} else {
-				if (curTrace.meta.hasClobberedRegisters) {
-					writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, cc.codeAddress));
-					emitClobberedRegisterSaving(context, "pop");
-					writer.write("\t.align 4\n");
-				} else {
-					writer.write("\t.align 4\n");
-					writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, cc.codeAddress));
-				}
+				writer.write("\t.align 4\n");
+				writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, cc.codeAddress));
 				writer.write(String.format("\tb\tLT%#x_CC_%#x_next\n", curTrace.entry, cc.codeAddress));
 				writer.write("\torrs\tr0, r0\n");
 				writer.write(String.format("LT%#x_CC_%#x_next:\n", curTrace.entry, cc.codeAddress));

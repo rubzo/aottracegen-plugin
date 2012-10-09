@@ -240,8 +240,16 @@ public class CTraceGenerator {
 	 * Emit the function signature, basically.
 	 */
 	private void emitFunctionStart() throws IOException {
+		writer.write("// --- INTERPRETER REGISTER PROTECTION ---\n");
+		writer.write("register int *pc asm (\"r4\");\n");
+		writer.write("register int *v asm (\"r5\");\n");
+		writer.write("register char *self asm (\"r6\");\n");
+		writer.write("register int *inst asm (\"r7\");\n");
+		writer.write("register int *ibase asm (\"r8\");\n");
+		writer.write("\n");
 		writer.write(String.format("// --- TRACE %#x START ---\n", context.getCurrentTrace().entry));
-		writer.write("void trace(int* v, char *self, int *lit) {\n");
+		writer.write("void trace(int *lit) {\n");
+		
 	}
 	
 	/*
