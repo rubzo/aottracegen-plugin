@@ -3,7 +3,6 @@ package eu.whrl.aottracegen;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -44,6 +43,12 @@ public class CTraceGenerator {
 		opcodesThatCanReturn.add(Opcode.RETURN_VOID);
 		opcodesThatCanReturn.add(Opcode.RETURN_VOID_BARRIER);
 		opcodesThatCanReturn.add(Opcode.RETURN_WIDE);
+	}
+	
+	private static Set<Opcode> opcodesWithHotChainingCells;
+	static {
+		opcodesWithHotChainingCells = new TreeSet<Opcode>();
+		opcodesWithHotChainingCells.add(Opcode.MOVE_RESULT);
 	}
 	
 	// This is a mapping from the Opcodes that need helper functions
@@ -123,14 +128,18 @@ public class CTraceGenerator {
 		
 		Trace curTrace = context.getCurrentTrace();
 		
+		for (int successor : curTrace.successors) {
+			curTrace.meta.chainingCells.put(successor, new ChainingCell(ChainingCell.Type.NORMAL, successor));
+		}
+		
 		try {
 			// Everything that this calls MUST throw the IOException back up here!
-			emitHelperFunctions(writer);
-			emitExitFunctionPrototypes(writer);
-			emitFunctionStart(writer);
+			emitHelperFunctions();
+			emitExitFunctionPrototypes();
+			emitFunctionStart();
 			
 			for (int i = 0; i < curTrace.length; i++) {
-				emitForCodeAddress(writer, curTrace.addresses[i]);
+				emitForCodeAddress(curTrace.addresses[i]);
 				
 				// If we're the last instruction, make sure we jump to the correct exit.
 				int codeAddress = curTrace.addresses[i];
@@ -140,14 +149,24 @@ public class CTraceGenerator {
 				if (needControlFlow(curTrace, i, nextAddress)) {
 					writer.write("  " + converter.getGotoLabel(curTrace, nextAddress) + ";\n\n");
 				}
+				
+			 	updateChainingCells(curTrace, instruction, codeAddress, nextAddress);
 			}
 			
-			emitExitLabels(writer);
-			emitFunctionEnd(writer);
+			emitExitLabels();
+			emitFunctionEnd();
 			
 		} catch (IOException e) {
 			System.err.println("Couldn't write to C file!");
 			throw new CGeneratorFaultException();
+		}
+	}
+
+	private void updateChainingCells(Trace curTrace, Instruction instruction, int codeAddress, int nextAddress) {
+		if (instruction.opcode == Opcode.INVOKE_VIRTUAL_QUICK) {
+			curTrace.meta.chainingCells.put(codeAddress, (new ChainingCell(ChainingCell.Type.INVOKE_PREDICTED, codeAddress)));
+		} else if (opcodesWithHotChainingCells.contains(instruction.opcode) && !curTrace.containsCodeAddress(nextAddress)) {
+			curTrace.meta.chainingCells.get(nextAddress).type = ChainingCell.Type.HOT;
 		}
 	}
 
@@ -167,7 +186,7 @@ public class CTraceGenerator {
 	/*
 	 * Emit the helper functions that will be used within the trace function.
 	 */
-	private void emitHelperFunctions(Writer writer) throws IOException {
+	private void emitHelperFunctions() throws IOException {
 		writer.write("// --- FUNCTIONS ---\n");
 		
 		Trace curTrace = context.getCurrentTrace();
@@ -188,7 +207,7 @@ public class CTraceGenerator {
 	 * Emit the functions that exit labels call. This will be required to correctly identify where the trace is going
 	 * when we're generating our injectable trace.
 	 */
-	private void emitExitFunctionPrototypes(Writer writer) throws IOException {
+	private void emitExitFunctionPrototypes() throws IOException {
 		writer.write("// --- EXIT FUNCTION PROTOTYPES ---\n");
 		
 		Trace curTrace = context.getCurrentTrace();
@@ -207,10 +226,6 @@ public class CTraceGenerator {
 			if (opcodesThatCanReturn.contains(instruction.opcode)) {
 				writer.write(String.format("void return_L%#x() {return;}\n", codeAddress));
 			}
-			
-			if (instruction.opcode == Opcode.INVOKE_VIRTUAL_QUICK) {
-				writer.write(String.format("void invoke_virtual_quick_L%#x() {return;}\n", codeAddress));
-			}
 		}
 		
 		// Generate the exit function prototypes.
@@ -224,7 +239,7 @@ public class CTraceGenerator {
 	/*
 	 * Emit the function signature, basically.
 	 */
-	private void emitFunctionStart(Writer writer) throws IOException {
+	private void emitFunctionStart() throws IOException {
 		writer.write(String.format("// --- TRACE %#x START ---\n", context.getCurrentTrace().entry));
 		writer.write("void trace(int* v, char *self, int *lit) {\n");
 	}
@@ -232,7 +247,7 @@ public class CTraceGenerator {
 	/*
 	 * Emit the comment, label and actual C for the given instruction.
 	 */
-	private void emitForCodeAddress(Writer writer, int codeAddress) throws IOException, UnimplementedInstructionException {
+	private void emitForCodeAddress(int codeAddress) throws IOException, UnimplementedInstructionException {
 		writer.write(stringConverter.convert(context, codeAddress));
 		writer.write(String.format("  __L%#x:\n", codeAddress));
 		writer.write(converter.convert(context, codeAddress));
@@ -243,7 +258,7 @@ public class CTraceGenerator {
 	 * Emit the exit labels that call functions. This will be required to correctly identify where the trace is going
 	 * when we're generating our injectable trace.
 	 */
-	private void emitExitLabels(Writer writer) throws IOException {
+	private void emitExitLabels() throws IOException {
 		writer.write("  // --- EXIT LABELS ---\n");
 		
 		Trace curTrace = context.getCurrentTrace();
@@ -274,7 +289,7 @@ public class CTraceGenerator {
 	/*
 	 * Emit the end of the function, basically!
 	 */
-	private void emitFunctionEnd(Writer writer) throws IOException {
+	private void emitFunctionEnd() throws IOException {
 		writer.write("}\n");
 	}
 }

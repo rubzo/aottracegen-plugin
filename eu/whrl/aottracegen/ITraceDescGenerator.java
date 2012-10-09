@@ -5,9 +5,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.jf.dexlib.Code.Opcode;
-
 import eu.whrl.aottracegen.exceptions.ITraceDescGeneratorFaultException;
 
 public class ITraceDescGenerator {
@@ -21,7 +18,9 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.STATIC_FIELD, "static_field");
 		literalPoolTypeMap.put(LiteralPoolType.RETURN_HANDLER, "return_handler");
 		literalPoolTypeMap.put(LiteralPoolType.DPC_OFFSET, "dpc_offset");
-		literalPoolTypeMap.put(LiteralPoolType.METHOD_PREDICTED_CHAIN_HANDLER, "method_predicted_chain_handler");
+		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_PREDICTED_CHAIN_HANDLER, "invoke_method_predicted_chain_handler");
+		literalPoolTypeMap.put(LiteralPoolType.JIT_TO_PATCH_PREDICTED_CHAIN_HANDLER, "jit_to_patch_predicted_chain_handler");
+		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_NO_OPT_HANDLER, "invoke_method_no_opt_handler");
 	}
 
 	public void prepare(String name) {
@@ -69,8 +68,8 @@ public class ITraceDescGenerator {
 				
 				writer.write(String.format("trace_desc %d\n", i+1));
 				writer.write(String.format("trace_entry %#x\n", curTraceEntryAddress));
-				emitLiteralPoolInfo(writer, context);
-				emitChainingCellInfo(writer, context);
+				emitLiteralPoolInfo(context);
+				emitChainingCellInfo(context);
 				writer.write(String.format("end_trace_desc %d\n", i+1));
 			}
 			
@@ -80,7 +79,7 @@ public class ITraceDescGenerator {
 		}
 	}
 
-	private void emitLiteralPoolInfo(FileWriter writer2, CodeGenContext context) throws IOException {
+	private void emitLiteralPoolInfo(CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		for (int i = 0; i < curTrace.meta.literalPoolSize; i++) {
 			
@@ -93,12 +92,14 @@ public class ITraceDescGenerator {
 		}
 	}
 	
-	private void emitChainingCellInfo(FileWriter writer2, CodeGenContext context) throws IOException {
+	private void emitChainingCellInfo(CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		int i = 0;
-		for (int successor : curTrace.successors) {
-			writer.write(String.format("chaining_cell %d %#x\n", i, successor));
-			i++;
+		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
+			if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
+				writer.write(String.format("chaining_cell %d %#x\n", i, cc.codeAddress));
+				i++;
+			}
 		}
 	}
 

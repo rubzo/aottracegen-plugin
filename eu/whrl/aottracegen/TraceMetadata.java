@@ -1,7 +1,9 @@
 package eu.whrl.aottracegen;
 
 import java.util.ArrayList;
+import java.util.TreeMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -17,6 +19,7 @@ public class TraceMetadata {
 	public int[] clobberedRegisters;
 	public boolean hasClobberedRegisters;
 	public boolean containsSwitch;
+	public Map<Integer, ChainingCell> chainingCells;
 	
 	public TraceMetadata() {
 		opcodesUsedThatNeedHelperFunctions = new TreeSet<Opcode>();
@@ -27,6 +30,7 @@ public class TraceMetadata {
 		clobberedRegisters = null;
 		hasClobberedRegisters = false;
 		containsSwitch = false;
+		chainingCells = new TreeMap<Integer,ChainingCell>();
 	}
 	
 	public void addLiteralPoolEntry(LiteralPoolType type, int value) {

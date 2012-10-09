@@ -6,7 +6,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -124,15 +123,15 @@ public class ITraceGenerator {
 	
 		try {
 			
-			emitStart(writer);
+			emitStart();
 				
-			emitTables(writer, context);
+			emitTables(context);
 			writer.write("\n");
 			
-			emitChainingCells(writer, context);
+			emitChainingCellsTable(context);
 			writer.write("\n");
 			
-			emitTraces(writer, context);
+			emitTraces(context);
 			
 		} catch (IOException e) {
 			System.err.println("Couldn't write to injectable trace file!");
@@ -140,7 +139,7 @@ public class ITraceGenerator {
 		}
 	}
 	
-	private void emitStart(Writer writer) throws IOException {
+	private void emitStart() throws IOException {
 		
 		writer.write("\t.text\n");
 		writer.write("\t.global dvmITraceStartTable\n");
@@ -155,7 +154,7 @@ public class ITraceGenerator {
 		
 	}
 	
-	private void emitTables(Writer writer, CodeGenContext context) throws IOException {
+	private void emitTables(CodeGenContext context) throws IOException {
 		int[] traceEntries = new int[context.traces.size()];
 		int idx = 0;
 		for (Trace trace : context.traces) {
@@ -186,28 +185,30 @@ public class ITraceGenerator {
 		
 	}
 	
-	private void emitChainingCells(Writer writer, CodeGenContext context) throws IOException {
+	private void emitChainingCellsTable(CodeGenContext context) throws IOException {
 		for (int traceIdx = 0; traceIdx < context.traces.size(); traceIdx++) {
 			context.setCurrentTraceIndex(traceIdx);
 			Trace curTrace = context.getCurrentTrace();
 			
 			writer.write(String.format("ITrace_%#x_ChainingCells:\n", curTrace.entry));
 			
-			for (int successor : curTrace.successors) {
-				writer.write(String.format("\t.word LT%#x_CC_%#x_value\n", curTrace.entry, successor));
+			for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
+				if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
+					writer.write(String.format("\t.word LT%#x_CC_%#x_value\n", curTrace.entry, cc.codeAddress));
+				}
 			}
 		}
 	}
 	
-	private void emitTraces(Writer writer, CodeGenContext context) throws IOException {
+	private void emitTraces(CodeGenContext context) throws IOException {
 		for (int traceIdx = 0; traceIdx < context.traces.size(); traceIdx++) {
 			context.setCurrentTraceIndex(traceIdx);
-			emitTrace(writer, context);
+			emitTrace(context);
 			writer.write("\n");
 		}
 	}
 	
-	private void emitClobberedRegisterSaving(Writer writer, CodeGenContext context, String operation) throws IOException {
+	private void emitClobberedRegisterSaving(CodeGenContext context, String operation) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		
 		if (curTrace.meta.hasClobberedRegisters) {
@@ -224,7 +225,7 @@ public class ITraceGenerator {
 		}
 	}
 	
-	private void emitTrace(Writer writer, CodeGenContext context) throws IOException {
+	private void emitTrace(CodeGenContext context) throws IOException {
 		Trace curTrace = context.getCurrentTrace();
 		ASMTrace curAsmTrace = asmTraces.get(context.getCurrentTraceIndex());
 		
@@ -240,7 +241,7 @@ public class ITraceGenerator {
 		if (curTrace.meta.literalPoolSize > 0) {
 			writer.write(String.format("\tadr.w\tr2, ITrace_%#x_LiteralPool\n", curTrace.entry));
 		}
-		emitClobberedRegisterSaving(writer, context, "push");
+		emitClobberedRegisterSaving(context, "push");
 		
 		
 		// and the actual trace body now...
@@ -266,30 +267,43 @@ public class ITraceGenerator {
 			writer.write(String.format("\tadr.w\tr0, ITrace_%#x_BasePC\n", curTrace.entry));
 			writer.write("\tldr\tr0, [r0]\n");
 			writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
-			emitClobberedRegisterSaving(writer, context, "pop");
+			emitClobberedRegisterSaving(context, "pop");
 			writer.write("\tldr\tr1, [r6, #108]\n");
 			writer.write("\tblx\tr1\n");
 		}
 		writer.write("\n");
+	
 		
-		// chaining cells
-		for (int successor : curTrace.successors) {
+		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 
-			if (curTrace.meta.hasClobberedRegisters) {
-				writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, successor));
-				emitClobberedRegisterSaving(writer, context, "pop");
+			if (cc.type == ChainingCell.Type.INVOKE_PREDICTED) {
 				writer.write("\t.align 4\n");
+				writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, cc.codeAddress));
+				writer.write("\t.2byte 0xe7fe\n");
+				for (int i = 0; i < 7; i++) {
+					writer.write("\t.2byte 0x0000\n");
+				}
 			} else {
-				writer.write("\t.align 4\n");
-				writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, successor));
+				if (curTrace.meta.hasClobberedRegisters) {
+					writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, cc.codeAddress));
+					emitClobberedRegisterSaving(context, "pop");
+					writer.write("\t.align 4\n");
+				} else {
+					writer.write("\t.align 4\n");
+					writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, cc.codeAddress));
+				}
+				writer.write(String.format("\tb\tLT%#x_CC_%#x_next\n", curTrace.entry, cc.codeAddress));
+				writer.write("\torrs\tr0, r0\n");
+				writer.write(String.format("LT%#x_CC_%#x_next:\n", curTrace.entry, cc.codeAddress));
+				if (cc.type == ChainingCell.Type.HOT) {
+					writer.write("\tldr\tr0, [r6, #116]\n");
+				} else {
+					writer.write("\tldr\tr0, [r6, #100]\n");
+				}
+				writer.write("\tblx\tr0\n");
+				writer.write(String.format("LT%#x_CC_%#x_value:\n", curTrace.entry, cc.codeAddress));
+				writer.write("\t.word 0x00000000\n");
 			}
-			writer.write(String.format("\tb\tLT%#x_CC_%#x_next\n", curTrace.entry, successor));
-			writer.write("\torrs\tr0, r0\n");
-			writer.write(String.format("LT%#x_CC_%#x_next:\n", curTrace.entry, successor));
-			writer.write("\tldr\tr0, [r6, #100]\n");
-			writer.write("\tblx\tr0\n");
-			writer.write(String.format("LT%#x_CC_%#x_value:\n", curTrace.entry, successor));
-			writer.write("\t.word 0x00000000\n");
 		}
 		writer.write("\n");
 		
