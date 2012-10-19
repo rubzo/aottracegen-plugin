@@ -239,15 +239,18 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		// exception handlers
-		for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
-			writer.write(String.format("LT%#x_EH_%#x:\n", curTrace.entry, exceptionCodeAddress));
-			writer.write(String.format("\tadr.w\tr0, ITrace_%#x_BasePC\n", curTrace.entry));
-			writer.write("\tldr\tr0, [r0]\n");
-			writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
+		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
+			for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
+				writer.write(String.format("LT%#x_EH_%#x:\n", curTrace.entry, exceptionCodeAddress));
+				writer.write(String.format("\tldr\tr0, ITrace_%#x_BasePC\n", curTrace.entry));
+				writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
+				writer.write(String.format("\tb\tLT%#x_EH_MAIN\n", curTrace.entry));
+			}
+			writer.write(String.format("LT%#x_EH_MAIN:\n", curTrace.entry));
 			writer.write("\tldr\tr1, [r6, #108]\n");
 			writer.write("\tblx\tr1\n");
+			writer.write("\n");
 		}
-		writer.write("\n");
 	
 		
 		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {

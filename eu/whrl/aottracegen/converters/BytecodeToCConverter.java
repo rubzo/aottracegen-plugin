@@ -53,6 +53,15 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case CONST_4:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+			
+			result = String.format("  v[%d] = %d;", vA, lit);
+			break;
+		}
+		
 		case CONST_16:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
@@ -328,11 +337,7 @@ public class BytecodeToCConverter {
 			int literalPoolLoc = curTrace.meta.literalPoolSize;
 			curTrace.meta.addLiteralPoolEntry(LiteralPoolType.STATIC_FIELD, field);
 			
-			result = String.format("  {\n" +
-					 "  int *obj = (int*) lit[%d];\n" +
-					 "  v[%d] = *obj;\n" +
-					 "  }",
-					 literalPoolLoc, vA);
+			result = String.format("  v[%d] = *((int*) lit[%d]);", vA, literalPoolLoc);
 			break;
 		}
 		

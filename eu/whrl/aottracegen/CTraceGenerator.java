@@ -13,6 +13,7 @@ import org.jf.dexlib.Code.Opcode;
 
 import eu.whrl.aottracegen.converters.BytecodeToCConverter;
 import eu.whrl.aottracegen.converters.BytecodeToPrettyConverter;
+import eu.whrl.aottracegen.converters.BytecodeToUnsafeCConverter;
 import eu.whrl.aottracegen.exceptions.CGeneratorFaultException;
 import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
@@ -85,7 +86,7 @@ public class CTraceGenerator {
 		this.context = context;
 		writer = null;
 		prepared = false;
-		converter = new BytecodeToCConverter();
+		converter = new BytecodeToUnsafeCConverter();
 		stringConverter = new BytecodeToPrettyConverter();
 	}
 	
@@ -241,7 +242,7 @@ public class CTraceGenerator {
 	 */
 	private void emitFunctionStart() throws IOException {
 		writer.write("// --- INTERPRETER REGISTER PROTECTION ---\n");
-		writer.write("register int *pc asm (\"r4\");\n");
+		//writer.write("register int *pc asm (\"r4\");\n");
 		writer.write("register int *v asm (\"r5\");\n");
 		writer.write("register char *self asm (\"r6\");\n");
 		writer.write("register int *inst asm (\"r7\");\n");

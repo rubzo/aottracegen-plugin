@@ -46,6 +46,15 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
+		case CONST_4:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+
+			result += String.format("const/4 v%d, #%d", vA, lit);
+			break;
+		}
+		
 		case CONST_16:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
