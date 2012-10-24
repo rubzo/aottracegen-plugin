@@ -65,6 +65,8 @@ public class AOTTraceGen implements Plugin {
 					config.signature = line.substring(10, line.length());
 				} else if (line.startsWith("merge")) {
 					config.produceMerged = true;
+				} else if (line.startsWith("unsafe")) {
+					config.produceUnsafe = true;
 				} else if (line.startsWith("trace all")) {
 					config.traceAll = true;
 				} else if (line.startsWith("trace")) {
@@ -174,6 +176,7 @@ public class AOTTraceGen implements Plugin {
 				traceMap = traceMerger.mergeTraces(context, config, traceMap);
 			} catch (TraceMergingException e) {
 				System.err.println("Couldn't merge traces. Could not continue.");
+				return;
 			}
 			
 		}
@@ -188,10 +191,15 @@ public class AOTTraceGen implements Plugin {
 		// Generate code for the selected traces
 		CodeGenerator codeGen = new CodeGenerator();
 		for (int traceEntry : config.traceEntries) {
-			Trace trace = traceMap.get(traceEntry);			
+			Trace trace = traceMap.get(traceEntry);	
+			if (trace == null) {
+				System.err.println(String.format("Specified trace %#x is not a trace head", traceEntry));
+				return;
+			}
 			trace.print(context);
 			context.addTrace(trace);
 		}
+		
 		codeGen.generateCodeFromContext(context);
 	}
 	

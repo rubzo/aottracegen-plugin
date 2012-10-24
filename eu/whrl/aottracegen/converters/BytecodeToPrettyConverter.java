@@ -64,6 +64,24 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
+		case CONST_WIDE_16:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+
+			result += String.format("const-wide/16 v%d, #%d", vA, lit);
+			break;
+		}
+		
+		case NEW_INSTANCE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+
+			result += String.format("new-instance v%d, type@%#x", vA, field);
+			break;
+		}
+		
 		case GOTO:
 		{
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
@@ -282,13 +300,32 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
+		case INVOKE_DIRECT:
+		{
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			String argsString = getArgsString(instruction);
+			
+			result += String.format("invoke-direct %s, meth@%#x", argsString, field);
+			break;
+		}
+		
+		case INT_TO_LONG:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("int-to-long v%d, v%d", vA, vB);
+			break;
+		}
+		
 		case ADD_INT_LIT8:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			long constant = ((LiteralInstruction)instruction).getLiteral();
 			
-			result += String.format("add-int v%d, v%d, #%d;", vA, vB, constant);
+			result += String.format("add-int v%d, v%d, #%d", vA, vB, constant);
 			break;
 		}
 		
@@ -319,40 +356,7 @@ public class BytecodeToPrettyConverter {
 			
 			int vtableIndex = ((OdexedInvokeVirtual)instruction).getVtableIndex();
 			
-			String argsString = "{";
-			
-			FiveRegisterInstruction regRef = ((FiveRegisterInstruction)instruction); 
-			int regCount = regRef.getRegCount();
-			
-			if (regCount > 0) {
-				argsString += "v" + regRef.getRegisterD();
-				if (regCount != 1) {
-					argsString += ", ";
-				}
-			}
-			if (regCount > 1) {
-				argsString += "v" + regRef.getRegisterE();
-				if (regCount != 2) {
-					argsString += ", ";
-				}
-			}
-			if (regCount > 2) {
-				argsString += "v" + regRef.getRegisterF();
-				if (regCount != 3) {
-					argsString += ", ";
-				}
-			}
-			if (regCount > 3) {
-				argsString += "v" + regRef.getRegisterG();
-				if (regCount != 4) {
-					argsString += ", ";
-				}
-			}
-			if (regCount > 4) {
-				argsString += "v" + regRef.getRegisterA();
-			}
-	
-			argsString += "}";
+			String argsString = getArgsString(instruction);
 			
 			result += String.format("+invoke-virtual-quick %s, [%#x]", argsString, vtableIndex);
 			break;
@@ -367,5 +371,44 @@ public class BytecodeToPrettyConverter {
 		}
 
 		return result + "\n";
+	}
+	
+	private String getArgsString(Instruction instruction) {
+		String argsString = "{";
+		
+		FiveRegisterInstruction regRef = ((FiveRegisterInstruction)instruction); 
+		int regCount = regRef.getRegCount();
+		
+		if (regCount > 0) {
+			argsString += "v" + regRef.getRegisterD();
+			if (regCount != 1) {
+				argsString += ", ";
+			}
+		}
+		if (regCount > 1) {
+			argsString += "v" + regRef.getRegisterE();
+			if (regCount != 2) {
+				argsString += ", ";
+			}
+		}
+		if (regCount > 2) {
+			argsString += "v" + regRef.getRegisterF();
+			if (regCount != 3) {
+				argsString += ", ";
+			}
+		}
+		if (regCount > 3) {
+			argsString += "v" + regRef.getRegisterG();
+			if (regCount != 4) {
+				argsString += ", ";
+			}
+		}
+		if (regCount > 4) {
+			argsString += "v" + regRef.getRegisterA();
+		}
+
+		argsString += "}";
+		
+		return argsString;
 	}
 }

@@ -86,7 +86,11 @@ public class CTraceGenerator {
 		this.context = context;
 		writer = null;
 		prepared = false;
-		converter = new BytecodeToUnsafeCConverter();
+		if (context.config.produceUnsafe) {
+			converter = new BytecodeToUnsafeCConverter();
+		} else {
+			converter = new BytecodeToCConverter();
+		}
 		stringConverter = new BytecodeToPrettyConverter();
 	}
 	

@@ -71,6 +71,27 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case CONST_WIDE_16:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+			
+			long high = 0;
+			if (lit < 0) {
+				high = -1;
+			}
+			
+			result = String.format("  v[%1$d] = %3$d;\n" + 
+					               "  v[%2$d] = %4$d;", vA, vA+1, high, lit);
+			break;
+		}
+		
+		case NEW_INSTANCE:
+		{			
+			result = String.format("  // placeholder for new-instance");
+			break;
+		}
+		
 		case GOTO:
 		{
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
@@ -338,6 +359,18 @@ public class BytecodeToCConverter {
 			curTrace.meta.addLiteralPoolEntry(LiteralPoolType.STATIC_FIELD, field);
 			
 			result = String.format("  v[%d] = *((int*) lit[%d]);", vA, literalPoolLoc);
+			break;
+		}
+		
+		case INVOKE_DIRECT:
+		{			
+			result = String.format("  // placeholder for invoke-direct");
+			break;
+		}
+		
+		case INT_TO_LONG:
+		{			
+			result = String.format("  // placeholder for int-to-long");
 			break;
 		}
 		
