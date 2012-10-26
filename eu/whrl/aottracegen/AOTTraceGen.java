@@ -1,10 +1,5 @@
 package eu.whrl.aottracegen;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.Map;
 
 import org.jf.baksmali.Plugin;
@@ -15,18 +10,18 @@ import org.jf.dexlib.DexFile;
 import eu.whrl.aottracegen.exceptions.TraceMergingException;
 
 public class AOTTraceGen implements Plugin {
-	private boolean validConfigFileLoaded = false;
 	private Config config = null;
 	
 	//
 	// INTERFACE METHODS
 	//
 	public void init(String pluginArgs) {
-		loadConfigFile(pluginArgs);
+		config = new Config();
+		config.loadConfigFile(pluginArgs);
 	}
 	
 	public void run(DexFile dexFile) {
-		if (isConfigFileValid()) {
+		if (config.isConfigFileValid()) {
 			generateAOTTraces(dexFile);
 		} else {
 			System.err.println("The config file wasn't valid, cannot continue.");
@@ -39,58 +34,7 @@ public class AOTTraceGen implements Plugin {
 	/*
 	 * Loads a config file from the filename provided.
 	 */
-	private void loadConfigFile(String filename) {
-		File file = new File(filename);
-		FileReader reader = null;
-		try {
-			reader = new FileReader(file);
-		} catch (FileNotFoundException e) {
-			System.err.println("Couldn't find config file");
-			return;
-		}
-		
-		BufferedReader buff = new BufferedReader(reader);
-		config = new Config();
-		int lineCounter = 0;
-		try {
-			while (buff.ready()) {
-				String line = buff.readLine();
-				if (line.startsWith("app")) {
-					config.app = line.substring(4, line.length());
-				} else if (line.startsWith("class")) {
-					config.clazz = line.substring(6, line.length());
-				} else if (line.startsWith("method")) {
-					config.method = line.substring(7, line.length());
-				} else if (line.startsWith("signature")) {
-					config.signature = line.substring(10, line.length());
-				} else if (line.startsWith("merge")) {
-					config.produceMerged = true;
-				} else if (line.startsWith("unsafe")) {
-					config.produceUnsafe = true;
-				} else if (line.startsWith("trace all")) {
-					config.traceAll = true;
-				} else if (line.startsWith("trace")) {
-					config.addEntry(Integer.parseInt(line.substring(8, line.length()), 16));
-				} else {
-					System.err.println("Couldn't make sense of line " + lineCounter + ": " + line);
-				}
-				lineCounter++;
-			}
-		} catch (IOException e) {
-			System.err.println("Couldn't read config file");
-		}
-		
-		if (config.app != "" && config.clazz != "" && config.method != "" && config.signature != "" && (config.numTraces > 0 || config.traceAll)) {
-			validConfigFileLoaded = true;
-		}
-	}
 	
-	/*
-	 * Checks if the config file we tried to load in loadConfigFile() is valid.
-	 */
-	private boolean isConfigFileValid() {
-		return validConfigFileLoaded;
-	}
 	
 	/*
 	 * Based on the config that we've loaded, get the correct EncodedMethod.
@@ -155,7 +99,7 @@ public class AOTTraceGen implements Plugin {
 	 * baksmali generated.
 	 */
 	private void generateAOTTraces(DexFile dexFile) {
-		printConfig();
+		config.printConfig();
 		
 		EncodedMethod methodToUse = findTargetMethod(dexFile);
 		
@@ -170,7 +114,7 @@ public class AOTTraceGen implements Plugin {
 		Map<Integer,Trace> traceMap = traceFinder.generateTracesFromMethod(context);
 		
 		// Do merging if needed
-		if (config.produceMerged) {
+		if (config.doMerging) {
 			TraceMerger traceMerger = new TraceMerger();
 			try {
 				traceMap = traceMerger.mergeTraces(context, config, traceMap);
@@ -200,28 +144,8 @@ public class AOTTraceGen implements Plugin {
 			context.addTrace(trace);
 		}
 		
-		codeGen.generateCodeFromContext(context);
-	}
-	
-	/*
-	 * Prints the loaded config, if it's valid.
-	 */
-	private void printConfig() {
-		if (isConfigFileValid()) {
-			System.out.println("Printing Config...");
-			System.out.println("  App: " + config.app);
-			System.out.println("  Class: " + config.clazz);
-			System.out.println("  Method: " + config.method);
-			System.out.println("  Signature: " + config.signature);
-			if (!config.traceAll) {
-				System.out.println("  Number of traces: " + config.numTraces);
-			} else {
-				System.out.println("  Number of traces: all");
-			}
-			System.out.println();
-		} else {
-			System.out.println("Cannot print config, as it's invalid!");
+		if (!config.onlyPrintTraces) {
+			codeGen.generateCodeFromContext(context);
 		}
 	}
-	
 }

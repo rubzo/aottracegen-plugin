@@ -22,8 +22,8 @@ public class TraceMerger {
 		}
 		
 		// Merge all traces into the first one.
-		Trace mergedTrace = tracesToBeMerged.get(config.traceEntries[0]);
-		tracesToBeMerged.remove(config.traceEntries[0]);
+		Trace mergedTrace = tracesToBeMerged.get(config.traceEntries.get(0));
+		tracesToBeMerged.remove(config.traceEntries.get(0));
 		
 		int tracesLeft = tracesToBeMerged.size();
 		
@@ -41,7 +41,8 @@ public class TraceMerger {
 		traceMap.put(mergedTrace.entry, mergedTrace);
 		
 		config.numTraces = 1;
-		config.traceEntries = new int[] {mergedTrace.entry};
+		config.traceEntries.clear();
+		config.traceEntries.add(mergedTrace.entry);
 		
 		return traceMap;
 	}

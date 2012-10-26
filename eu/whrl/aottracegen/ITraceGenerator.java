@@ -87,13 +87,14 @@ public class ITraceGenerator {
 		return traceBody;
 	}
 
-	public void prepare(String name) {
+	public void prepare(String name) throws ITraceGeneratorFaultException {
 		try {
 			File file = new File(name);
 			writer = new FileWriter(file);			
 			prepared = true;	
 		} catch (IOException e) {
 			System.err.println("Couldn't open injectable trace file for writing!");
+			throw new ITraceGeneratorFaultException();
 		}
 	}
 	
@@ -216,10 +217,10 @@ public class ITraceGenerator {
 		writer.write(String.format("ITrace_%#x_Start:\n", curTrace.entry));
 		writer.write("\n");
 		
-		// trace body - start off with putting fp, self and litpool pointers in the right place
-		// we know upon entry to the trace that the fp is in r5, self is in r6, 
-		//  and what the name of the label we used for our literal pool is.
-		writer.write(String.format("\tadr.w\tr0, ITrace_%#x_LiteralPool\n", curTrace.entry));		
+		// trace body - start off with emitting the litpool pointer in the right place
+		if (context.getCurrentTrace().meta.literalPoolSize > 0) {
+			writer.write(String.format("\tadr.w\tr0, ITrace_%#x_LiteralPool\n", curTrace.entry));
+		}
 		
 		// and the actual trace body now...
 		writer.write(curAsmTrace.getFullStringTraceBody());

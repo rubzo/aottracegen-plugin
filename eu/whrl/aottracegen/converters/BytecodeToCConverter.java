@@ -306,7 +306,7 @@ public class BytecodeToCConverter {
 					 "  char *array = (char*) v[%2$d];\n" + 
 					 "  int array_size = *((int*) (array + 8));\n" +
 					 "  if (array == 0) goto __exception_L%4$#x;\n" +
-					 "  if (v[%3$d] >= array_size || v[3] < 0) goto __exception_L%4$#x;\n" +
+					 "  if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
 					 "  int *array_contents = array + 16;\n" +
 					 "  v[%1$d] = array_contents[v[%3$d]];\n" +
 					 "  }",
@@ -324,7 +324,7 @@ public class BytecodeToCConverter {
 					 "  char *array = (char*) v[%2$d];\n" + 
 					 "  int array_size = *((int*) (array + 8));\n" +
 					 "  if (array == 0) goto __exception_L%4$#x;\n" +
-					 "  if (v[%3$d] >= array_size || v[%3$d] < 0) goto __exception_L%4$#x;\n" +
+					 "  if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
 					 "  char *array_contents = (char*) (array + 16);\n" +
 					 "  v[%1$d] = (char) array_contents[v[%3$d]];\n" +
 					 "  }",

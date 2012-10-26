@@ -83,6 +83,19 @@ public class Trace {
     		System.out.println(String.format("%#x: %s", codeAddress, inst.opcode.name));
     	}
     	
+    	String successorString = "Successors: [";
+    	int numSuccessorsSeen = 0;
+    	for (int successor : successors) {
+    		numSuccessorsSeen++;
+    		if (numSuccessorsSeen != successors.size()) {
+    			successorString += String.format("%#x, ", successor);
+    		} else {
+    			successorString += String.format("%#x", successor);
+    		}
+    	}
+    	successorString += "]";
+    	System.out.println(successorString);
+    	
     	System.out.println();
     	System.out.println();
 	}
