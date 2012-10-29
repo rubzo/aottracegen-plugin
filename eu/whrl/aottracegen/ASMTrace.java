@@ -1,6 +1,5 @@
 package eu.whrl.aottracegen;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,8 +35,15 @@ public class ASMTrace {
 	 * - remove any redundant labels
 	 */
 	public void cleanupTrace(CodeGenContext context) {
-		Trace curTrace = context.getCurrentTrace();
-		
+		String exitLabel = optRemovePushPopInstsAndFindExitLabel(context);		
+		removeBranchesToExitLabel(context, exitLabel);		
+		renameLabels(context);
+		generalCleanup(context);
+		emitHandlers(context);
+		removeRedundantLabels(context);		
+	}
+	
+	private String optRemovePushPopInstsAndFindExitLabel(CodeGenContext context) {
 		// Find the push/pop instructions,
 		// as well as where the exit label is (just before pop)
 		//
@@ -66,72 +72,47 @@ public class ASMTrace {
 		traceBody.remove(pushIdx);
 		traceBody.remove(popIdx-1);
 		
+		return exitLabel;
+	}
+	
+	private void removeBranchesToExitLabel(CodeGenContext context, String exitLabel) {
 		// Remove any branches to the exit label
 		//
 		String branchToExit = "\tb\t" + exitLabel;
 		for (int cl = 0; cl < traceBody.size(); cl++) {
 			String line = traceBody.get(cl);
-			
+
 			if (line.equals(branchToExit)) {
 				traceBody.remove(cl);
 				cl--;
 			}
 		}
+	}
+	
+	private void renameLabels(CodeGenContext context) {
+		Trace curTrace = context.getCurrentTrace();
 		
 		// Rename all the .L labels, so they don't clash if we're pasting them together
 		// with other asm traces to form an injectable trace.
 		//
 		for (int cl = 0; cl < traceBody.size(); cl++) {
 			String line = traceBody.get(cl);
-			
+
 			if (line.contains(".L")) {
 				line = line.replaceAll(".L(\\d+)", String.format(".LT%#x_$1", curTrace.entry));
 			}
-			
+
 			traceBody.remove(cl);
 			traceBody.add(cl, line);
 		}
-		
-		// Find all clobbered registers
-		//
-		Set<Integer> clobberedRegs = new HashSet<Integer>();
-		for (int cl = 0; cl < traceBody.size(); cl++) {
-			String line = traceBody.get(cl);
-
-			if (line.contains("r4")) {
-				clobberedRegs.add(4);
-			} 
-			if (line.contains("r5")) {
-				clobberedRegs.add(5);
-			} 
-			if (line.contains("r6")) {
-				clobberedRegs.add(6);
-			} 
-			if (line.contains("r7")) {
-				clobberedRegs.add(7);
-			} 
-			if (line.contains("r8")) {
-				clobberedRegs.add(8);
-			} 
-		}		
-		if (!clobberedRegs.isEmpty()) {
-			curTrace.meta.hasClobberedRegisters = true;
-			curTrace.meta.clobberedRegisters = new int[clobberedRegs.size()];
-
-			int i = 0;
-			for (int reg : clobberedRegs) {
-				curTrace.meta.clobberedRegisters[i] = reg;
-				i++;
-			}
-
-			Arrays.sort(curTrace.meta.clobberedRegisters);
-		}
-		
+	}
+	
+	private void generalCleanup(CodeGenContext context) {
 		// Remove #APP and @ signs - general cleanup, basically.
 		// 
 		for (int cl = 0; cl < traceBody.size(); cl++) {
 			String line = traceBody.get(cl);
-			
+
 			if (line.startsWith("#APP")) {
 				traceBody.remove(cl);
 				cl--;
@@ -142,14 +123,16 @@ public class ASMTrace {
 				traceBody.remove(cl);
 				cl--;
 			}
-		}
-
+		}		
+	}
+	
+	private void emitHandlers(CodeGenContext context) {
 		// Replace all the bl's to exit/exception functions with b's to labels we'll generate
 		// in the injectable trace.
 		//
 		for (int cl = 0; cl < traceBody.size(); cl++) {
 			String line = traceBody.get(cl);
-			
+
 			if (line.contains("bl\texception")) {
 				cl = handleException(context, cl);
 			} else if (line.contains("bl\texit")) {
@@ -160,6 +143,10 @@ public class ASMTrace {
 				cl = handleInvokeVirtualQuick(context, cl);
 			}
 		}
+	}
+	
+	private void removeRedundantLabels(CodeGenContext context) {
+		Trace curTrace = context.getCurrentTrace();
 		
 		// Remove redundant labels
 		//
@@ -185,8 +172,10 @@ public class ASMTrace {
 					cl--;
 				}
 			}
-		}		
+		}
 	}
+	
+	
 	
 	private int handleExit(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();

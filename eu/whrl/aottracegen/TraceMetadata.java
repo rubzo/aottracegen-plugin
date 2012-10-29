@@ -16,8 +16,6 @@ public class TraceMetadata {
 	public int literalPoolSize;
 	public List<Integer> literalPoolIndices;
 	public List<LiteralPoolType> literalPoolTypes;
-	public int[] clobberedRegisters;
-	public boolean hasClobberedRegisters;
 	public boolean containsSwitch;
 	public Map<Integer, ChainingCell> chainingCells;
 	
@@ -27,8 +25,6 @@ public class TraceMetadata {
 		literalPoolSize = 0;
 		literalPoolIndices = new ArrayList<Integer>();
 		literalPoolTypes = new ArrayList<LiteralPoolType>();
-		clobberedRegisters = null;
-		hasClobberedRegisters = false;
 		containsSwitch = false;
 		chainingCells = new TreeMap<Integer,ChainingCell>();
 	}
