@@ -209,7 +209,7 @@ public class TraceFinder {
 		// Deal with successors
 		handleSuccessors(context, trace, currentCodeAddress, currentInstruction);
 		
-		trace.entry = trace.addresses[0];
+		trace.entry = trace.addresses.get(0);
 		
 		// Add to the map
 		traceMap.put(codeAddress, trace);

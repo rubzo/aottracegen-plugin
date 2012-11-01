@@ -7,7 +7,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import eu.whrl.aottracegen.exceptions.ITraceGeneratorFaultException;
 
@@ -16,6 +18,9 @@ public class ITraceGenerator {
 	
 	private boolean prepared;
 	private FileWriter writer;
+	
+	private Set<String> badLines = new HashSet<String>();
+	private boolean badLinesSet = false;
 	
 	public ITraceGenerator() {
 		asmTraces = new ArrayList<ASMTrace>();
@@ -30,12 +35,42 @@ public class ITraceGenerator {
 		}
 		
 	}
+	
+	public void markBranchOutOfRangeError(int offendingLineNumber, String name) {
+		try {
+			File file = new File("ITraces.S");
+			BufferedReader buff = new BufferedReader(new FileReader(file));
+			
+			int lineNumber = 1;
+			String line = buff.readLine();
+			while (lineNumber != offendingLineNumber) {
+				line = buff.readLine();
+				lineNumber++;
+			}
+			
+			badLines.add(line.replaceFirst("\\s+", "").replaceAll("\\s+", " "));
+			
+			badLinesSet = true;
+			
+			buff.close();
+			
+		} catch (FileNotFoundException e) {
+			
+			e.printStackTrace();
+		} catch (IOException e) {
+			
+			e.printStackTrace();
+		}
+	}
 
 	private void loadAsmFile(CodeGenContext context, String asmFileName) throws ITraceGeneratorFaultException {
 		ASMTrace asmTrace = new ASMTrace();
 	
 		asmTrace.setTraceBody(extractTraceBody(context, asmFileName));
 		asmTrace.cleanupTrace(context);
+		if (badLinesSet) {
+			asmTrace.fixBadBranch(badLines);
+		}
 		asmTraces.add(asmTrace);
 	}
 

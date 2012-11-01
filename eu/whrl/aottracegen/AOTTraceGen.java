@@ -1,5 +1,6 @@
 package eu.whrl.aottracegen;
 
+import java.util.Collections;
 import java.util.Map;
 
 import org.jf.baksmali.Plugin;
@@ -113,6 +114,17 @@ public class AOTTraceGen implements Plugin {
 		TraceFinder traceFinder = new TraceFinder();
 		Map<Integer,Trace> traceMap = traceFinder.generateTracesFromMethod(context);
 		
+		// Add all the traces to the config, now that we've found them, if necessary.
+		if (config.traceAll) {
+			for (int traceEntry : traceMap.keySet()) {
+				config.addEntry(traceEntry);
+			}
+		}
+
+		if (config.sortTraces) {
+			Collections.sort(config.traceEntries);
+		}
+		
 		// Do merging if needed
 		if (config.doMerging) {
 			TraceMerger traceMerger = new TraceMerger();
@@ -125,12 +137,7 @@ public class AOTTraceGen implements Plugin {
 			
 		}
 		
-		// Add all the traces to the config, now that we've found them, if necessary.
-		if (config.traceAll) {
-			for (int traceEntry : traceMap.keySet()) {
-				config.addEntry(traceEntry);
-			}
-		}
+		
 		
 		// Generate code for the selected traces
 		CodeGenerator codeGen = new CodeGenerator();

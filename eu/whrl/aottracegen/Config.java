@@ -23,6 +23,7 @@ public class Config {
 	
 	public boolean doMerging = false;
 	public boolean traceAll = false;
+	public boolean sortTraces = false;
 	public boolean produceUnsafe = false;
 	public boolean onlyPrintTraces = false;
 	public boolean emitProfiling = false; // not yet implemented
@@ -47,7 +48,9 @@ public class Config {
 		try {
 			while (buff.ready()) {
 				String line = buff.readLine();
-				if (line.startsWith("app")) {
+				if (line.startsWith("#")) {
+					continue;
+			    } else if (line.startsWith("app")) {
 					app = line.substring(4, line.length());
 				} else if (line.startsWith("class")) {
 					clazz = line.substring(6, line.length());
@@ -57,6 +60,8 @@ public class Config {
 					signature = line.substring(10, line.length());
 				} else if (line.startsWith("merge")) {
 					doMerging = true;
+				} else if (line.startsWith("sort")) {
+					sortTraces = true;
 				} else if (line.startsWith("unsafe")) {
 					produceUnsafe = true;
 				} else if (line.startsWith("print")) {

@@ -29,9 +29,22 @@ public class TraceMetadata {
 		chainingCells = new TreeMap<Integer,ChainingCell>();
 	}
 	
-	public void addLiteralPoolEntry(LiteralPoolType type, int value) {
+	public int addLiteralPoolEntry(LiteralPoolType type, int value) {
+		int loc = literalPoolSize;
 		literalPoolSize++;
 		literalPoolIndices.add(value);
 		literalPoolTypes.add(type);
+		return loc;
+	}
+	
+	public int tryAddUniqueLiteralPoolEntry(LiteralPoolType type) {
+		// Search, do we already have a literal pool entry with this type? 
+		for (int i = 0; i < literalPoolSize; i++) {
+			if (literalPoolTypes.get(i) == type) {
+				return i;
+			}
+		}
+		
+		return addLiteralPoolEntry(type, 0);
 	}
 }

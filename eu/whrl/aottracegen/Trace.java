@@ -1,16 +1,15 @@
 package eu.whrl.aottracegen;
 
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 import org.jf.dexlib.Code.Instruction;
 
 public class Trace {
-	public static final int MAX_LENGTH = 100;
-	
 	public boolean valid;
-	public int[] addresses;
-	public int length;
+	public List<Integer> addresses;
 	
 	public Set<Integer> successors;
 	
@@ -20,8 +19,7 @@ public class Trace {
 	
 	public Trace() {
 		valid = false;
-		addresses = new int[MAX_LENGTH];
-		length = 0;
+		addresses = new LinkedList<Integer>();
 		successors = new HashSet<Integer>();
 		entry = 0;
 		meta = new TraceMetadata();
@@ -34,11 +32,7 @@ public class Trace {
 		if (!valid) {
 			valid = true;
 		}
-		if (length == MAX_LENGTH) {
-			return false;
-		}
-		addresses[length] = codeAddress;
-		length++;
+		addresses.add(codeAddress);
 		return true;
 	}
 	
@@ -62,12 +56,16 @@ public class Trace {
 	 * Check if this trace contains a given code address.
 	 */
 	public boolean containsCodeAddress(int codeAddress) {
-		for (int i = 0; i < length; i++) {
-			if (addresses[i] == codeAddress) {
+		for (int i = 0; i < addresses.size(); i++) {
+			if (addresses.get(i) == codeAddress) {
 				return true;
 			}
 		}
 		return false;
+	}
+	
+	public int getLength() {
+		return addresses.size();
 	}
 	
 	/*
@@ -77,8 +75,8 @@ public class Trace {
 		System.out.println(String.format("Trace starting at %#x", entry));
     	System.out.println();
 
-    	for (int i = 0; i < length; i++) {
-    		int codeAddress = addresses[i];
+    	for (int i = 0; i < addresses.size(); i++) {
+    		int codeAddress = addresses.get(i);
     		Instruction inst = context.getInstructionAtCodeAddress(codeAddress);
     		System.out.println(String.format("%#x: %s", codeAddress, inst.opcode.name));
     	}

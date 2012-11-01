@@ -1,7 +1,9 @@
 package eu.whrl.aottracegen;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,13 +30,21 @@ public class TraceMerger {
 		int tracesLeft = tracesToBeMerged.size();
 		
 		while (!tracesToBeMerged.isEmpty()) {
-			mergeTwoTraces(mergedTrace, tracesToBeMerged);
+			findCandidateTraceFromMapAndMerge(mergedTrace, tracesToBeMerged);
 			
 			if (tracesToBeMerged.size() == tracesLeft) {
 				// i.e. nothing has changed
 				System.err.println("Unable to merge some of the selected traces together.");
+				System.err.println(tracesToBeMerged.size());
+				System.err.println(tracesToBeMerged.get(tracesToBeMerged.keySet().toArray()[0]).addresses.toString());
+				System.err.println(mergedTrace.addresses.toString());
+				System.err.println(mergedTrace.successors.toString());
+				
 				throw new TraceMergingException();
+			} else {
+				tracesLeft = tracesToBeMerged.size();
 			}
+			
 		}
 		
 		traceMap.clear();
@@ -47,7 +57,7 @@ public class TraceMerger {
 		return traceMap;
 	}
 
-	private void mergeTwoTraces(Trace mergedTrace, Map<Integer, Trace> tracesToBeMerged) {
+	private void findCandidateTraceFromMapAndMerge(Trace mergedTrace, Map<Integer, Trace> tracesToBeMerged) {
 		
 		boolean foundNextTrace = false;
 		int nextSuccessor = 0;
@@ -55,6 +65,7 @@ public class TraceMerger {
 			if (tracesToBeMerged.containsKey(successor)) {
 				foundNextTrace = true;
 				nextSuccessor = successor;
+				break;
 			}
 		}
 		
@@ -69,57 +80,41 @@ public class TraceMerger {
 	}
 
 	private void merge(Trace mergedTrace, Trace nextTrace) {
+		//
+		// Combine addresses
+		//
+		for (int addr : nextTrace.addresses) {
+			mergedTrace.addresses.add(addr);
+		}
+		
+		// Remove all duplicate addresses
+		Set<Integer> uniqueAddresses = new LinkedHashSet<Integer>();
+		for (int addr : mergedTrace.addresses) {
+			uniqueAddresses.add(addr);
+		}
+		mergedTrace.addresses.clear();
+		for (int addr : uniqueAddresses) {
+			mergedTrace.addresses.add(addr);
+		}
+		
+		// Sort all the addresses
+		//Collections.sort(mergedTrace.addresses);
+				
+		//
+		// Combine successors
+		//
 		Set<Integer> newSuccessors = new HashSet<Integer>();
 		for (int s : mergedTrace.successors) {
-			if (s != nextTrace.entry) {
+			if (!mergedTrace.containsCodeAddress(s)) {
 				newSuccessors.add(s);
 			}
 		}
 		for (int s : nextTrace.successors) {
-			newSuccessors.add(s);
-		}
-		
-		mergedTrace.successors = newSuccessors;
-		
-		int newLength = mergedTrace.length + nextTrace.length;
-		int[] newAddresses = new int[newLength];
-		
-		for (int idx = 0; idx < mergedTrace.length; idx++) {
-			newAddresses[idx] = mergedTrace.addresses[idx];
-		}
-		for (int idx = 0; idx < nextTrace.length; idx++) {
-			newAddresses[mergedTrace.length + idx] = nextTrace.addresses[idx];
-		}
-		
-		newAddresses = removeDuplicates(newAddresses);
-		newLength = newAddresses.length;
-		
-		mergedTrace.addresses = newAddresses;
-		mergedTrace.length = newLength;
-	}
-	
-	/*
-	 * Removes duplicates from a list, preserves ordering.
-	 */
-	private int[] removeDuplicates(int[] list) {
-		Set<Integer> s = new HashSet<Integer>();
-		
-		int[] tempList = new int[list.length];
-		int idx = 0;
-		for (int i : list) {
-			if (!s.contains(i)) {
-				s.add(i);
-				tempList[idx] = i;
-				idx++;
+			if (!mergedTrace.containsCodeAddress(s)) {
+				newSuccessors.add(s);
 			}
 		}
 		
-		// Copy slightly too large array into a snug array.
-		int[] newList = new int[s.size()];
-		for (int i = 0; i < s.size(); i++) {
-			newList[i] = tempList[i];
-		}
-		
-		return newList;
+		mergedTrace.successors = newSuccessors;	
 	}
 }

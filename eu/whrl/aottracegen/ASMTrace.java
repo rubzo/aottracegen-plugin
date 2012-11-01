@@ -25,6 +25,51 @@ public class ASMTrace {
 		this.traceBody = traceBody;
 	}
 	
+	private String cleanupLine(String line) {
+		return line.replaceFirst("\\s+","").replaceAll("\\s+"," ");
+	}
+	
+	public void fixBadBranch(Set<String> badLines) {
+		for (int cl = 0; cl < traceBody.size(); cl++) {
+			
+			String line = traceBody.get(cl);
+			String cleanedLine = cleanupLine(line);
+			
+			for (String badLine : badLines) {
+				if (cleanedLine.equals(badLine)) {
+					if (cleanedLine.startsWith("cbz")) {
+						Pattern p = Pattern.compile("cbz (r\\d+), (.*)");
+						Matcher m = p.matcher(cleanedLine);
+
+						if (m.find()) {
+							String reg = m.group(1);
+							String targetLabel = m.group(2);
+
+							cl = removeLine(cl);
+
+							cl = addLine(cl, String.format("\tcmp\t%s, #0", reg));
+							cl = addLine(cl, String.format("\tbeq\t%s", targetLabel));
+						}
+					} else if (cleanedLine.startsWith("cbnz")) { 
+						Pattern p = Pattern.compile("cbnz (r\\d+), (.*)");
+						Matcher m = p.matcher(cleanedLine);
+						if (m.find()) {
+							String reg = m.group(1);
+							String targetLabel = m.group(2);
+
+							cl = removeLine(cl);
+
+							cl = addLine(cl, String.format("\tcmp\t%s, #0", reg));
+							cl = addLine(cl, String.format("\tbne\t%s", targetLabel));
+						}
+					} else {
+						System.err.println("Don't know what to do with: " + badLine);
+					}
+				}
+			}
+		}
+	}
+	
 	/*
 	 * Modifies the loaded traceBody, doing the following:
 	 * 
@@ -199,8 +244,7 @@ public class ASMTrace {
 		// If we add an entry to the literal pool, then the return 
 		// handler will be loaded into this literal pool location.
 		//
-		int literalPoolLoc = curTrace.meta.literalPoolSize;
-		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.RETURN_HANDLER, 0);
+		int literalPoolLoc = curTrace.meta.tryAddUniqueLiteralPoolEntry(LiteralPoolType.RETURN_HANDLER);
 		
 		// Create the jump to the return handler
 		cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_%#x_LiteralPool", curTrace.entry));
@@ -252,8 +296,7 @@ public class ASMTrace {
 		
 		// Load the method predicted chain handler's address, blx to it
 		//
-		literalPoolLoc = curTrace.meta.literalPoolSize;
-		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.INVOKE_METHOD_PREDICTED_CHAIN_HANDLER, 0);
+		literalPoolLoc = curTrace.meta.tryAddUniqueLiteralPoolEntry(LiteralPoolType.INVOKE_METHOD_PREDICTED_CHAIN_HANDLER);
 		cl = addLine(cl, String.format("\tadr.w\tr3, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr3, [r3, #%d]", literalPoolLoc*4));
 		cl = addLine(cl, "\tblx\tr3");
@@ -280,8 +323,7 @@ public class ASMTrace {
 		
 		// load dvmJitToPatchPredictedChain pointer
 		//
-		literalPoolLoc = curTrace.meta.literalPoolSize;
-		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.JIT_TO_PATCH_PREDICTED_CHAIN_HANDLER, 0);
+		literalPoolLoc = curTrace.meta.tryAddUniqueLiteralPoolEntry(LiteralPoolType.JIT_TO_PATCH_PREDICTED_CHAIN_HANDLER);
 		cl = addLine(cl, String.format("\tadr.w\tr7, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr7, [r7, #%d]", literalPoolLoc*4));
 		
@@ -302,8 +344,7 @@ public class ASMTrace {
 		
 		// load the invoke method no opt handler, blx to it
 		//
-		literalPoolLoc = curTrace.meta.literalPoolSize;
-		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.INVOKE_METHOD_NO_OPT_HANDLER, 0);
+		literalPoolLoc = curTrace.meta.tryAddUniqueLiteralPoolEntry(LiteralPoolType.INVOKE_METHOD_NO_OPT_HANDLER);		
 		cl = addLine(cl, String.format("\tadr.w\tr7, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr7, [r7, #%d]", literalPoolLoc*4));
 		cl = addLine(cl, "\tblx\tr7");

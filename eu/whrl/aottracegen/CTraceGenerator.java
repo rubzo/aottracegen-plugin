@@ -143,11 +143,11 @@ public class CTraceGenerator {
 			emitExitFunctionPrototypes();
 			emitFunctionStart();
 			
-			for (int i = 0; i < curTrace.length; i++) {
-				emitForCodeAddress(curTrace.addresses[i]);
+			for (int i = 0; i < curTrace.getLength(); i++) {
+				emitForCodeAddress(curTrace.addresses.get(i));
 				
 				// If we're the last instruction, make sure we jump to the correct exit.
-				int codeAddress = curTrace.addresses[i];
+				int codeAddress = curTrace.addresses.get(i);
 				Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 				int nextAddress = context.getNextCodeAddress(codeAddress, instruction);
 				
@@ -176,13 +176,16 @@ public class CTraceGenerator {
 	}
 
 	private boolean needControlFlow(Trace trace, int currentAddressIdx, int nextAddress) {
-		if (currentAddressIdx == (trace.length - 1) && !trace.successors.isEmpty()) {
-			return true;
-		}
-		if (currentAddressIdx == (trace.length - 1) && trace.successors.isEmpty()) {
+		if (opcodesThatCanReturn.contains(context.getInstructionAtCodeAddress(trace.addresses.get(currentAddressIdx)).opcode)) {
 			return false;
 		}
-		if (trace.addresses[currentAddressIdx+1] != nextAddress) {
+		if (currentAddressIdx == (trace.getLength() - 1) && !trace.successors.isEmpty()) {
+			return true;
+		}
+		if (currentAddressIdx == (trace.getLength() - 1) && trace.successors.isEmpty()) {
+			return false;
+		}
+		if (trace.addresses.get(currentAddressIdx+1) != nextAddress) {
 			return true;
 		}
 		return false;
@@ -196,8 +199,8 @@ public class CTraceGenerator {
 		
 		Trace curTrace = context.getCurrentTrace();
 		
-		for (int i = 0; i < context.getCurrentTrace().length; i++) {
-			Instruction instruction = context.getInstructionAtCodeAddress(curTrace.addresses[i]);
+		for (int i = 0; i < context.getCurrentTrace().getLength(); i++) {
+			Instruction instruction = context.getInstructionAtCodeAddress(curTrace.addresses.get(i));
 			
 			if (opcodesThatNeedHelperFunctions.contains(instruction.opcode) && !curTrace.meta.opcodesUsedThatNeedHelperFunctions.contains(instruction.opcode)) {
 				curTrace.meta.opcodesUsedThatNeedHelperFunctions.add(instruction.opcode);
@@ -218,8 +221,8 @@ public class CTraceGenerator {
 		Trace curTrace = context.getCurrentTrace();
 		
 		// Generate the exception function prototypes.
-		for (int i = 0; i < curTrace.length; i++) {
-			int codeAddress = curTrace.addresses[i];
+		for (int i = 0; i < curTrace.getLength(); i++) {
+			int codeAddress = curTrace.addresses.get(i);
 			
 			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
@@ -277,8 +280,8 @@ public class CTraceGenerator {
 		Trace curTrace = context.getCurrentTrace();
 		
 		// Generate the exception labels.
-		for (int i = 0; i < curTrace.length; i++) {
-			int codeAddress = curTrace.addresses[i];
+		for (int i = 0; i < curTrace.getLength(); i++) {
+			int codeAddress = curTrace.addresses.get(i);
 			
 			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
