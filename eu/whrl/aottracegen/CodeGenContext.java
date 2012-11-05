@@ -34,6 +34,8 @@ public class CodeGenContext {
 	
 	public DexFile dexFile;
 	
+	public boolean reassembling;
+	
 	/*
 	 * NB: A CodeGenContext only works within one method!
 	 * Hence, we pass in the method to the constructor.
@@ -42,6 +44,7 @@ public class CodeGenContext {
 		dexFile = df;
 		traces = new ArrayList<Trace>();
 		currentTraceIdx = 0;
+		reassembling = false;
 		
 		this.config = config;
 		methodIndex = method.method.getIndex();

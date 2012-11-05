@@ -281,8 +281,13 @@ public class ASMTrace {
 		
 		// Load DPC from literal pool into r4
 		//
-		int literalPoolLoc = curTrace.meta.literalPoolSize;
-		curTrace.meta.addLiteralPoolEntry(LiteralPoolType.DPC_OFFSET, codeAddress);
+		int literalPoolLoc = 0;
+		if (!context.reassembling) {
+			literalPoolLoc = curTrace.meta.addLiteralPoolEntry(LiteralPoolType.DPC_OFFSET, codeAddress);
+		} else {
+			literalPoolLoc = curTrace.meta.getLiteralPoolLocationForType(LiteralPoolType.DPC_OFFSET);
+		}
+		
 		cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr4, [r2, #%d]", literalPoolLoc*4));
 		
@@ -356,14 +361,6 @@ public class ASMTrace {
 		// Emit this label that we use as the return point after function invocation.
 		//
 		cl = addLine(cl, String.format("JumpAfter_%#x:", codeAddress));
-		
-		// Finally, restore the trace function's arguments.
-		//
-		cl = addLine(cl, "\tmov\tr0, r5");
-		cl = addLine(cl, "\tmov\tr1, r6");
-		if (curTrace.meta.literalPoolSize > 0) {
-			cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_%#x_LiteralPool", curTrace.entry));
-		}
 		
 		return cl;
 	}

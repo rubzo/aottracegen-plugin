@@ -21,6 +21,7 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_PREDICTED_CHAIN_HANDLER, "invoke_method_predicted_chain_handler");
 		literalPoolTypeMap.put(LiteralPoolType.JIT_TO_PATCH_PREDICTED_CHAIN_HANDLER, "jit_to_patch_predicted_chain_handler");
 		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_NO_OPT_HANDLER, "invoke_method_no_opt_handler");
+		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_FUNCTION, "aot_debug_function");
 	}
 
 	public void prepare(String name) {

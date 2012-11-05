@@ -64,6 +64,8 @@ public class CodeGenerator {
 						return;
 					}
 					
+					context.reassembling = true;
+					
 					fixAndEmitITrace(context, asmTraceFileNames, "ITraces.S", exception);
 					
 					retries++;
