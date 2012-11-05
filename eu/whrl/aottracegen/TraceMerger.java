@@ -1,6 +1,5 @@
 package eu.whrl.aottracegen;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -32,13 +31,15 @@ public class TraceMerger {
 		while (!tracesToBeMerged.isEmpty()) {
 			findCandidateTraceFromMapAndMerge(mergedTrace, tracesToBeMerged);
 			
+			cleanupTraces(mergedTrace, tracesToBeMerged);
+			
 			if (tracesToBeMerged.size() == tracesLeft) {
 				// i.e. nothing has changed
 				System.err.println("Unable to merge some of the selected traces together.");
 				System.err.println(tracesToBeMerged.size());
-				System.err.println(tracesToBeMerged.get(tracesToBeMerged.keySet().toArray()[0]).addresses.toString());
-				System.err.println(mergedTrace.addresses.toString());
-				System.err.println(mergedTrace.successors.toString());
+				System.err.println(Util.toHexString(tracesToBeMerged.get(tracesToBeMerged.keySet().toArray()[0]).addresses));
+				System.err.println(Util.toHexString(mergedTrace.addresses));
+				System.err.println(Util.toHexString(mergedTrace.successors));
 				
 				throw new TraceMergingException();
 			} else {
@@ -57,6 +58,14 @@ public class TraceMerger {
 		return traceMap;
 	}
 
+	private void cleanupTraces(Trace mergedTrace, Map<Integer, Trace> tracesToBeMerged) {
+		for (int prefix : tracesToBeMerged.keySet()) {
+			if (mergedTrace.containsCodeAddress(prefix)) {
+				tracesToBeMerged.remove(prefix);
+			}
+		}
+	}
+	
 	private void findCandidateTraceFromMapAndMerge(Trace mergedTrace, Map<Integer, Trace> tracesToBeMerged) {
 		
 		boolean foundNextTrace = false;

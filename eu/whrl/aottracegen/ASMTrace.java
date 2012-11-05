@@ -362,6 +362,12 @@ public class ASMTrace {
 		//
 		cl = addLine(cl, String.format("JumpAfter_%#x:", codeAddress));
 		
+		// Restore the literal pool pointer, if needed
+		// NB: this assumes that GCC left the literal pointer in r0 at this point, obviously this may not be the case
+		if (curTrace.meta.literalPoolSize > 0) {
+			cl = addLine(cl, String.format("\tadr.w\tr0, ITrace_%#x_LiteralPool", curTrace.entry));
+		}
+		
 		return cl;
 	}
 	

@@ -1,7 +1,5 @@
 package eu.whrl.aottracegen;
 
-import eu.whrl.aottracegen.exceptions.CommandException;
-
 public class RecoverableError {
 
 	public boolean branchOutOfRange = false;
