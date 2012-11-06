@@ -408,7 +408,7 @@ public class BytecodeToCConverter {
 		
 		case INVOKE_VIRTUAL_QUICK:
 		{
-			result = String.format("  __asm__(\"# invoke_virtual_quick_L%#x\");", codeAddress);
+			result = String.format("  __asm__(\"# invoke_virtual_quick_L%#x\" : : : \"r0\", \"r1\", \"r2\", \"r3\", \"r4\", \"r7\", \"r8\", \"r9\", \"r10\", \"r11\", \"r12\" );", codeAddress);
 			break;
 		}
 		
