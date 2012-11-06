@@ -36,10 +36,10 @@ public class TraceMerger {
 			if (tracesToBeMerged.size() == tracesLeft) {
 				// i.e. nothing has changed
 				System.err.println("Unable to merge some of the selected traces together.");
-				System.err.println(tracesToBeMerged.size());
-				System.err.println(Util.toHexString(tracesToBeMerged.get(tracesToBeMerged.keySet().toArray()[0]).addresses));
-				System.err.println(Util.toHexString(mergedTrace.addresses));
-				System.err.println(Util.toHexString(mergedTrace.successors));
+				System.err.println("Traces left to be merged: " + tracesToBeMerged.size());
+				System.err.println("Entry addresses for these traces: " + Util.toHexString(tracesToBeMerged.keySet()));
+				System.err.println("Merged trace addresses: " + Util.toHexString(mergedTrace.addresses));
+				System.err.println("Merged trace successors: " + Util.toHexString(mergedTrace.successors));
 				
 				throw new TraceMergingException();
 			} else {
@@ -59,10 +59,14 @@ public class TraceMerger {
 	}
 
 	private void cleanupTraces(Trace mergedTrace, Map<Integer, Trace> tracesToBeMerged) {
-		for (int prefix : tracesToBeMerged.keySet()) {
-			if (mergedTrace.containsCodeAddress(prefix)) {
-				tracesToBeMerged.remove(prefix);
+		Set<Integer> tracesToBeRemoved = new HashSet<Integer>();
+		for (int entry : tracesToBeMerged.keySet()) {
+			if (mergedTrace.containsCodeAddress(entry)) {
+				tracesToBeRemoved.add(entry);
 			}
+		}
+		for (int entry : tracesToBeRemoved) {
+			tracesToBeMerged.remove(entry);
 		}
 	}
 	

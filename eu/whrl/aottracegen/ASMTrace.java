@@ -80,8 +80,9 @@ public class ASMTrace {
 	 * - remove any redundant labels
 	 */
 	public void cleanupTrace(CodeGenContext context) {
-		String exitLabel = optRemovePushPopInstsAndFindExitLabel(context);		
+		String exitLabel = optRemovePushPopInstsAndFindExitLabel(context);
 		removeBranchesToExitLabel(context, exitLabel);		
+		removeStackManipulation(context);
 		renameLabels(context);
 		generalCleanup(context);
 		emitHandlers(context);
@@ -128,6 +129,20 @@ public class ASMTrace {
 			String line = traceBody.get(cl);
 
 			if (line.equals(branchToExit)) {
+				traceBody.remove(cl);
+				cl--;
+			}
+		}
+	}
+	
+	private void removeStackManipulation(CodeGenContext context) {
+		// Remove any instructions that add or subtract the stack pointer, as this breaks the interpreter.
+		//
+		for (int cl = 0; cl < traceBody.size(); cl++) {
+			String line = cleanupLine(traceBody.get(cl));
+
+			if (line.contains("add sp, sp") || line.contains("sub sp, sp")) {
+				System.out.println("Removing " + line);
 				traceBody.remove(cl);
 				cl--;
 			}
