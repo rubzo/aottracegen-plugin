@@ -268,12 +268,14 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		// Add an entry to the literal pool for our AOTDebug function, if we ever need to use it
-		curTrace.meta.tryAddUniqueLiteralPoolEntry(LiteralPoolType.AOT_DEBUG_FUNCTION);
+		if (context.config.emitDebugFunction) {
+			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_FUNCTION);
+		}
 		
 		// its literal pool
 		writer.write(String.format("ITrace_%#x_LiteralPool:\n", curTrace.entry));
 		for (int litPoolIdx = 0; litPoolIdx < curTrace.meta.literalPoolSize; litPoolIdx++) {
-			if (curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_FUNCTION) {
+			if (context.config.emitDebugFunction && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_FUNCTION) {
 				writer.write("AOTDebug:\n");
 			}
 			writer.write("\t.word 0x00000000\n");

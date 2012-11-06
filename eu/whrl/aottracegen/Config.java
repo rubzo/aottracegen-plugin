@@ -26,6 +26,7 @@ public class Config {
 	public boolean sortTraces = false;
 	public boolean produceUnsafe = false;
 	public boolean onlyPrintTraces = false;
+	public boolean emitDebugFunction = false;
 	public boolean emitProfiling = false; // not yet implemented
 	
 	public void addEntry(int e) {
@@ -66,6 +67,8 @@ public class Config {
 					produceUnsafe = true;
 				} else if (line.startsWith("print")) {
 					onlyPrintTraces = true;
+				} else if (line.startsWith("debugfunc")) {
+					emitDebugFunction = true;
 				} else if (line.startsWith("trace all")) {
 					traceAll = true;
 				} else if (line.startsWith("trace")) {

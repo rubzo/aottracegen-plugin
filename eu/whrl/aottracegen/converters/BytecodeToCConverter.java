@@ -355,8 +355,7 @@ public class BytecodeToCConverter {
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
 			
-			int literalPoolLoc = curTrace.meta.literalPoolSize;
-			curTrace.meta.addLiteralPoolEntry(LiteralPoolType.STATIC_FIELD, field);
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_FIELD, field);
 			
 			result = String.format("  v[%d] = *((int*) lit[%d]);", vA, literalPoolLoc);
 			break;

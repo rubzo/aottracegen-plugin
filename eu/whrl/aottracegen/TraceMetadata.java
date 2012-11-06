@@ -29,7 +29,7 @@ public class TraceMetadata {
 		chainingCells = new TreeMap<Integer,ChainingCell>();
 	}
 	
-	public int addLiteralPoolEntry(LiteralPoolType type, int value) {
+	private int insertLiteralPoolEntry(LiteralPoolType type, int value) {
 		int loc = literalPoolSize;
 		literalPoolSize++;
 		literalPoolIndices.add(value);
@@ -37,7 +37,18 @@ public class TraceMetadata {
 		return loc;
 	}
 	
-	public int tryAddUniqueLiteralPoolEntry(LiteralPoolType type) {
+	public int addLiteralPoolTypeAndValue(LiteralPoolType type, int value) {
+		// Search, do we already have a literal pool entry with this type? 
+		for (int i = 0; i < literalPoolSize; i++) {
+			if (literalPoolTypes.get(i) == type && literalPoolIndices.get(i) == value) {
+				return i;
+			}
+		}
+
+		return insertLiteralPoolEntry(type, value);
+	}
+	
+	public int addLiteralPoolType(LiteralPoolType type) {
 		// Search, do we already have a literal pool entry with this type? 
 		for (int i = 0; i < literalPoolSize; i++) {
 			if (literalPoolTypes.get(i) == type) {
@@ -45,7 +56,7 @@ public class TraceMetadata {
 			}
 		}
 		
-		return addLiteralPoolEntry(type, 0);
+		return insertLiteralPoolEntry(type, 0);
 	}
 	
 	public int getLiteralPoolLocationForType(LiteralPoolType type) {

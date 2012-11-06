@@ -259,7 +259,7 @@ public class ASMTrace {
 		// If we add an entry to the literal pool, then the return 
 		// handler will be loaded into this literal pool location.
 		//
-		int literalPoolLoc = curTrace.meta.tryAddUniqueLiteralPoolEntry(LiteralPoolType.RETURN_HANDLER);
+		int literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.RETURN_HANDLER);
 		
 		// Create the jump to the return handler
 		cl = addLine(cl, String.format("\tadr.w\tr2, ITrace_%#x_LiteralPool", curTrace.entry));
@@ -298,7 +298,7 @@ public class ASMTrace {
 		//
 		int literalPoolLoc = 0;
 		if (!context.reassembling) {
-			literalPoolLoc = curTrace.meta.addLiteralPoolEntry(LiteralPoolType.DPC_OFFSET, codeAddress);
+			literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.DPC_OFFSET, codeAddress);
 		} else {
 			literalPoolLoc = curTrace.meta.getLiteralPoolLocationForType(LiteralPoolType.DPC_OFFSET);
 		}
@@ -316,7 +316,7 @@ public class ASMTrace {
 		
 		// Load the method predicted chain handler's address, blx to it
 		//
-		literalPoolLoc = curTrace.meta.tryAddUniqueLiteralPoolEntry(LiteralPoolType.INVOKE_METHOD_PREDICTED_CHAIN_HANDLER);
+		literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.INVOKE_METHOD_PREDICTED_CHAIN_HANDLER);
 		cl = addLine(cl, String.format("\tadr.w\tr3, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr3, [r3, #%d]", literalPoolLoc*4));
 		cl = addLine(cl, "\tblx\tr3");
@@ -343,7 +343,7 @@ public class ASMTrace {
 		
 		// load dvmJitToPatchPredictedChain pointer
 		//
-		literalPoolLoc = curTrace.meta.tryAddUniqueLiteralPoolEntry(LiteralPoolType.JIT_TO_PATCH_PREDICTED_CHAIN_HANDLER);
+		literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.JIT_TO_PATCH_PREDICTED_CHAIN_HANDLER);
 		cl = addLine(cl, String.format("\tadr.w\tr7, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr7, [r7, #%d]", literalPoolLoc*4));
 		
@@ -364,7 +364,7 @@ public class ASMTrace {
 		
 		// load the invoke method no opt handler, blx to it
 		//
-		literalPoolLoc = curTrace.meta.tryAddUniqueLiteralPoolEntry(LiteralPoolType.INVOKE_METHOD_NO_OPT_HANDLER);		
+		literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.INVOKE_METHOD_NO_OPT_HANDLER);		
 		cl = addLine(cl, String.format("\tadr.w\tr7, ITrace_%#x_LiteralPool", curTrace.entry));
 		cl = addLine(cl, String.format("\tldr\tr7, [r7, #%d]", literalPoolLoc*4));
 		cl = addLine(cl, "\tblx\tr7");
