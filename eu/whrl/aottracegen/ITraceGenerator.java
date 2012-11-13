@@ -252,11 +252,6 @@ public class ITraceGenerator {
 		writer.write(String.format("ITrace_%#x_Start:\n", curTrace.entry));
 		writer.write("\n");
 		
-		// trace body - start off with emitting the litpool pointer in the right place
-		if (context.getCurrentTrace().meta.literalPoolSize > 0) {
-			writer.write(String.format("\tadr.w\tr0, ITrace_%#x_LiteralPool\n", curTrace.entry));
-		}
-		
 		// and the actual trace body now...
 		writer.write(curAsmTrace.getFullStringTraceBody());
 		writer.write("\n");
@@ -276,7 +271,7 @@ public class ITraceGenerator {
 		writer.write(String.format("ITrace_%#x_LiteralPool:\n", curTrace.entry));
 		for (int litPoolIdx = 0; litPoolIdx < curTrace.meta.literalPoolSize; litPoolIdx++) {
 			if (context.config.emitDebugFunction && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_FUNCTION) {
-				writer.write("AOTDebug:\n");
+				writer.write(String.format("AOTDebug_%#x:\n", curTrace.entry));
 			}
 			writer.write("\t.word 0x00000000\n");
 		}

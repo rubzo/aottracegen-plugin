@@ -2,6 +2,7 @@ package eu.whrl.aottracegen.converters;
 
 import java.util.Iterator;
 
+import org.jf.dexlib.Code.FiveRegisterInstruction;
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.LiteralInstruction;
@@ -408,6 +409,16 @@ public class BytecodeToCConverter {
 		case INVOKE_VIRTUAL_QUICK:
 		{
 			result = String.format("  __asm__(\"# invoke_virtual_quick_L%#x\" : : : \"r0\", \"r1\", \"r2\", \"r3\", \"r4\", \"r7\", \"r8\", \"r9\", \"r10\", \"r11\", \"r12\" );", codeAddress);
+			//result = String.format("  __asm__(\"# invoke_virtual_quick_L%#x\");", codeAddress);
+			/*
+			int reg = ((FiveRegisterInstruction)instruction).getRegisterE();
+			
+			result = String.format("  if (v[%1$d] >= '0' && v[%1$d] <= '9') {\n" +
+									"   *((int*) (self+%2$d)) = 1;\n" +
+									"  } else {\n" + 
+									"   *((int*) (self+%2$d)) = 0;\n" +
+									"  }", reg, offsetThreadRetValue);
+		*/
 			break;
 		}
 		
