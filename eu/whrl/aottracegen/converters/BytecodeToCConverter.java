@@ -409,7 +409,9 @@ public class BytecodeToCConverter {
 		case INVOKE_VIRTUAL_QUICK:
 		{
 			result = String.format("  __asm__(\"# invoke_virtual_quick_L%#x\" : : : \"r0\", \"r1\", \"r2\", \"r3\", \"r4\", \"r7\", \"r8\", \"r9\", \"r10\", \"r11\", \"r12\" );", codeAddress);
-			//result = String.format("  __asm__(\"# invoke_virtual_quick_L%#x\");", codeAddress);
+			
+			// This is a temporary change that can be applied to inline all invoke-virtual instructions in the AndEBench transition_state_switch() method.
+			// DO NOT USE IN ANY OTHER CASE
 			/*
 			int reg = ((FiveRegisterInstruction)instruction).getRegisterE();
 			
@@ -418,7 +420,7 @@ public class BytecodeToCConverter {
 									"  } else {\n" + 
 									"   *((int*) (self+%2$d)) = 0;\n" +
 									"  }", reg, offsetThreadRetValue);
-		*/
+			*/
 			break;
 		}
 		

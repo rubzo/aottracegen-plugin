@@ -27,6 +27,7 @@ public class Config {
 	public boolean produceUnsafe = false;
 	public boolean onlyPrintTraces = false;
 	public boolean emitDebugFunction = false;
+	public boolean emitEHCounter = false;
 	public boolean emitProfiling = false; // not yet implemented
 	
 	public void addEntry(int e) {
@@ -68,6 +69,10 @@ public class Config {
 				} else if (line.startsWith("print")) {
 					onlyPrintTraces = true;
 				} else if (line.startsWith("debugfunc")) {
+					emitDebugFunction = true;
+				} else if (line.startsWith("ehcounter")) {
+					emitEHCounter = true;
+					// Emitting the counter at every exception handler exit point requires the debug function to be emitted.
 					emitDebugFunction = true;
 				} else if (line.startsWith("trace all")) {
 					traceAll = true;

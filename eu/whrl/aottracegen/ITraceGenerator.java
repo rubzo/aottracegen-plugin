@@ -281,9 +281,17 @@ public class ITraceGenerator {
 		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
 			for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
 				writer.write(String.format("LT%#x_EH_%#x:\n", curTrace.entry, exceptionCodeAddress));
+				
+				if (context.config.emitEHCounter) {
+					writer.write(String.format("\tldr\tr1, AOTDebug_%#x\n", curTrace.entry));
+					writer.write(String.format("\tmovw\tr0, #%d\n", exceptionCodeAddress));
+					writer.write("\tblx\tr1\n");
+				}
 				writer.write(String.format("\tldr\tr0, ITrace_%#x_BasePC\n", curTrace.entry));
 				writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
 				writer.write(String.format("\tb\tLT%#x_EH_MAIN\n", curTrace.entry));
+				
+				
 			}
 			writer.write(String.format("LT%#x_EH_MAIN:\n", curTrace.entry));
 			writer.write("\tldr\tr1, [r6, #108]\n");
