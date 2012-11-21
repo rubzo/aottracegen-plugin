@@ -37,11 +37,27 @@ public class BytecodeToCConverter {
 		
 		switch (instruction.opcode) {
 		
+		case MOVE_WIDE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result = String.format("  v[%d] = v[%d];\n" +
+			                       "  v[%d] = v[%d];", vA, vB, vA+1, vB+1);
+			break;
+		}
+		
 		case MOVE_RESULT:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadRetValue);
+			break;
+		}
+		
+		case RETURN_VOID:
+		{	
+			result = String.format("  goto __return_L%#x;", codeAddress);
 			break;
 		}
 		
@@ -83,7 +99,7 @@ public class BytecodeToCConverter {
 			}
 			
 			result = String.format("  v[%1$d] = %3$d;\n" + 
-					               "  v[%2$d] = %4$d;", vA, vA+1, high, lit);
+					               "  v[%2$d] = %4$d;", vA, vA+1, lit, high);
 			break;
 		}
 		
@@ -144,6 +160,24 @@ public class BytecodeToCConverter {
 			result += String.format("    default: %s;\n", getGotoLabel(curTrace, fallthroughAddress));
 			
 			result += "  }";
+			break;
+		}
+		
+		case CMP_LONG:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+			
+			result = String.format(
+			"  {\n" +
+			"    long long value1 = *((long long*) (((char*)v) + (4 * %1$d)));\n" +
+			"    long long value2 = *((long long*) (((char*)v) + (4 * %2$d)));\n" +
+			"    if (value1 == value2) { v[%3$d] = 0; }\n" +
+			"    else if (value1 > value2) { v[%3$d] = 1; }\n" +
+			"    else { v[%3$d] = -1; }\n" +
+			"  }", vB, vC, vA);
+					
 			break;
 		}
 		
@@ -304,12 +338,12 @@ public class BytecodeToCConverter {
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 					
 			result = String.format("  {\n" +
-					 "  char *array = (char*) v[%2$d];\n" + 
-					 "  int array_size = *((int*) (array + 8));\n" +
-					 "  if (array == 0) goto __exception_L%4$#x;\n" +
-					 "  if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
-					 "  int *array_contents = array + 16;\n" +
-					 "  v[%1$d] = array_contents[v[%3$d]];\n" +
+					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    int array_size = *((int*) (array + 8));\n" +
+					 "    if (array == 0) goto __exception_L%4$#x;\n" +
+					 "    if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
+					 "    int *array_contents = array + 16;\n" +
+					 "    v[%1$d] = array_contents[v[%3$d]];\n" +
 					 "  }",
 					 vA, vB, vC, codeAddress);
 			break;
@@ -322,12 +356,12 @@ public class BytecodeToCConverter {
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 					
 			result = String.format("  {\n" +
-					 "  char *array = (char*) v[%2$d];\n" + 
-					 "  int array_size = *((int*) (array + 8));\n" +
-					 "  if (array == 0) goto __exception_L%4$#x;\n" +
-					 "  if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
-					 "  char *array_contents = (char*) (array + 16);\n" +
-					 "  v[%1$d] = (char) array_contents[v[%3$d]];\n" +
+					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    int array_size = *((int*) (array + 8));\n" +
+					 "    if (array == 0) goto __exception_L%4$#x;\n" +
+					 "    if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
+					 "    char *array_contents = (char*) (array + 16);\n" +
+					 "    v[%1$d] = (char) array_contents[v[%3$d]];\n" +
 					 "  }",
 					 vA, vB, vC, codeAddress);
 			break;
@@ -340,12 +374,12 @@ public class BytecodeToCConverter {
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 					
 			result = String.format("  {\n" +
-					 "  char *array = (char*) v[%2$d];\n" + 
-					 "  int array_size = *((int*) (array + 8));\n" +
-					 "  if (array == 0) goto __exception_L%4$#x;\n" +
-					 "  if (v[%3$d] >= array_size || v[%3$d] < 0) goto __exception_L%4$#x;\n" +
-					 "  int *array_contents = array + 16;\n" +
-					 "  array_contents[v[%3$d]] = v[%1$d];\n" +
+					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    int array_size = *((int*) (array + 8));\n" +
+					 "    if (array == 0) goto __exception_L%4$#x;\n" +
+					 "    if (v[%3$d] >= array_size || v[%3$d] < 0) goto __exception_L%4$#x;\n" +
+					 "    int *array_contents = array + 16;\n" +
+					 "    array_contents[v[%3$d]] = v[%1$d];\n" +
 					 "  }",
 					 vA, vB, vC, codeAddress);
 			break;
@@ -374,6 +408,22 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case ADD_LONG_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result = String.format(
+			"  {\n" +
+			"    unsigned int a = ((unsigned int) v[%1$d]) + ((unsigned int) v[%3$d]);\n" +
+			"    unsigned int b = ((unsigned int) v[%2$d]) + ((unsigned int) v[%4$d]);\n" +
+			"    if (a < ((unsigned int) v[%1$d])) { b++; }\n" +
+			"    v[%1$d] = a;\n" +
+			"    v[%2$d] = b;\n" +
+			"  }", vA, vA+1, vB, vB+1);
+			break;
+		}
+		
 		case ADD_INT_LIT8:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
@@ -395,6 +445,18 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case IGET_WIDE_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+			
+			result = String.format("  if (v[%3$d] == 0) goto __exception_L%6$#x;\n" +
+		               			   "  v[%1$d] = *((int*) (((char*)v[%3$d]) + %4$#x));\n" +
+		               			   "  v[%2$d] = *((int*) (((char*)v[%3$d]) + %5$#x));", vA, vA+1, vB, offset, offset+4, codeAddress);
+			break;
+		}
+		
 		case IPUT_QUICK:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
@@ -403,6 +465,18 @@ public class BytecodeToCConverter {
 			
 			result = String.format("  if (v[%2$d] == 0) goto __exception_L%4$#x;\n" +
 					               "  *((int*) (((char*)v[%2$d]) + %3$#x)) = v[%1$d];", vA, vB, offset, codeAddress);
+			break;
+		}
+		
+		case IPUT_WIDE_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+			
+			result = String.format("  if (v[%3$d] == 0) goto __exception_L%6$#x;\n" +
+					               "  *((int*) (((char*)v[%3$d]) + %4$#x)) = v[%1$d];\n" +
+					               "  *((int*) (((char*)v[%3$d]) + %5$#x)) = v[%2$d];", vA, vA+1, vB, offset, offset+4, codeAddress);
 			break;
 		}
 		

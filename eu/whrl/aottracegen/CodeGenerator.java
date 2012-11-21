@@ -100,7 +100,7 @@ public class CodeGenerator {
 	
 	private void emitSharedObjectITrace(CodeGenContext context, String iTraceSName, String iTraceOName, String iTraceSOName) throws CommandException {
 		String assembleCommand = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=softfp -mthumb -c -Os -fno-rtti -fPIC -o %s %s", iTraceOName, iTraceSName);
-		String sharedObjectCommand = String.format("arm-linux-androideabi-gcc -shared -L/Volumes/Android/4.0.4/out/target/product/maguro/system/lib -o %s %s", iTraceSOName, iTraceOName);
+		String sharedObjectCommand = String.format("arm-linux-androideabi-gcc -shared -L/Volumes/Android/4.2/out/target/product/maguro/system/lib -o %s %s", iTraceSOName, iTraceOName);
 		try {
 			System.out.println("Assembling O file...");
 			System.out.println("  (cmd: " + assembleCommand + ")");

@@ -2,6 +2,7 @@ package eu.whrl.aottracegen;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -82,60 +83,39 @@ public class ASMTrace {
 	 * - remove any redundant labels
 	 */
 	public void cleanupTrace(CodeGenContext context) {
-		String exitLabel = optRemovePushPopInstsAndFindExitLabel(context);
-		removeBranchesToExitLabel(context, exitLabel);		
+		optRemovePushPopInsts(context);		
 		removeStackManipulation(context);
 		renameLabels(context);
 		generalCleanup(context);
 		emitHandlers(context);
 		removeRedundantLabels(context);	
 		addLiteralPoolPointer(context);
-		removeStackReferences(context);
+		//removeStackReferences(context);
 	}
 	
-	private String optRemovePushPopInstsAndFindExitLabel(CodeGenContext context) {
+	private void optRemovePushPopInsts(CodeGenContext context) {
 		// Find the push/pop instructions,
-		// as well as where the exit label is (just before pop)
 		//
 		int pushIdx = 0;
-		int popIdx = 0;
-		String exitLabel = "";
+		List<Integer> popIdxs = new LinkedList<Integer>();
 
 		for (int cl = 0; cl < traceBody.size(); cl++) {
 			String line = traceBody.get(cl);
 			
-			if (line.startsWith("\tpop\t{") || line.startsWith("\tldmfd\t")) {
-				// The exit label must be the line before...
-				exitLabel = traceBody.get(cl-1);
-				// Cut off the :
-				exitLabel = exitLabel.substring(0, exitLabel.length() - 1);
-				
-				popIdx = cl;
+			if (line.startsWith("\tldr\tlr, [sp]") || line.startsWith("\tldmfd\t") || line.startsWith("\tpop\t{")) {				
+				popIdxs.add(cl);
 			} else if (line.startsWith("\tpush\t{") || line.startsWith("\tstmfd\t")) {
 				pushIdx = cl;
 			}
-	
 		}
 		
-		// Remove push/pop
+		// Remove push/pops
 		//
 		traceBody.remove(pushIdx);
-		traceBody.remove(popIdx-1);
-		
-		return exitLabel;
-	}
-	
-	private void removeBranchesToExitLabel(CodeGenContext context, String exitLabel) {
-		// Remove any branches to the exit label
-		//
-		String branchToExit = "\tb\t" + exitLabel;
-		for (int cl = 0; cl < traceBody.size(); cl++) {
-			String line = traceBody.get(cl);
-
-			if (line.equals(branchToExit)) {
-				traceBody.remove(cl);
-				cl--;
-			}
+		int i = 1;
+		for (int idx : popIdxs) {
+			traceBody.remove(idx-i);
+			i++;
 		}
 	}
 	
@@ -197,11 +177,11 @@ public class ASMTrace {
 		for (int cl = 0; cl < traceBody.size(); cl++) {
 			String line = traceBody.get(cl);
 
-			if (line.contains("bl\texception")) {
+			if (line.contains("b\texception")) {
 				cl = handleException(context, cl);
-			} else if (line.contains("bl\texit")) {
+			} else if (line.contains("b\texit")) {
 				cl = handleExit(context, cl);
-			} else if (line.contains("bl\treturn")) {
+			} else if (line.contains("b\treturn")) {
 				cl = handleReturn(context, cl);
 			} else if (line.contains("# invoke_virtual_quick")) {
 				cl = handleInvokeVirtualQuick(context, cl);
@@ -401,7 +381,7 @@ public class ASMTrace {
 	private int handleExit(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
 		
-		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\texit_L(.+)", String.format("\tb\tLT%#x_CC_$1", curTrace.entry)));
+		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tb\texit_L(0x[0-9a-f]+)\\(PLT\\)", String.format("\tb\tLT%#x_CC_$1", curTrace.entry)));
 		
 		return cl;
 	}
@@ -409,7 +389,7 @@ public class ASMTrace {
 	private int handleException(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
 		
-		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\texception_L(.+)", String.format("\tb\tLT%#x_EH_$1", curTrace.entry)));
+		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tb\texception_L(0x[0-9a-f]+)\\(PLT\\)", String.format("\tb\tLT%#x_EH_$1", curTrace.entry)));
 		
 		return cl;
 	}
@@ -428,7 +408,7 @@ public class ASMTrace {
 		cl = addLine(cl, "\tblx\tr0");
 		
 		
-		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tbl\treturn_L(.+)", String.format("\tb\tLT%#x_EH_$1", curTrace.entry)));
+		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tb\treturn_L(0x[0-9a-f]+)\\(PLT\\)", String.format("\tb\tLT%#x_EH_$1", curTrace.entry)));
 		
 		return cl;
 	}
