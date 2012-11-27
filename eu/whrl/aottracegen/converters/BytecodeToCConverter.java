@@ -37,6 +37,15 @@ public class BytecodeToCConverter {
 		
 		switch (instruction.opcode) {
 		
+		case MOVE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result = String.format("  v[%d] = v[%d];", vA, vB);
+			break;
+		}
+		
 		case MOVE_WIDE:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
@@ -55,9 +64,28 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case RETURN:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
+					String.format("  goto __return_L%#x;", codeAddress);
+			break;
+		}
+		
 		case RETURN_VOID:
 		{	
 			result = String.format("  goto __return_L%#x;", codeAddress);
+			break;
+		}
+		
+		case RETURN_WIDE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
+					String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue+4, vA+1) +
+					String.format("  goto __return_L%#x;", codeAddress);
 			break;
 		}
 		
@@ -405,6 +433,15 @@ public class BytecodeToCConverter {
 		case INT_TO_LONG:
 		{			
 			result = String.format("  // placeholder for int-to-long");
+			break;
+		}
+		
+		case ADD_INT_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result = String.format("  v[%d] = v[%d] + v[%d];", vA, vA, vB);
 			break;
 		}
 		

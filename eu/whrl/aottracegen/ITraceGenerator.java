@@ -256,6 +256,8 @@ public class ITraceGenerator {
 		writer.write(curAsmTrace.getFullStringTraceBody());
 		writer.write("\n");
 		
+		writer.write(".align 4\n");
+		
 		// base pc location
 		// NB: this MUST come just before the literal pool!
 		writer.write(String.format("ITrace_%#x_BasePC:\n", curTrace.entry));
@@ -283,7 +285,8 @@ public class ITraceGenerator {
 				writer.write(String.format("LT%#x_EH_%#x:\n", curTrace.entry, exceptionCodeAddress));
 				
 				if (context.config.emitEHCounter) {
-					writer.write(String.format("\tldr\tr1, AOTDebug_%#x\n", curTrace.entry));
+					writer.write(String.format("\tadr.w\tr1, AOTDebug_%#x\n", curTrace.entry));
+					writer.write("\tldr\tr1, [r1]\n");
 					writer.write(String.format("\tmovw\tr0, #%d\n", exceptionCodeAddress));
 					writer.write("\tblx\tr1\n");
 				}

@@ -30,6 +30,24 @@ public class BytecodeToPrettyConverter {
 		
 		switch (instruction.opcode) {
 		
+		case MOVE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("move v%d, v%d", vA, vB);
+			break;
+		}
+		
+		case MOVE_WIDE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("move-wide v%d, v%d", vA, vB);
+			break;
+		}
+		
 		case MOVE_RESULT:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
@@ -38,11 +56,25 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
+		case RETURN:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result += String.format("return v%d", vA);
+			break;
+		}
+		
 		case RETURN_OBJECT:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result += String.format("return-object v%d", vA);
+			break;
+		}
+		
+		case RETURN_VOID:
+		{
+			result += "return-void";
 			break;
 		}
 		
@@ -319,6 +351,15 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
+		case ADD_INT_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("add-int/2addr v%d, v%d", vA, vB);
+			break;
+		}
+		
 		case ADD_INT_LIT8:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
@@ -365,6 +406,7 @@ public class BytecodeToPrettyConverter {
 		default:
 		{
 			result += String.format("%s", instruction.opcode.name);
+			System.err.println("Reminder: add case for " + instruction.opcode.name + " to BytecodeToPrettyConverter");
 			break;
 		}
 
