@@ -9,6 +9,11 @@ import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
 public class BytecodeToUnsafeCConverter extends BytecodeToCConverter {
+	
+	public BytecodeToUnsafeCConverter(CodeGenContext context) {
+		super(context);
+	}
+
 	public String convert(CodeGenContext context, int codeAddress) throws UnimplementedInstructionException {
 		
 		Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);

@@ -89,9 +89,9 @@ public class CTraceGenerator {
 		writer = null;
 		prepared = false;
 		if (context.config.produceUnsafe) {
-			converter = new BytecodeToUnsafeCConverter();
+			converter = new BytecodeToUnsafeCConverter(context);
 		} else {
-			converter = new BytecodeToCConverter();
+			converter = new BytecodeToCConverter(context);
 		}
 		stringConverter = new BytecodeToPrettyConverter();
 	}
@@ -141,9 +141,16 @@ public class CTraceGenerator {
 		
 		try {
 			// Everything that this calls MUST throw the IOException back up here!
+			if (context.config.avoidVirtualRegs) {
+				emitSaveVregsMacro();
+				emitLoadVregsMacro();
+			}
 			emitHelperFunctions();
 			emitExitFunctionPrototypes();
 			emitFunctionStart();
+			if (context.config.avoidVirtualRegs) {
+				emitVirtualRegs();
+			}
 			
 			for (int i = 0; i < curTrace.getLength(); i++) {
 				emitForCodeAddress(curTrace.addresses.get(i));
@@ -167,6 +174,37 @@ public class CTraceGenerator {
 			System.err.println("Couldn't write to C file!");
 			throw new CGeneratorFaultException();
 		}
+	}
+	
+	private void emitSaveVregsMacro() throws IOException {
+		writer.write("#define SAVE_VREGS \\\n");
+		String continueLine = "\\";
+		for (int i = 0; i < context.virtualRegisterCount; i++) {
+			if (i == (context.virtualRegisterCount-1)) {
+				continueLine = "";
+			}
+			writer.write(String.format("v[%1$d] = v%1$d;%2$s\n", i, continueLine));
+		}
+		writer.write("\n");
+	}
+	
+	private void emitLoadVregsMacro() throws IOException {
+		writer.write("#define LOAD_VREGS \\\n");
+		String continueLine = "\\";
+		for (int i = 0; i < context.virtualRegisterCount; i++) {
+			if (i == (context.virtualRegisterCount-1)) {
+				continueLine = "";
+			}
+			writer.write(String.format("v%1$d = v[%1$d];%2$s\n", i, continueLine));
+		}
+	}
+
+	private void emitVirtualRegs() throws IOException {
+		writer.write("  // Copy virtual register array into local vars\n");
+		for (int i = 0; i < context.virtualRegisterCount; i++) {
+			writer.write(String.format("  int v%1$d = v[%1$d];\n", i));
+		}
+		writer.write("\n");
 	}
 
 	private void updateChainingCells(Trace curTrace, Instruction instruction, int codeAddress, int nextAddress) {
@@ -284,6 +322,11 @@ public class CTraceGenerator {
 		
 		Trace curTrace = context.getCurrentTrace();
 		
+		String saveVRegsString = "";
+		if (context.config.avoidVirtualRegs) {
+			saveVRegsString = "SAVE_VREGS";
+		}
+		
 		// Generate the exception labels.
 		for (int i = 0; i < curTrace.getLength(); i++) {
 			int codeAddress = curTrace.addresses.get(i);
@@ -291,7 +334,7 @@ public class CTraceGenerator {
 			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
 		
 			if (opcodesThatThrowExceptions.contains(instruction.opcode)) {
-				writer.write(String.format("  __exception_L%1$#x: exception_L%1$#x(); return;\n", codeAddress));
+				writer.write(String.format("  __exception_L%1$#x: %2$s exception_L%1$#x(); return;\n", codeAddress, saveVRegsString));
 			}
 			
 			if (opcodesThatCanReturn.contains(instruction.opcode)) {
@@ -301,7 +344,7 @@ public class CTraceGenerator {
 		
 		// Generate the exit labels.
 		for (int successorAddress : curTrace.successors) {
-			writer.write(String.format("  __exit_L%1$#x: exit_L%1$#x(); return;\n", successorAddress));
+			writer.write(String.format("  __exit_L%1$#x: %2$s exit_L%1$#x(); return;\n", successorAddress, saveVRegsString));
 		}
 		
 		writer.write("\n");

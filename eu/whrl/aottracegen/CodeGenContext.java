@@ -19,6 +19,7 @@ public class CodeGenContext {
 	
 	public int methodIndex;
 	public Config config;
+	public int virtualRegisterCount;
 	
 	//
 	// These are local to this method only!
@@ -48,6 +49,8 @@ public class CodeGenContext {
 		
 		this.config = config;
 		methodIndex = method.method.getIndex();
+		
+		virtualRegisterCount = method.codeItem.getRegisterCount();
 
 		// Store all the instructions the method contains.
 		instructions = method.codeItem.getInstructions();

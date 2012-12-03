@@ -28,7 +28,7 @@ public class Config {
 	public boolean onlyPrintTraces = false;
 	public boolean emitDebugFunction = false;
 	public boolean emitEHCounter = false;
-	public boolean emitProfiling = false; // not yet implemented
+	public boolean avoidVirtualRegs = false;
 	
 	public void addEntry(int e) {
 		numTraces++;
@@ -74,6 +74,8 @@ public class Config {
 					emitEHCounter = true;
 					// Emitting the counter at every exception handler exit point requires the debug function to be emitted.
 					emitDebugFunction = true;
+				} else if (line.startsWith("avoidvirtregs")) {
+					avoidVirtualRegs = true;
 				} else if (line.startsWith("trace all")) {
 					traceAll = true;
 				} else if (line.startsWith("trace")) {

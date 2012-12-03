@@ -1,5 +1,6 @@
 package eu.whrl.aottracegen.converters;
 
+import java.io.IOException;
 import java.util.Iterator;
 
 import org.jf.dexlib.Code.FiveRegisterInstruction;
@@ -23,6 +24,20 @@ public class BytecodeToCConverter {
 	
 	private static final int offsetThreadRetValue = 16; 
 	
+	private CodeGenContext context;
+	
+	public BytecodeToCConverter(CodeGenContext context) {
+		this.context = context;
+	}
+	
+	// vrs = get the Virtual Register String
+	private String vrs(int reg) {
+		if (context.config.avoidVirtualRegs) {
+			return String.format("v%d", reg);
+		}
+		return String.format("v[%d]", reg);
+	}
+	
 	/*
 	 * Return a string representing the instruction at codeAddress,
 	 * as a C implementation. ALSO HAS SIDE EFFECTS OF UPDATING
@@ -42,7 +57,7 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result = String.format("  v[%d] = v[%d];", vA, vB);
+			result = String.format("  %s = %s;", vrs(vA), vrs(vB));
 			break;
 		}
 		
@@ -51,8 +66,8 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result = String.format("  v[%d] = v[%d];\n" +
-			                       "  v[%d] = v[%d];", vA, vB, vA+1, vB+1);
+			result = String.format("  %s = %s;\n" +
+			                       "  %s = %s;", vrs(vA), vrs(vB), vrs(vA+1), vrs(vB+1));
 			break;
 		}
 		
@@ -60,7 +75,7 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadRetValue);
+			result = String.format("  %s = *((int*) (self+%d));", vrs(vA), offsetThreadRetValue);
 			break;
 		}
 		
@@ -68,7 +83,7 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
+			result = String.format("  *((int*) (self+%d)) = %s;\n", offsetThreadRetValue, vrs(vA)) +
 					String.format("  goto __return_L%#x;", codeAddress);
 			break;
 		}
@@ -83,8 +98,8 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
-					String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue+4, vA+1) +
+			result = String.format("  *((int*) (self+%d)) = %s;\n", offsetThreadRetValue, vrs(vA)) +
+					String.format("  *((int*) (self+%d)) = %s;\n", offsetThreadRetValue+4, vrs(vA+1)) +
 					String.format("  goto __return_L%#x;", codeAddress);
 			break;
 		}
@@ -93,7 +108,7 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
+			result = String.format("  *((int*) (self+%d)) = %s;\n", offsetThreadRetValue, vrs(vA)) +
 					String.format("  goto __return_L%#x;", codeAddress);
 			break;
 		}
@@ -103,7 +118,7 @@ public class BytecodeToCConverter {
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			long lit = ((LiteralInstruction)instruction).getLiteral();
 			
-			result = String.format("  v[%d] = %d;", vA, lit);
+			result = String.format("  %s = %d;", vrs(vA), lit);
 			break;
 		}
 		
@@ -112,7 +127,7 @@ public class BytecodeToCConverter {
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			long lit = ((LiteralInstruction)instruction).getLiteral();
 			
-			result = String.format("  v[%d] = %d;", vA, lit);
+			result = String.format("  %s = %d;", vrs(vA), lit);
 			break;
 		}
 		
@@ -126,14 +141,8 @@ public class BytecodeToCConverter {
 				high = -1;
 			}
 			
-			result = String.format("  v[%1$d] = %3$d;\n" + 
-					               "  v[%2$d] = %4$d;", vA, vA+1, lit, high);
-			break;
-		}
-		
-		case NEW_INSTANCE:
-		{			
-			result = String.format("  // placeholder for new-instance");
+			result = String.format("  %1$s = %3$d;\n" + 
+					               "  %2$s = %4$d;", vrs(vA), vrs(vA+1), lit, high);
 			break;
 		}
 		
@@ -173,7 +182,7 @@ public class BytecodeToCConverter {
 			
 			PackedSwitchDataPseudoInstruction dataInstruction = (PackedSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(codeAddress + dataOffset);
 			
-			result = String.format("  switch (v[%d]) {\n", vA);
+			result = String.format("  switch (%s) {\n", vrs(vA));
 			
 			Iterator<PackedSwitchTarget> targetIterator = dataInstruction.iterateKeysAndTargets();
 			while (targetIterator.hasNext()) {
@@ -201,10 +210,10 @@ public class BytecodeToCConverter {
 			"  {\n" +
 			"    long long value1 = *((long long*) (((char*)v) + (4 * %1$d)));\n" +
 			"    long long value2 = *((long long*) (((char*)v) + (4 * %2$d)));\n" +
-			"    if (value1 == value2) { v[%3$d] = 0; }\n" +
-			"    else if (value1 > value2) { v[%3$d] = 1; }\n" +
-			"    else { v[%3$d] = -1; }\n" +
-			"  }", vB, vC, vA);
+			"    if (value1 == value2) { %3$s = 0; }\n" +
+			"    else if (value1 > value2) { %3$s = 1; }\n" +
+			"    else { %3$s = -1; }\n" +
+			"  }", vrs(vB), vrs(vC), vrs(vA));
 					
 			break;
 		}
@@ -217,8 +226,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] == v[%d]) { %s; }",
-					vA, vB, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s == %s) { %s; }",
+					vrs(vA), vrs(vB), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -230,8 +239,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] != v[%d]) { %s; }",
-					vA, vB, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s != %s) { %s; }",
+					vrs(vA), vrs(vB), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -243,8 +252,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] < v[%d]) { %s; }",
-					vA, vB, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s < %s) { %s; }",
+					vrs(vA), vrs(vB), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -256,8 +265,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] >= v[%d]) { %s; }",
-					vA, vB, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s >= %s) { %s; }",
+					vrs(vA), vrs(vB), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -269,8 +278,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] > v[%d]) { %s; }",
-					vA, vB, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s > %s) { %s; }",
+					vrs(vA), vrs(vB), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -282,8 +291,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] <= v[%d]) { %s; }",
-					vA, vB, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s <= %s) { %s; }",
+					vrs(vA), vrs(vB), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -294,8 +303,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] == 0) { %s; }",
-					vA, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s == 0) { %s; }",
+					vrs(vA), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -306,8 +315,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] != 0) { %s; }",
-					vA, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s != 0) { %s; }",
+					vrs(vA), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -318,8 +327,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] < 0) { %s; }",
-					vA, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s < 0) { %s; }",
+					vrs(vA), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -330,8 +339,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] >= 0) { %s; }",
-					vA, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s >= 0) { %s; }",
+					vrs(vA), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -342,8 +351,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] > 0) { %s; }",
-					vA, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s > 0) { %s; }",
+					vrs(vA), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -354,8 +363,8 @@ public class BytecodeToCConverter {
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();
 			int targetAddress = codeAddress + targetAddressOffset;
 			
-			result = String.format("  if (v[%d] <= 0) { %s; }",
-					vA, getGotoLabel(curTrace, targetAddress));
+			result = String.format("  if (%s <= 0) { %s; }",
+					vrs(vA), getGotoLabel(curTrace, targetAddress));
 			break;
 		}
 		
@@ -366,14 +375,14 @@ public class BytecodeToCConverter {
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 					
 			result = String.format("  {\n" +
-					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    char *array = (char*) %2$s;\n" + 
 					 "    int array_size = *((int*) (array + 8));\n" +
 					 "    if (array == 0) goto __exception_L%4$#x;\n" +
-					 "    if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
+					 "    if (((unsigned int) %3$s) >= array_size) goto __exception_L%4$#x;\n" +
 					 "    int *array_contents = array + 16;\n" +
-					 "    v[%1$d] = array_contents[v[%3$d]];\n" +
+					 "    %1$s = array_contents[%3$s];\n" +
 					 "  }",
-					 vA, vB, vC, codeAddress);
+					 vrs(vA), vrs(vB), vrs(vC), codeAddress);
 			break;
 		}
 		
@@ -384,14 +393,14 @@ public class BytecodeToCConverter {
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 					
 			result = String.format("  {\n" +
-					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    char *array = (char*) %2$s;\n" + 
 					 "    int array_size = *((int*) (array + 8));\n" +
 					 "    if (array == 0) goto __exception_L%4$#x;\n" +
-					 "    if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
+					 "    if (((unsigned int) %3$s) >= array_size) goto __exception_L%4$#x;\n" +
 					 "    char *array_contents = (char*) (array + 16);\n" +
-					 "    v[%1$d] = (char) array_contents[v[%3$d]];\n" +
+					 "    %1$s = (char) array_contents[%3$s];\n" +
 					 "  }",
-					 vA, vB, vC, codeAddress);
+					 vrs(vA), vrs(vB), vrs(vC), codeAddress);
 			break;
 		}
 		
@@ -402,14 +411,14 @@ public class BytecodeToCConverter {
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 					
 			result = String.format("  {\n" +
-					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    char *array = (char*) %2$s;\n" + 
 					 "    int array_size = *((int*) (array + 8));\n" +
 					 "    if (array == 0) goto __exception_L%4$#x;\n" +
-					 "    if (v[%3$d] >= array_size || v[%3$d] < 0) goto __exception_L%4$#x;\n" +
+					 "    if (((unsigned int) %3$s) >= array_size) goto __exception_L%4$#x;\n" +
 					 "    int *array_contents = array + 16;\n" +
-					 "    array_contents[v[%3$d]] = v[%1$d];\n" +
+					 "    array_contents[%3$s] = %1$s;\n" +
 					 "  }",
-					 vA, vB, vC, codeAddress);
+					 vrs(vA), vrs(vB), vrs(vC), codeAddress);
 			break;
 		}
 		
@@ -420,19 +429,7 @@ public class BytecodeToCConverter {
 			
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_FIELD, field);
 			
-			result = String.format("  v[%d] = *((int*) lit[%d]);", vA, literalPoolLoc);
-			break;
-		}
-		
-		case INVOKE_DIRECT:
-		{			
-			result = String.format("  // placeholder for invoke-direct");
-			break;
-		}
-		
-		case INT_TO_LONG:
-		{			
-			result = String.format("  // placeholder for int-to-long");
+			result = String.format("  %s = *((int*) lit[%d]);", vrs(vA), literalPoolLoc);
 			break;
 		}
 		
@@ -441,7 +438,7 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result = String.format("  v[%d] = v[%d] + v[%d];", vA, vA, vB);
+			result = String.format("  %1$s = %1$s + %2$s;", vrs(vA), vrs(vB));
 			break;
 		}
 		
@@ -452,12 +449,12 @@ public class BytecodeToCConverter {
 			
 			result = String.format(
 			"  {\n" +
-			"    unsigned int a = ((unsigned int) v[%1$d]) + ((unsigned int) v[%3$d]);\n" +
-			"    unsigned int b = ((unsigned int) v[%2$d]) + ((unsigned int) v[%4$d]);\n" +
-			"    if (a < ((unsigned int) v[%1$d])) { b++; }\n" +
-			"    v[%1$d] = a;\n" +
-			"    v[%2$d] = b;\n" +
-			"  }", vA, vA+1, vB, vB+1);
+			"    unsigned int a = ((unsigned int) %1$s) + ((unsigned int) %3$s);\n" +
+			"    unsigned int b = ((unsigned int) %2$s) + ((unsigned int) %4$s);\n" +
+			"    if (a < ((unsigned int) %1$s)) { b++; }\n" +
+			"    %1$s = a;\n" +
+			"    %2$s = b;\n" +
+			"  }", vrs(vA), vrs(vA+1), vrs(vB), vrs(vB+1));
 			break;
 		}
 		
@@ -467,7 +464,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			long constant = ((LiteralInstruction)instruction).getLiteral();
 			
-			result = String.format("  v[%d] = v[%d] + %d;", vA, vB, constant);
+			result = String.format("  %s = %s + %d;", vrs(vA), vrs(vB), constant);
 			break;
 		}
 		
@@ -477,8 +474,8 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%2$d] == 0) goto __exception_L%4$#x;\n" +
-		               			   "  v[%1$d] = *((int*) (((char*)v[%2$d]) + %3$#x));", vA, vB, offset, codeAddress);
+			result = String.format("  if (%2$s == 0) goto __exception_L%4$#x;\n" +
+		               			   "  %1$s = *((int*) (((char*)%2$s) + %3$#x));", vrs(vA), vrs(vB), offset, codeAddress);
 			break;
 		}
 		
@@ -488,9 +485,9 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%3$d] == 0) goto __exception_L%6$#x;\n" +
-		               			   "  v[%1$d] = *((int*) (((char*)v[%3$d]) + %4$#x));\n" +
-		               			   "  v[%2$d] = *((int*) (((char*)v[%3$d]) + %5$#x));", vA, vA+1, vB, offset, offset+4, codeAddress);
+			result = String.format("  if (%3$s == 0) goto __exception_L%6$#x;\n" +
+		               			   "  %1$s = *((int*) (((char*)%3$s) + %4$#x));\n" +
+		               			   "  %2$s = *((int*) (((char*)%3$s) + %5$#x));", vrs(vA), vrs(vA+1), vrs(vB), offset, offset+4, codeAddress);
 			break;
 		}
 		
@@ -500,8 +497,8 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%2$d] == 0) goto __exception_L%4$#x;\n" +
-					               "  *((int*) (((char*)v[%2$d]) + %3$#x)) = v[%1$d];", vA, vB, offset, codeAddress);
+			result = String.format("  if (%2$s == 0) goto __exception_L%4$#x;\n" +
+					               "  *((int*) (((char*)%2$s) + %3$#x)) = %1$s;", vrs(vA), vrs(vB), offset, codeAddress);
 			break;
 		}
 		
@@ -511,26 +508,31 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%3$d] == 0) goto __exception_L%6$#x;\n" +
-					               "  *((int*) (((char*)v[%3$d]) + %4$#x)) = v[%1$d];\n" +
-					               "  *((int*) (((char*)v[%3$d]) + %5$#x)) = v[%2$d];", vA, vA+1, vB, offset, offset+4, codeAddress);
+			result = String.format("  if (%3$s == 0) goto __exception_L%6$#x;\n" +
+					               "  *((int*) (((char*)%3$s) + %4$#x)) = %1$s;\n" +
+					               "  *((int*) (((char*)%3$s) + %5$#x)) = %2$s;", vrs(vA), vrs(vA+1), vrs(vB), offset, offset+4, codeAddress);
 			break;
 		}
 		
 		case INVOKE_VIRTUAL_QUICK:
 		{
-			result = String.format("  __asm__(\"# invoke_virtual_quick_L%#x\" : : : \"r0\", \"r1\", \"r2\", \"r3\", \"r4\", \"r7\", \"r8\", \"r9\", \"r10\", \"r11\", \"r12\" );", codeAddress);
+			String saveVRegsString = "";
+			if (context.config.avoidVirtualRegs) {
+				saveVRegsString = "SAVE_VREGS";
+			}
+			result = String.format("  %s __asm__(\"# invoke_virtual_quick_L%#x\" : : : \"r0\", \"r1\", \"r2\", \"r3\", \"r4\", \"r7\", \"r8\", \"r9\", \"r10\", \"r11\", \"r12\");", 
+					saveVRegsString, codeAddress);
 			
 			// This is a temporary change that can be applied to inline all invoke-virtual instructions in the AndEBench transition_state_switch() method.
 			// DO NOT USE IN ANY OTHER CASE
 			/*
 			int reg = ((FiveRegisterInstruction)instruction).getRegisterE();
 			
-			result = String.format("  if (v[%1$d] >= '0' && v[%1$d] <= '9') {\n" +
+			result = String.format("  if (%1$s >= '0' && %1$s <= '9') {\n" +
 									"   *((int*) (self+%2$d)) = 1;\n" +
 									"  } else {\n" + 
 									"   *((int*) (self+%2$d)) = 0;\n" +
-									"  }", reg, offsetThreadRetValue);
+									"  }", vrs(reg), offsetThreadRetValue);
 			*/
 			break;
 		}
