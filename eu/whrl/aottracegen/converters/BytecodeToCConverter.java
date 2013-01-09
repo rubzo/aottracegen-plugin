@@ -146,6 +146,21 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case CONST_WIDE_HIGH16:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+			
+			lit = lit << 16;
+			
+			long low = 0;
+			
+			
+			result = String.format("  %1$s = %3$d;\n" + 
+					               "  %2$s = %4$d;", vrs(vA), vrs(vA+1), low, lit);
+			break;
+		}
+		
 		case GOTO:
 		{
 			int targetAddressOffset = ((OffsetInstruction)instruction).getTargetAddressOffset();

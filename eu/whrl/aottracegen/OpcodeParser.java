@@ -90,15 +90,12 @@ public class OpcodeParser {
 			break;
 		}
 
+		
 		case CONST_WIDE_16:
+		case CONST_WIDE_HIGH16:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			long lit = ((LiteralInstruction)instruction).getLiteral();
-
-			long high = 0;
-			if (lit < 0) {
-				high = -1;
-			}
 
 			writes.add(vA);
 			writes.add(vA+1);

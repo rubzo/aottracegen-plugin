@@ -105,6 +105,17 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
+		case CONST_WIDE_HIGH16:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+
+			lit = lit << 48;
+			
+			result += String.format("const-wide/high16 v%d, #%d", vA, lit);
+			break;
+		}
+		
 		case NEW_INSTANCE:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();

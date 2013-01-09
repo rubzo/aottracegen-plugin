@@ -36,7 +36,7 @@ public class TraceFinder {
 	 * Checks if a given instruction should cause the tracer to stop.
 	 */
 	private boolean isTraceEndingInstruction(CodeGenContext context, int codeAddress, Instruction instruction) {
-		// Conditional branch? That's a trace ender.
+		// Conditional branch? 
 		if (instruction.opcode == Opcode.IF_EQ ||
 				instruction.opcode == Opcode.IF_EQZ ||
 				instruction.opcode == Opcode.IF_GE ||
@@ -52,17 +52,17 @@ public class TraceFinder {
 			return true;
 		}
 		
-		// Invoke instruction? That's a trace ender.
+		// Invoke instruction?
 		if (isInvokeInstruction(instruction)) {
 			return true;
 		}
 		
-		// Switch statement? That's a trace ender.
+		// Switch statement?
 		if (instruction.opcode == Opcode.PACKED_SWITCH || instruction.opcode == Opcode.SPARSE_SWITCH) {
 			return true;
 		}
 		
-		// Return statement? That's a trace ender.
+		// Return statement?
 		if (instruction.opcode == Opcode.RETURN ||
 				instruction.opcode == Opcode.RETURN_OBJECT ||
 				instruction.opcode == Opcode.RETURN_VOID ||
@@ -71,12 +71,12 @@ public class TraceFinder {
 			return true;
 		}
 		
-		// Throwing an exception on purpose? That's a trace ender.
+		// Throwing an exception on purpose?
 		if (instruction.opcode == Opcode.THROW) {
 			return true;
 		}
 		
-		// The instruction after you's going to be a switch statement? Oh, you better believe that's a trace ender.
+		// The instruction after you is going to be a switch statement?
 		int nextCodeAddress = context.getNextCodeAddress(codeAddress, instruction);
 		Instruction nextInstruction = context.getInstructionAtCodeAddress(nextCodeAddress);
 		if (nextInstruction.opcode == Opcode.PACKED_SWITCH ||
