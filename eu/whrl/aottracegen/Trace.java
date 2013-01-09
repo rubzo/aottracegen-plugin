@@ -68,6 +68,13 @@ public class Trace {
 		return addresses.size();
 	}
 	
+	public void calculateRegisterInteraction(CodeGenContext context) {
+		for (int address : addresses) {
+			Instruction inst = context.getInstructionAtCodeAddress(address);
+			OpcodeParser.calculateRegisterInteraction(inst, meta.readRegs, meta.dirtyRegs);
+		}
+	}
+	
 	/*
 	 * Print out the trace.
 	 */

@@ -135,6 +135,8 @@ public class CTraceGenerator {
 		
 		Trace curTrace = context.getCurrentTrace();
 		
+		curTrace.calculateRegisterInteraction(context);
+		
 		for (int successor : curTrace.successors) {
 			curTrace.meta.chainingCells.put(successor, new ChainingCell(ChainingCell.Type.NORMAL, successor));
 		}
@@ -177,32 +179,49 @@ public class CTraceGenerator {
 	}
 	
 	private void emitSaveVregsMacro() throws IOException {
+		Trace curTrace = context.getCurrentTrace();
+		
 		writer.write("#define SAVE_VREGS \\\n");
 		String continueLine = "\\";
-		for (int i = 0; i < context.virtualRegisterCount; i++) {
-			if (i == (context.virtualRegisterCount-1)) {
+		
+		int i = 0;
+		for (int reg : curTrace.meta.dirtyRegs) {
+			if (i == (curTrace.meta.dirtyRegs.size()-1)) {
 				continueLine = "";
 			}
-			writer.write(String.format("v[%1$d] = v%1$d;%2$s\n", i, continueLine));
+			writer.write(String.format("v[%1$d] = v%1$d;%2$s\n", reg, continueLine));
 		}
 		writer.write("\n");
+		
 	}
 	
 	private void emitLoadVregsMacro() throws IOException {
+		Trace curTrace = context.getCurrentTrace();
+	
 		writer.write("#define LOAD_VREGS \\\n");
 		String continueLine = "\\";
-		for (int i = 0; i < context.virtualRegisterCount; i++) {
-			if (i == (context.virtualRegisterCount-1)) {
+		
+		int i = 0;
+		for (int reg : curTrace.meta.readRegs) {
+			if (i == (curTrace.meta.readRegs.size()-1)) {
 				continueLine = "";
 			}
-			writer.write(String.format("v%1$d = v[%1$d];%2$s\n", i, continueLine));
+			writer.write(String.format("v%1$d = v[%1$d];%2$s\n", reg, continueLine));
 		}
+		writer.write("\n");
+		
 	}
 
 	private void emitVirtualRegs() throws IOException {
+		Trace curTrace = context.getCurrentTrace();
+		
 		writer.write("  // Copy virtual register array into local vars\n");
 		for (int i = 0; i < context.virtualRegisterCount; i++) {
-			writer.write(String.format("  int v%1$d = v[%1$d];\n", i));
+			if (curTrace.meta.readRegs.contains(i)) {
+				writer.write(String.format("  int v%1$d = v[%1$d];\n", i));
+			} else {
+				writer.write(String.format("  int v%1$d;\n", i));
+			}
 		}
 		writer.write("\n");
 	}

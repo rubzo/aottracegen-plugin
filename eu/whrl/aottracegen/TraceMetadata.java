@@ -1,10 +1,11 @@
 package eu.whrl.aottracegen;
 
 import java.util.ArrayList;
-import java.util.TreeMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.jf.dexlib.Code.Opcode;
@@ -18,6 +19,8 @@ public class TraceMetadata {
 	public List<LiteralPoolType> literalPoolTypes;
 	public boolean containsSwitch;
 	public Map<Integer, ChainingCell> chainingCells;
+	public Set<Integer> readRegs;
+	public Set<Integer> dirtyRegs;
 	
 	public TraceMetadata() {
 		opcodesUsedThatNeedHelperFunctions = new TreeSet<Opcode>();
@@ -27,6 +30,8 @@ public class TraceMetadata {
 		literalPoolTypes = new ArrayList<LiteralPoolType>();
 		containsSwitch = false;
 		chainingCells = new TreeMap<Integer,ChainingCell>();
+		readRegs = new HashSet<Integer>();
+		dirtyRegs = new HashSet<Integer>();
 	}
 	
 	private int insertLiteralPoolEntry(LiteralPoolType type, int value) {
