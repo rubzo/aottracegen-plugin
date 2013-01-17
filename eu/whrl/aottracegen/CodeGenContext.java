@@ -17,7 +17,8 @@ public class CodeGenContext {
 	public List<Trace> traces;
 	private int currentTraceIdx;
 	
-	public int methodIndex;
+	public String method_name;
+	public String class_name;
 	public Config config;
 	public int virtualRegisterCount;
 	
@@ -48,7 +49,6 @@ public class CodeGenContext {
 		reassembling = false;
 		
 		this.config = config;
-		methodIndex = method.method.getIndex();
 		
 		virtualRegisterCount = method.codeItem.getRegisterCount();
 

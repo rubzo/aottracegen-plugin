@@ -131,6 +131,15 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case CONST:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+			
+			result = String.format("  %s = %d;", vrs(vA), lit);
+			break;
+		}
+		
 		case CONST_WIDE_16:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
@@ -228,7 +237,7 @@ public class BytecodeToCConverter {
 			"    if (value1 == value2) { %3$s = 0; }\n" +
 			"    else if (value1 > value2) { %3$s = 1; }\n" +
 			"    else { %3$s = -1; }\n" +
-			"  }", vrs(vB), vrs(vC), vrs(vA));
+			"  }", vB, vC, vrs(vA));
 					
 			break;
 		}
@@ -473,6 +482,29 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		case SHL_LONG_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result = String.format(" // --- TBC --- //");
+			break;
+		}
+		
+		case DIV_DOUBLE_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result = String.format(
+			"  {\n" +
+			"    double a = *((double*) (((char*)v) + (4 * %1$d)));\n" +
+			"    double b = *((double*) (((char*)v) + (4 * %2$d)));\n" +
+			"    *(((double*) (((char*)v) + (4 * %1$d)))) = a/b;\n" +
+			"  }", vA, vB);
+			break;
+		}
+		
 		case ADD_INT_LIT8:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
@@ -480,6 +512,38 @@ public class BytecodeToCConverter {
 			long constant = ((LiteralInstruction)instruction).getLiteral();
 			
 			result = String.format("  %s = %s + %d;", vrs(vA), vrs(vB), constant);
+			break;
+		}
+		
+		case INT_TO_LONG:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result = String.format("  %1$s = %3$s;\n" +
+								   "  %2$s = (%3$s < 0) ? -1 : 0;", vrs(vA), vrs(vA+1), vrs(vB));
+			break;
+		}
+		
+		case INT_TO_DOUBLE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result = String.format("  %2$s = %3$s;\n" +
+			                       "  %1$s = 0;\n", vrs(vA), vrs(vA+1), vrs(vB));
+			break;
+		}
+		
+		case LONG_TO_DOUBLE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result = "  {\n" + 
+					String.format("  long long value = *((long long*) (((char*)v) + (4 * %2$d)));\n" +
+			                      "  *(((double*) (((char*)v) + (4 * %1$d)))) = (double) value;\n", vA, vB)
+			         + "  }";
 			break;
 		}
 		
@@ -537,18 +601,13 @@ public class BytecodeToCConverter {
 			}
 			result = String.format("  %s __asm__(\"# invoke_virtual_quick_L%#x\" : : : \"r0\", \"r1\", \"r2\", \"r3\", \"r4\", \"r7\", \"r8\", \"r9\", \"r10\", \"r11\", \"r12\");", 
 					saveVRegsString, codeAddress);
+			break;
+		}
+		
+		case INVOKE_VIRTUAL:
+		{
 			
-			// This is a temporary change that can be applied to inline all invoke-virtual instructions in the AndEBench transition_state_switch() method.
-			// DO NOT USE IN ANY OTHER CASE
-			/*
-			int reg = ((FiveRegisterInstruction)instruction).getRegisterE();
-			
-			result = String.format("  if (%1$s >= '0' && %1$s <= '9') {\n" +
-									"   *((int*) (self+%2$d)) = 1;\n" +
-									"  } else {\n" + 
-									"   *((int*) (self+%2$d)) = 0;\n" +
-									"  }", vrs(reg), offsetThreadRetValue);
-			*/
+			result = "  // --- TBC --- //";
 			break;
 		}
 		

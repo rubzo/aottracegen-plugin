@@ -99,7 +99,7 @@ public class CodeGenerator {
 	}
 	
 	private void emitSharedObjectITrace(CodeGenContext context, String iTraceSName, String iTraceOName, String iTraceSOName) throws CommandException {
-		String assembleCommand = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=softfp -mthumb -c -fno-rtti -fPIC -o %s %s", iTraceOName, iTraceSName);
+		String assembleCommand = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=hard -mthumb -c -fno-rtti -fPIC -o %s %s", iTraceOName, iTraceSName);
 		String sharedObjectCommand = String.format("arm-linux-androideabi-gcc -shared -L/Volumes/Android/4.2/out/target/product/maguro/system/lib -o %s %s", iTraceSOName, iTraceOName);
 		try {
 			System.out.println("Assembling O file...");
@@ -205,7 +205,7 @@ public class CodeGenerator {
 	 * Will throw a CompilationException if it encounters any errors during compilation.
 	 */
 	public void compileC(String cTraceFileName, String asmTraceFileName) throws CompilationException {
-		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=softfp -mthumb -O3 -S -o %s %s", asmTraceFileName, cTraceFileName);
+		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=hard -mthumb -O3 -S -o %s %s", asmTraceFileName, cTraceFileName);
 		System.out.println("Compiling C...");
 		System.out.println("  (cmd: " + command + ")");
 		try {

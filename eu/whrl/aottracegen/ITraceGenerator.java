@@ -265,15 +265,18 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		// Add an entry to the literal pool for our AOTDebug function, if we ever need to use it
-		if (context.config.emitDebugFunction) {
-			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_FUNCTION);
+		if (context.config.emitDebugFunctions) {
+			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION);
+			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION);
 		}
 		
 		// its literal pool
 		writer.write(String.format("ITrace_%#x_LiteralPool:\n", curTrace.entry));
 		for (int litPoolIdx = 0; litPoolIdx < curTrace.meta.literalPoolSize; litPoolIdx++) {
-			if (context.config.emitDebugFunction && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_FUNCTION) {
-				writer.write(String.format("AOTDebug_%#x:\n", curTrace.entry));
+			if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION) {
+				writer.write(String.format("AOTDebugCounter_%#x:\n", curTrace.entry));
+			} else if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION) {
+				writer.write(String.format("AOTDebugLogMessage_%#x:\n", curTrace.entry));
 			}
 			writer.write("\t.word 0x00000000\n");
 		}
@@ -331,6 +334,7 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		// end of the trace
+		writer.write(".align 4\n");
 		writer.write(String.format("ITrace_%#x_End:\n", curTrace.entry));
 		writer.write("\t.word 0x00000000\n");
 	}

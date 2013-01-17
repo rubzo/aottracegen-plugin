@@ -3,7 +3,6 @@ package eu.whrl.aottracegen;
 import java.util.Set;
 
 import org.jf.dexlib.Code.Instruction;
-import org.jf.dexlib.Code.LiteralInstruction;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
@@ -73,18 +72,10 @@ public class OpcodeParser {
 		}
 
 		case CONST_4:
-		{
-			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
-			long lit = ((LiteralInstruction)instruction).getLiteral();
-
-			writes.add(vA);
-			break;
-		}
-
 		case CONST_16:
+		case CONST:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
-			long lit = ((LiteralInstruction)instruction).getLiteral();
 
 			writes.add(vA);
 			break;
@@ -95,7 +86,6 @@ public class OpcodeParser {
 		case CONST_WIDE_HIGH16:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
-			long lit = ((LiteralInstruction)instruction).getLiteral();
 
 			writes.add(vA);
 			writes.add(vA+1);
@@ -302,6 +292,7 @@ public class OpcodeParser {
 			break;
 		}
 
+		case DIV_DOUBLE_2ADDR:
 		case ADD_LONG_2ADDR:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
@@ -315,7 +306,7 @@ public class OpcodeParser {
 			reads.add(vB+1);
 			break;
 		}
-
+		
 		case ADD_INT_LIT8:
 		{
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
@@ -368,6 +359,27 @@ public class OpcodeParser {
 			reads.add(vB);
 			reads.add(vB+1);
 			break;
+		}
+		
+		case INT_TO_LONG:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+
+			writes.add(vA);
+			writes.add(vA+1);			
+			reads.add(vB);
+		}
+		
+		case LONG_TO_DOUBLE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+
+			writes.add(vA);
+			writes.add(vA+1);
+			reads.add(vB);
+			reads.add(vB+1);
 		}
 
 		case INVOKE_VIRTUAL_QUICK:

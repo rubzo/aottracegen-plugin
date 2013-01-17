@@ -26,7 +26,7 @@ public class Config {
 	public boolean sortTraces = false;
 	public boolean produceUnsafe = false;
 	public boolean onlyPrintTraces = false;
-	public boolean emitDebugFunction = false;
+	public boolean emitDebugFunctions = false;
 	public boolean emitEHCounter = false;
 	public boolean avoidVirtualRegs = false;
 	
@@ -68,12 +68,12 @@ public class Config {
 					produceUnsafe = true;
 				} else if (line.startsWith("print")) {
 					onlyPrintTraces = true;
-				} else if (line.startsWith("debugfunc")) {
-					emitDebugFunction = true;
+				} else if (line.startsWith("debugfuncs")) {
+					emitDebugFunctions = true;
 				} else if (line.startsWith("ehcounter")) {
 					emitEHCounter = true;
 					// Emitting the counter at every exception handler exit point requires the debug function to be emitted.
-					emitDebugFunction = true;
+					emitDebugFunctions = true;
 				} else if (line.startsWith("avoidvirtregs")) {
 					avoidVirtualRegs = true;
 				} else if (line.startsWith("trace all")) {

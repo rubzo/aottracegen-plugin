@@ -21,7 +21,8 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_PREDICTED_CHAIN_HANDLER, "invoke_method_predicted_chain_handler");
 		literalPoolTypeMap.put(LiteralPoolType.JIT_TO_PATCH_PREDICTED_CHAIN_HANDLER, "jit_to_patch_predicted_chain_handler");
 		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_NO_OPT_HANDLER, "invoke_method_no_opt_handler");
-		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_FUNCTION, "aot_debug_function");
+		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION, "aot_debug_counter_function");
+		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION, "aot_debug_log_message_function");
 	}
 
 	public void prepare(String name) {
@@ -67,11 +68,15 @@ public class ITraceDescGenerator {
 			
 				int curTraceEntryAddress = context.getCurrentTrace().entry;
 				
-				writer.write(String.format("trace_desc %d\n", i+1));
-				writer.write(String.format("trace_entry %#x\n", curTraceEntryAddress));
+				writer.write("trace\n");
+				
+				writer.write(String.format("class %s\n", context.config.clazz));
+				writer.write(String.format("method %s\n", context.config.method));
+				writer.write(String.format("pc_offset %#x\n", curTraceEntryAddress));
+				
 				emitLiteralPoolInfo(context);
 				emitChainingCellInfo(context);
-				writer.write(String.format("end_trace_desc %d\n", i+1));
+				writer.write("end_trace\n");
 			}
 			
 		} catch (IOException e) {
@@ -106,7 +111,5 @@ public class ITraceDescGenerator {
 
 	private void emitHeader(CodeGenContext context) throws IOException {
 		writer.write("application_name " + context.config.app + "\n");
-		writer.write(String.format("method_index %#x\n", context.methodIndex));
-		writer.write(String.format("num_traces %d\n", context.traces.size()));
 	}
 }
