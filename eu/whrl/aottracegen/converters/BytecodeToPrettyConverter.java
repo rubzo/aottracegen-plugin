@@ -412,7 +412,18 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 45 aget-wide                  
+		// opcode: 45 aget-wide
+		case AGET_WIDE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aget-wide v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 46 aget-object                
 		// opcode: 47 aget-boolean               
 		// opcode: 48 aget-byte           
@@ -441,7 +452,18 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 4c aput-wide                  
+		// opcode: 4c aput-wide 
+		case APUT_WIDE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aput-wide v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 4d aput-object                
 		// opcode: 4e aput-boolean               
 		// opcode: 4f aput-byte                  
@@ -616,9 +638,27 @@ public class BytecodeToPrettyConverter {
 		// opcode: c8 mul-float/2addr            
 		// opcode: c9 div-float/2addr            
 		// opcode: ca rem-float/2addr            
-		// opcode: cb add-double/2addr           
+		// opcode: cb add-double/2addr
+		case ADD_DOUBLE_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("add-double/2addr v%d, v%d", vA, vB);
+			break;
+		}
+		
 		// opcode: cc sub-double/2addr           
-		// opcode: cd mul-double/2addr           
+		// opcode: cd mul-double/2addr
+		case MUL_DOUBLE_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("mul-double/2addr v%d, v%d", vA, vB);
+			break;
+		}
+		
 		// opcode: ce div-double/2addr           
 		// opcode: cf rem-double/2addr           
 		// opcode: d0 add-int/lit16              
@@ -636,7 +676,7 @@ public class BytecodeToPrettyConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			long constant = ((LiteralInstruction)instruction).getLiteral();
 			
-			result += String.format("add-int v%d, v%d, #%d", vA, vB, constant);
+			result += String.format("add-int/lit8 v%d, v%d, #%d", vA, vB, constant);
 			break;
 		}
 		

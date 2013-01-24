@@ -506,15 +506,14 @@ public class BytecodeToCConverter {
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 					
 			result = String.format("  {\n" +
-					 "    char *array = (char*) %3$s;\n" + 
+					 "    char *array = (char*) v[%2$d];\n" + 
 					 "    int array_size = *((int*) (array + 8));\n" +
-					 "    if (array == 0) goto __exception_L%5$#x;\n" +
-					 "    if (((unsigned int) %4$s) >= array_size) goto __exception_L%5$#x;\n" +
-					 "    int *array_contents = array + 16;\n" +
-					 "    %1$s = array_contents[%3$s];\n" +
-					 "    %2$s = array_contents[%3$s + 1];\n" +
+					 "    if (array == 0) goto __exception_L%4$#x;\n" +
+					 "    if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
+					 "    char *array_contents = array + 16 + (4 * v[%3$d]);\n" +
+					 "    *((long long*) (((char*)v) + (4 * %1$d))) = *((long long*) array_contents);\n" +
 					 "  }",
-					 vrs(vA), vrs(vA+1), vrs(vB), vrs(vC), codeAddress);
+					 vA, vB, vC, codeAddress);
 			break;
 		}
 		

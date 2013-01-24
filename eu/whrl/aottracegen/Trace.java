@@ -69,10 +69,12 @@ public class Trace {
 	}
 	
 	public void calculateRegisterInteraction(CodeGenContext context) {
+		/*
 		for (int address : addresses) {
 			Instruction inst = context.getInstructionAtCodeAddress(address);
 			OpcodeParser.calculateRegisterInteraction(inst, meta.readRegs, meta.dirtyRegs);
 		}
+		*/
 	}
 	
 	/*
