@@ -65,8 +65,10 @@ public class CTraceGenerator {
 	static {
 		opcodesThatThrowExceptions = new TreeSet<Opcode>();
 		opcodesThatThrowExceptions.add(Opcode.AGET);
+		opcodesThatThrowExceptions.add(Opcode.AGET_WIDE);
 		opcodesThatThrowExceptions.add(Opcode.AGET_BYTE);
 		opcodesThatThrowExceptions.add(Opcode.APUT);
+		opcodesThatThrowExceptions.add(Opcode.APUT_WIDE);
 		opcodesThatThrowExceptions.add(Opcode.RETURN);
 		opcodesThatThrowExceptions.add(Opcode.RETURN_OBJECT);
 		opcodesThatThrowExceptions.add(Opcode.RETURN_VOID);
