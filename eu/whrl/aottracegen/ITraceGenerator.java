@@ -288,7 +288,7 @@ public class ITraceGenerator {
 				writer.write(String.format("LT%#x_EH_%#x:\n", curTrace.entry, exceptionCodeAddress));
 				
 				if (context.config.emitEHCounter) {
-					writer.write(String.format("\tadr.w\tr1, AOTDebug_%#x\n", curTrace.entry));
+					writer.write(String.format("\tadr.w\tr1, AOTDebugCounter_%#x\n", curTrace.entry));
 					writer.write("\tldr\tr1, [r1]\n");
 					writer.write(String.format("\tmovw\tr0, #%d\n", exceptionCodeAddress));
 					writer.write("\tblx\tr1\n");
@@ -323,6 +323,8 @@ public class ITraceGenerator {
 				writer.write(String.format("LT%#x_CC_%#x_next:\n", curTrace.entry, cc.codeAddress));
 				if (cc.type == ChainingCell.Type.HOT) {
 					writer.write("\tldr\tr0, [r6, #116]\n");
+				} else if (cc.type == ChainingCell.Type.BACKWARD_BRANCH) {
+					writer.write("\tldr\tr0, [r6, #100]\n"); // I thought this was 120, not 100?
 				} else {
 					writer.write("\tldr\tr0, [r6, #100]\n");
 				}

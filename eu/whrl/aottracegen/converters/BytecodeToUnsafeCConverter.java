@@ -90,17 +90,34 @@ public class BytecodeToUnsafeCConverter extends BytecodeToCConverter {
 			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
 			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
-
+					
 			result = String.format("  {\n" +
-					"  char *array = (char*) v[%2$d];\n" + 
-					"  int *array_contents = array + 16;\n" +
-					"  v[%1$d] = array_contents[v[%3$d]];\n" +
-					"  }",
-					vA, vB, vC);
+					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    int *array_contents = (int*) (array + 16 + (4 * v[%3$d]));\n" +
+					 "    int *frame_location = (int*) (v + %$1d);\n" +
+					 "    *frame_location = *array_contents;\n" +
+					 "  }",
+					 vA, vB, vC);
 			break;
 		}
 		
-		// opcode: 45 aget-wide                  
+		// opcode: 45 aget-wide    
+		case AGET_WIDE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+					
+			result = String.format("  {\n" +
+					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    long long *array_contents = (long long*) (array + 16 + (8 * v[%3$d]));\n" +
+					 "    long long *frame_location = (long long*) (v + %1$d);\n" +
+					 "    *frame_location = *array_contents;\n" +
+					 "  }",
+					 vA, vB, vC, codeAddress);
+			break;
+		}
+		
 		// opcode: 46 aget-object                
 		// opcode: 47 aget-boolean               
 		// opcode: 48 aget-byte     
@@ -111,11 +128,12 @@ public class BytecodeToUnsafeCConverter extends BytecodeToCConverter {
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 
 			result = String.format("  {\n" +
-					"  char *array = (char*) v[%2$d];\n" + 
-					"  char *array_contents = (char*) (array + 16);\n" +
-					"  v[%1$d] = (char) array_contents[v[%3$d]];\n" +
-					"  }",
-					vA, vB, vC);
+					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    char *array_contents = (char*) (array + 16 + v[%3$d]);\n" +
+					 "    int *frame_location = (int*) (v + %$1d);\n" +
+					 "    *frame_location = *array_contents;\n" +
+					 "  }",
+					 vA, vB, vC, codeAddress);
 			break;
 		}
 		
@@ -127,17 +145,34 @@ public class BytecodeToUnsafeCConverter extends BytecodeToCConverter {
 			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
 			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
-
+					
 			result = String.format("  {\n" +
-					"  char *array = (char*) v[%2$d];\n" + 
-					"  int *array_contents = array + 16;\n" +
-					"  array_contents[v[%3$d]] = v[%1$d];\n" +
-					"  }",
-					vA, vB, vC);
+					 "    char *array = (char*) v[%2$d];\n" + 
+					 "    int *array_contents = (int*) (array + 16 + (4 * v[%3$d]));\n" +
+					 "    int *frame_location = (int*) (v + %$1d);\n" +
+					 "    *array_contents = *frame_location;\n" +
+					 "  }",
+					 vA, vB, vC, codeAddress);
 			break;
 		}
 		
-		// opcode: 4c aput-wide                  
+		// opcode: 4c aput-wide  
+		case APUT_WIDE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+					
+			result = String.format("  {\n" +
+					 "    char *array = (char*) v[%2$d];\n" +
+					 "    long long *array_contents = (long long*) (array + 16 + (8 * v[%3$d]));\n" +
+					 "    long long *frame_location = (long long*) (v + %1$d);\n" +
+					 "    *array_contents = *frame_location;\n" +
+					 "  }",
+					 vA, vB, vC, codeAddress);
+			break;
+		}
+		
 		// opcode: 4d aput-object                
 		// opcode: 4e aput-boolean               
 		// opcode: 4f aput-byte                  
@@ -311,8 +346,29 @@ public class BytecodeToUnsafeCConverter extends BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: f3 +iget-wide-quick           
-		// opcode: f4 +iget-object-quick         
+		// opcode: f3 +iget-wide-quick     
+		case IGET_WIDE_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+			
+			result = String.format("  v[%1$d] = *((int*) (((char*)v[%3$d]) + %4$#x));\n" +
+		               			   "  v[%2$d] = *((int*) (((char*)v[%3$d]) + %5$#x));", vA, vA+1, vB, offset, offset+4);
+			break;
+		}
+		
+		// opcode: f4 +iget-object-quick   
+		case IGET_OBJECT_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+			
+			result = String.format("  v[%1$d] = *((int*) (((char*)v[%2$d]) + %3$#x));", vA, vB, offset);
+			break;
+		}
+		
 		// opcode: f5 +iput-quick           
 		case IPUT_QUICK:
 		{
@@ -324,7 +380,18 @@ public class BytecodeToUnsafeCConverter extends BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: f6 +iput-wide-quick           
+		// opcode: f6 +iput-wide-quick    
+		case IPUT_WIDE_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+			
+			result = String.format("  *((int*) (((char*)v[%3$d]) + %4$#x)) = v[%1$d];\n" +
+					               "  *((int*) (((char*)v[%3$d]) + %5$#x)) = v[%2$d];", vA, vA+1, vB, offset, offset+4);
+			break;
+		}
+		
 		// opcode: f7 +iput-object-quick         
 		// opcode: f8 +invoke-virtual-quick      
 		// opcode: f9 +invoke-virtual-quick/range

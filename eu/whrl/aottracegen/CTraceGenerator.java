@@ -76,6 +76,7 @@ public class CTraceGenerator {
 		opcodesThatThrowExceptions.add(Opcode.RETURN_WIDE);
 		opcodesThatThrowExceptions.add(Opcode.IGET_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.IGET_WIDE_QUICK);
+		opcodesThatThrowExceptions.add(Opcode.IGET_OBJECT_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.IPUT_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.IPUT_WIDE_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.INVOKE_VIRTUAL_QUICK);
@@ -140,7 +141,11 @@ public class CTraceGenerator {
 		curTrace.calculateRegisterInteraction(context);
 		
 		for (int successor : curTrace.successors) {
-			curTrace.meta.chainingCells.put(successor, new ChainingCell(ChainingCell.Type.NORMAL, successor));
+			if (curTrace.containsCodeAddress(successor)) {
+				curTrace.meta.chainingCells.put(successor, new ChainingCell(ChainingCell.Type.BACKWARD_BRANCH, successor));
+			} else {
+				curTrace.meta.chainingCells.put(successor, new ChainingCell(ChainingCell.Type.NORMAL, successor));
+			}
 		}
 		
 		try {

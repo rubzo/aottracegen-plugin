@@ -529,7 +529,16 @@ public class BytecodeToPrettyConverter {
 		// opcode: 76 invoke-direct/range        
 		// opcode: 77 invoke-static/range        
 		// opcode: 78 invoke-interface/range     
-		// opcode: 7b neg-int                    
+		// opcode: 7b neg-int      
+		case NEG_INT:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("neg-int v%d, v%d", vA, vB);
+			break;
+		}
+		
 		// opcode: 7c not-int                    
 		// opcode: 7d neg-long                   
 		// opcode: 7e not-long                   
@@ -572,7 +581,18 @@ public class BytecodeToPrettyConverter {
 		}
 		
 		// opcode: 91 sub-int                    
-		// opcode: 92 mul-int                    
+		// opcode: 92 mul-int    
+		case MUL_INT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("mul-int v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 93 div-int                    
 		// opcode: 94 rem-int                    
 		// opcode: 95 and-int                    
@@ -718,7 +738,18 @@ public class BytecodeToPrettyConverter {
 		}
 		
 		// opcode: f3 +iget-wide-quick           
-		// opcode: f4 +iget-object-quick         
+		// opcode: f4 +iget-object-quick     
+		case IGET_OBJECT_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+
+			result += String.format("+iget-object-quick v%d, v%d, [obj+%d]",
+					vA, vB, offset);
+			break;
+		}
+		
 		// opcode: f5 +iput-quick      
 		case IPUT_QUICK:
 		{
