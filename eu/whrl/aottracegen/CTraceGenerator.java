@@ -150,16 +150,9 @@ public class CTraceGenerator {
 		
 		try {
 			// Everything that this calls MUST throw the IOException back up here!
-			if (context.config.avoidVirtualRegs) {
-				emitSaveVregsMacro();
-				emitLoadVregsMacro();
-			}
 			emitHelperFunctions();
 			emitExitFunctionPrototypes();
 			emitFunctionStart();
-			if (context.config.avoidVirtualRegs) {
-				emitVirtualRegs();
-			}
 			
 			for (int i = 0; i < curTrace.getLength(); i++) {
 				emitForCodeAddress(curTrace.addresses.get(i));
@@ -183,54 +176,6 @@ public class CTraceGenerator {
 			System.err.println("Couldn't write to C file!");
 			throw new CGeneratorFaultException();
 		}
-	}
-	
-	private void emitSaveVregsMacro() throws IOException {
-		Trace curTrace = context.getCurrentTrace();
-		
-		writer.write("#define SAVE_VREGS \\\n");
-		String continueLine = "\\";
-		
-		int i = 0;
-		for (int reg : curTrace.meta.dirtyRegs) {
-			if (i == (curTrace.meta.dirtyRegs.size()-1)) {
-				continueLine = "";
-			}
-			writer.write(String.format("v[%1$d] = v%1$d;%2$s\n", reg, continueLine));
-		}
-		writer.write("\n");
-		
-	}
-	
-	private void emitLoadVregsMacro() throws IOException {
-		Trace curTrace = context.getCurrentTrace();
-	
-		writer.write("#define LOAD_VREGS \\\n");
-		String continueLine = "\\";
-		
-		int i = 0;
-		for (int reg : curTrace.meta.readRegs) {
-			if (i == (curTrace.meta.readRegs.size()-1)) {
-				continueLine = "";
-			}
-			writer.write(String.format("v%1$d = v[%1$d];%2$s\n", reg, continueLine));
-		}
-		writer.write("\n");
-		
-	}
-
-	private void emitVirtualRegs() throws IOException {
-		Trace curTrace = context.getCurrentTrace();
-		
-		writer.write("  // Copy virtual register array into local vars\n");
-		for (int i = 0; i < context.virtualRegisterCount; i++) {
-			if (curTrace.meta.readRegs.contains(i)) {
-				writer.write(String.format("  int v%1$d = v[%1$d];\n", i));
-			} else {
-				writer.write(String.format("  int v%1$d;\n", i));
-			}
-		}
-		writer.write("\n");
 	}
 
 	private void updateChainingCells(Trace curTrace, Instruction instruction, int codeAddress, int nextAddress) {
@@ -349,9 +294,6 @@ public class CTraceGenerator {
 		Trace curTrace = context.getCurrentTrace();
 		
 		String saveVRegsString = "";
-		if (context.config.avoidVirtualRegs) {
-			saveVRegsString = "SAVE_VREGS";
-		}
 		
 		// Generate the exception labels.
 		for (int i = 0; i < curTrace.getLength(); i++) {

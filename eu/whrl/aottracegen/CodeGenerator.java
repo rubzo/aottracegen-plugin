@@ -41,7 +41,7 @@ public class CodeGenerator {
 				
 				// Do the generation and compilation.
 				generateC(context, cTraceFileNames[i]);
-				compileC(cTraceFileNames[i], asmTraceFileNames[i]);
+				compileC(context, cTraceFileNames[i], asmTraceFileNames[i]);
 				
 			}
 			
@@ -204,8 +204,8 @@ public class CodeGenerator {
 	 * 
 	 * Will throw a CompilationException if it encounters any errors during compilation.
 	 */
-	public void compileC(String cTraceFileName, String asmTraceFileName) throws CompilationException {
-		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=hard -mfpu=neon -mthumb -O3 -S -o %s %s", asmTraceFileName, cTraceFileName);
+	public void compileC(CodeGenContext context, String cTraceFileName, String asmTraceFileName) throws CompilationException {
+		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=hard -mfpu=neon -mthumb %s -S -o %s %s", context.config.cOpts, asmTraceFileName, cTraceFileName);
 		System.out.println("Compiling C...");
 		System.out.println("  (cmd: " + command + ")");
 		try {

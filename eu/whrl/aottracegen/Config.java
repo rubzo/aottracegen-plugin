@@ -28,7 +28,8 @@ public class Config {
 	public boolean onlyPrintTraces = false;
 	public boolean emitDebugFunctions = false;
 	public boolean emitEHCounter = false;
-	public boolean avoidVirtualRegs = false;
+		
+	public String cOpts = "-O3";
 	
 	public void addEntry(int e) {
 		numTraces++;
@@ -74,8 +75,8 @@ public class Config {
 					emitEHCounter = true;
 					// Emitting the counter at every exception handler exit point requires the debug function to be emitted.
 					emitDebugFunctions = true;
-				} else if (line.startsWith("avoidvirtregs")) {
-					avoidVirtualRegs = true;
+				} else if (line.startsWith("copts")) {
+					cOpts = line.substring(6, line.length());
 				} else if (line.startsWith("trace all")) {
 					traceAll = true;
 				} else if (line.startsWith("trace")) {

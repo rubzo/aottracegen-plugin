@@ -30,7 +30,16 @@ public class BytecodeToPrettyConverter {
 		
 		switch (instruction.opcode) {
 		
-		// opcode: 00 nop                        
+		// opcode: 00 nop   
+		case NOP:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += "nop";
+			break;
+		}
+		
 		// opcode: 01 move   
 		case MOVE:
 		{
@@ -51,7 +60,16 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 03 move/16                    
+		// opcode: 03 move/16 
+		case MOVE_16:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("move/16 v%d, v%d", vA, vB);
+			break;
+		}
+		
 		// opcode: 04 move-wide   
 		case MOVE_WIDE:
 		{
@@ -62,11 +80,56 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 05 move-wide/from16           
-		// opcode: 06 move-wide/16               
-		// opcode: 07 move-object                
-		// opcode: 08 move-object/from16         
-		// opcode: 09 move-object/16             
+		// opcode: 05 move-wide/from16    
+		case MOVE_WIDE_FROM16:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("move-wide/from16 v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 06 move-wide/16  
+		case MOVE_WIDE_16:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("move-wide/16 v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 07 move-object
+		case MOVE_OBJECT:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("move-object v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 08 move-object/from16
+		case MOVE_OBJECT_FROM16:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("move-object/from16 v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 09 move-object/16
+		case MOVE_OBJECT_16:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("move-object/16 v%d, v%d", vA, vB);
+			break;
+		}
+		
 		// opcode: 0a move-result    
 		case MOVE_RESULT:
 		{
@@ -76,9 +139,33 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 0b move-result-wide           
+		// opcode: 0b move-result-wide  
+		case MOVE_RESULT_WIDE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result += String.format("move-result-wide v%d", vA);
+			break;
+		}
+		
 		// opcode: 0c move-result-object         
-		// opcode: 0d move-exception             
+		case MOVE_RESULT_OBJECT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result += String.format("move-result-object v%d", vA);
+			break;
+		}
+		
+		// opcode: 0d move-exception
+		case MOVE_EXCEPTION:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result += String.format("move-exception v%d", vA);
+			break;
+		}
+		
 		// opcode: 0e return-void      
 		case RETURN_VOID:
 		{
@@ -95,7 +182,15 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 10 return-wide                
+		// opcode: 10 return-wide      
+		case RETURN_WIDE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result += String.format("return-wide v%d", vA);
+			break;
+		}
+		
 		// opcode: 11 return-object 
 		case RETURN_OBJECT:
 		{
@@ -135,19 +230,48 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 15 const/high16               
+		// opcode: 15 const/high16
+		case CONST_HIGH16:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+			
+			lit  = lit << 16;
+
+			result += String.format("const/high16 v%d, #%d", vA, lit);
+			break;
+		}
+		
 		// opcode: 16 const-wide/16      
 		case CONST_WIDE_16:
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			long lit = ((LiteralInstruction)instruction).getLiteral();
-
+			
 			result += String.format("const-wide/16 v%d, #%d", vA, lit);
 			break;
 		}
 		
-		// opcode: 17 const-wide/32              
-		// opcode: 18 const-wide                 
+		// opcode: 17 const-wide/32     
+		case CONST_WIDE_32:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+			
+			result += String.format("const-wide/32 v%d, #%d", vA, lit);
+			break;
+		}
+		
+		// opcode: 18 const-wide
+		case CONST_WIDE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			long lit = ((LiteralInstruction)instruction).getLiteral();
+			
+			result += String.format("const-wide v%d, #%d", vA, lit);
+			break;
+		}
+		
 		// opcode: 19 const-wide/high16 
 		case CONST_WIDE_HIGH16:
 		{
@@ -168,16 +292,7 @@ public class BytecodeToPrettyConverter {
 		// opcode: 1f check-cast                 
 		// opcode: 20 instance-of                
 		// opcode: 21 array-length               
-		// opcode: 22 new-instance  
-		case NEW_INSTANCE:
-		{
-			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
-			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
-
-			result += String.format("new-instance v%d, type@%#x", vA, field);
-			break;
-		}
-		
+		// opcode: 22 new-instance  		
 		// opcode: 23 new-array                  
 		// opcode: 24 filled-new-array           
 		// opcode: 25 filled-new-array/range     
@@ -424,8 +539,30 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 46 aget-object                
-		// opcode: 47 aget-boolean               
+		// opcode: 46 aget-object  
+		case AGET_OBJECT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aget-object v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: 47 aget-boolean  
+		case AGET_BOOLEAN:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aget-boolean v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 48 aget-byte           
 		case AGET_BYTE:
 		{
@@ -438,8 +575,30 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 49 aget-char                  
-		// opcode: 4a aget-short                 
+		// opcode: 49 aget-char         
+		case AGET_CHAR:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aget-char v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: 4a aget-short
+		case AGET_SHORT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aget-short v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 4b aput      
 		case APUT:
 		{
@@ -464,11 +623,66 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 4d aput-object                
-		// opcode: 4e aput-boolean               
-		// opcode: 4f aput-byte                  
-		// opcode: 50 aput-char                  
-		// opcode: 51 aput-short                 
+		// opcode: 4d aput-object
+		case APUT_OBJECT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aput-object v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: 4e aput-boolean      
+		case APUT_BOOLEAN:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aput-boolean v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: 4f aput-byte     
+		case APUT_BYTE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aput-byte v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: 50 aput-char           
+		case APUT_CHAR:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aput-char v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: 51 aput-short
+		case APUT_SHORT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("aput-short v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 52 iget                       
 		// opcode: 53 iget-wide                  
 		// opcode: 54 iget-object                
@@ -483,8 +697,32 @@ public class BytecodeToPrettyConverter {
 		// opcode: 5d iput-byte                  
 		// opcode: 5e iput-char                  
 		// opcode: 5f iput-short                 
-		// opcode: 60 sget                       
-		// opcode: 61 sget-wide                  
+		// opcode: 60 sget      
+		case SGET:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sget v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
+		// opcode: 61 sget-wide      
+		case SGET_WIDE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sget-wide v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 62 sget-object   
 		case SGET_OBJECT:
 		{
@@ -498,10 +736,58 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 63 sget-boolean               
-		// opcode: 64 sget-byte                  
-		// opcode: 65 sget-char                  
-		// opcode: 66 sget-short                 
+		// opcode: 63 sget-boolean   
+		case SGET_BOOLEAN:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sget-boolean v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
+		// opcode: 64 sget-byte   
+		case SGET_BYTE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sget-byte v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
+		// opcode: 65 sget-char      
+		case SGET_CHAR:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sget-char v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
+		// opcode: 66 sget-short    
+		case SGET_SHORT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sget-short v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 67 sput                       
 		// opcode: 68 sput-wide                  
 		// opcode: 69 sput-object                
@@ -512,16 +798,6 @@ public class BytecodeToPrettyConverter {
 		// opcode: 6e invoke-virtual             
 		// opcode: 6f invoke-super               
 		// opcode: 70 invoke-direct    
-		case INVOKE_DIRECT:
-		{
-			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
-			
-			String argsString = getArgsString(instruction);
-			
-			result += String.format("invoke-direct %s, meth@%#x", argsString, field);
-			break;
-		}
-		
 		// opcode: 71 invoke-static              
 		// opcode: 72 invoke-interface           
 		// opcode: 74 invoke-virtual/range       
@@ -543,7 +819,16 @@ public class BytecodeToPrettyConverter {
 		// opcode: 7d neg-long                   
 		// opcode: 7e not-long                   
 		// opcode: 7f neg-float                  
-		// opcode: 80 neg-double                 
+		// opcode: 80 neg-double     
+		case NEG_DOUBLE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("neg-double v%d, v%d", vA, vB);
+			break;
+		}
+		
 		// opcode: 81 int-to-long    
 		case INT_TO_LONG:
 		{
@@ -554,17 +839,116 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 82 int-to-float               
-		// opcode: 83 int-to-double              
-		// opcode: 84 long-to-int                
-		// opcode: 85 long-to-float              
-		// opcode: 86 long-to-double             
-		// opcode: 87 float-to-int               
-		// opcode: 88 float-to-long              
-		// opcode: 89 float-to-double            
-		// opcode: 8a double-to-int              
-		// opcode: 8b double-to-long             
-		// opcode: 8c double-to-float            
+		// opcode: 82 int-to-float
+		case INT_TO_FLOAT:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("int-to-float v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 83 int-to-double         
+		case INT_TO_DOUBLE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("int-to-double v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 84 long-to-int    
+		case LONG_TO_INT:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("long-to-int v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 85 long-to-float   
+		case LONG_TO_FLOAT:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("long-to-float v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 86 long-to-double    
+		case LONG_TO_DOUBLE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("long-to-double v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 87 float-to-int    
+		case FLOAT_TO_INT:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("float-to-int v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 88 float-to-long    
+		case FLOAT_TO_LONG:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("float-to-long v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 89 float-to-double       
+		case FLOAT_TO_DOUBLE:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("float-to-double v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 8a double-to-int       
+		case DOUBLE_TO_INT:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("double-to-int v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 8b double-to-long            
+		case DOUBLE_TO_LONG:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("double-to-long v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: 8c double-to-float
+		case DOUBLE_TO_FLOAT:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("double-to-float v%d, v%d", vA, vB);
+			break;
+		}
+		
 		// opcode: 8d int-to-byte                
 		// opcode: 8e int-to-char                
 		// opcode: 8f int-to-short               
@@ -580,7 +964,18 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 91 sub-int                    
+		// opcode: 91 sub-int      
+		case SUB_INT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("sub-int v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 92 mul-int    
 		case MUL_INT:
 		{
@@ -593,8 +988,32 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 93 div-int                    
-		// opcode: 94 rem-int                    
+		// opcode: 93 div-int      
+		case DIV_INT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("div-int v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: 94 rem-int  
+		case REM_INT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("rem-int v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// ... to be continued ...
+		
 		// opcode: 95 and-int                    
 		// opcode: 96 or-int                     
 		// opcode: 97 xor-int                    
@@ -617,10 +1036,43 @@ public class BytecodeToPrettyConverter {
 		// opcode: a8 mul-float                  
 		// opcode: a9 div-float                  
 		// opcode: aa rem-float                  
-		// opcode: ab add-double                 
+		// opcode: ab add-double 
+		case ADD_DOUBLE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("add-double v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: ac sub-double                 
-		// opcode: ad mul-double                 
-		// opcode: ae div-double                 
+		// opcode: ad mul-double
+		case MUL_DOUBLE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("mul-double v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: ae div-double  
+		case DIV_DOUBLE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("div-double v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: af rem-double                 
 		// opcode: b0 add-int/2addr    
 		case ADD_INT_2ADDR:
