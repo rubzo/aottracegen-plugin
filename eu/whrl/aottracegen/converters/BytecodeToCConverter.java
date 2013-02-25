@@ -1295,7 +1295,7 @@ public class BytecodeToCConverter {
 		
 		// opcode: f7 +iput-object-quick         
 		// opcode: f8 +invoke-virtual-quick     
-		case INVOKE_VIRTUAL_QUICK:
+		case INVOKE_VIRTUAL_QUICK: 
 		{
 			result = String.format("  %s __asm__(\"# invoke_virtual_quick_L%#x\" : : : \"r0\", \"r1\", \"r2\", \"r3\", \"r4\", \"r7\", \"r8\", \"r9\", \"r10\", \"r11\", \"r12\");", 
 					codeAddress);
@@ -1404,7 +1404,7 @@ public class BytecodeToCConverter {
 				 "    if (array == 0) goto __exception_L%4$#x;\n" +
 				 "    if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
 				 "    %5$s *array_contents = (%5$s*) (array + 16 + (%6$d * v[%3$d]));\n" +
-				 "    %5$s *reg_location = (%5$s*) (v + %$1d);\n" +
+				 "    %5$s *reg_location = (%5$s*) (v + %1$d);\n" +
 				 "    *reg_location = *array_contents;\n" +
 				 "  }",
 				 vA, vB, vC, codeAddress, type, size);
@@ -1421,7 +1421,7 @@ public class BytecodeToCConverter {
 				 "    if (array == 0) goto __exception_L%4$#x;\n" +
 				 "    if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
 				 "    %5$s *array_contents = (%5$s*) (array + 16 + (%6$d * v[%3$d]));\n" +
-				 "    %5$s *reg_location = (%5$s*) (v + %$1d);\n" +
+				 "    %5$s *reg_location = (%5$s*) (v + %1$d);\n" +
 				 "    *array_contents = *reg_location;\n" +
 				 "  }",
 				 vA, vB, vC, codeAddress, type, size);

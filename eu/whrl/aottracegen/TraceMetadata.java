@@ -19,8 +19,7 @@ public class TraceMetadata {
 	public List<LiteralPoolType> literalPoolTypes;
 	public boolean containsSwitch;
 	public Map<Integer, ChainingCell> chainingCells;
-	public Set<Integer> readRegs;
-	public Set<Integer> dirtyRegs;
+	public int stackAllocSize;
 	
 	public TraceMetadata() {
 		opcodesUsedThatNeedHelperFunctions = new TreeSet<Opcode>();
@@ -30,8 +29,7 @@ public class TraceMetadata {
 		literalPoolTypes = new ArrayList<LiteralPoolType>();
 		containsSwitch = false;
 		chainingCells = new TreeMap<Integer,ChainingCell>();
-		readRegs = new HashSet<Integer>();
-		dirtyRegs = new HashSet<Integer>();
+		stackAllocSize = 0;
 	}
 	
 	private int insertLiteralPoolEntry(LiteralPoolType type, int value) {

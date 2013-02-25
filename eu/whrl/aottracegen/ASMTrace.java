@@ -90,7 +90,6 @@ public class ASMTrace {
 		emitHandlers(context);
 		removeRedundantLabels(context);	
 		addLiteralPoolPointer(context);
-		//removeStackReferences(context);
 	}
 	
 	private void optRemovePushPopInsts(CodeGenContext context) {
@@ -125,7 +124,15 @@ public class ASMTrace {
 		for (int cl = 0; cl < traceBody.size(); cl++) {
 			String line = cleanupLine(traceBody.get(cl));
 
-			if (line.contains("add sp, sp") || line.contains("sub sp, sp")) {
+			if (line.contains("sub sp, sp")) {
+				Pattern p = Pattern.compile("sub sp, sp, #(\\d+)");
+				Matcher m = p.matcher(line);
+				if (m.find()) {
+					Trace curTrace = context.getCurrentTrace();
+					curTrace.meta.stackAllocSize = Integer.parseInt(m.group(1));
+					System.out.println(String.format("Will need to allocate %d bytes for stack.", curTrace.meta.stackAllocSize));
+				}
+			} else if (line.contains("add sp, sp")) {
 				System.out.println("Removing " + line);
 				traceBody.remove(cl);
 				cl--;
@@ -227,160 +234,12 @@ public class ASMTrace {
 		}
 	}
 	
-	private void addStackReference(CodeGenContext context, Map<Integer, StackSpill> stackSpills, int loc, String line) {
-		Pattern stackStorePattern = Pattern.compile("\tstr\tr(\\d+), \\[sp, #(\\d+)\\]$");
-		Pattern addPattern = Pattern.compile("\tadds?\tr\\d+, r(\\d+), #(.+)$");
-		Pattern postIndexPattern = Pattern.compile("\t.+\tr\\d+, \\[r(\\d+)\\], #(\\d+)");
-		
-		StackSpill spill = new StackSpill();
-		spill.reg = 0;
-		spill.offset = 0;
-		if (line.contains("LiteralPool")) {
-			spill.type = StackSpill.Type.LITPOOL_POINTER;
-		} else if (line.contains("sp")) {
-			spill.type = StackSpill.Type.SUM;
-			
-			Matcher stackStoreMatcher = stackStorePattern.matcher(line);
-			if (stackStoreMatcher.find()) {
-				spill.reg = Integer.parseInt(stackStoreMatcher.group(1)); 
-			} else {
-				System.err.println("Shouldn't happen");
-			}
-		} else if (line.contains("add")) {
-			spill.type = StackSpill.Type.SUM;
-			
-			Matcher addMatcher = addPattern.matcher(line);
-			if (addMatcher.find()) {
-				spill.reg = Integer.parseInt(addMatcher.group(1));
-				spill.offset = Integer.parseInt(addMatcher.group(2));
-			} else {
-				System.err.println("Shouldn't happen");
-			}
-		} else {
-			System.err.println("I DON'T GET THIS! wink");
-			
-			spill.type = StackSpill.Type.LITPOOL_POINTER_SUM;
-			
-			Matcher addMatcher = postIndexPattern.matcher(line);
-			if (addMatcher.find()) {
-				spill.offset = Integer.parseInt(addMatcher.group(2));
-			} else {
-				System.err.println("Shouldn't happen");
-			}
-		}
-		
-		stackSpills.put(loc, spill);
-	}
-	
-	private void removeStackReferences(CodeGenContext context) {
-		Trace curTrace = context.getCurrentTrace();
-		
-		Pattern stackStorePattern = Pattern.compile("\tstr\tr(\\d+), \\[sp, #(\\d+)\\]$");
-		Pattern registerWritePattern = Pattern.compile("\t.+\tr(\\d+)");
-		Pattern registerWritePostIndexPattern = Pattern.compile("\t.+\tr\\d+, \\[r(\\d+)\\], #\\d+");
-		
-		Map<Integer, StackSpill> stackSpills = new HashMap<Integer, StackSpill>();
-		
-		for (int cl = 0; cl < traceBody.size(); cl++) {
-			String line = traceBody.get(cl);
-
-			Matcher stackStoreMatcher = stackStorePattern.matcher(line);
-			if (stackStoreMatcher.find()) {
-				System.out.println("Found store of r" + stackStoreMatcher.group(1) + " to stack loc " + stackStoreMatcher.group(2));
-				
-				int previousRegister = Integer.parseInt(stackStoreMatcher.group(1));
-				int stackLocation = Integer.parseInt(stackStoreMatcher.group(2));
-				
-				int savedCl = cl;
-				
-				boolean foundPrevious = false;
-				
-				if (previousRegister == 5 || previousRegister == 6) {
-					System.out.println("Found previous write: " + line);
-					addStackReference(context, stackSpills, stackLocation, line);
-					foundPrevious = true;
-				}
-				
-				while (!foundPrevious) {
-					cl--;
-					line = traceBody.get(cl);
-					
-					//System.out.println(line);
-					
-					Matcher registerWriteMatcher = registerWritePattern.matcher(line);
-					if (registerWriteMatcher.find()) {
-						int reg = Integer.parseInt(registerWriteMatcher.group(1));
-						
-						if (reg == previousRegister && !line.contains("sp")) {
-							System.out.println("Found previous write: " + line);
-							foundPrevious = true;
-							addStackReference(context, stackSpills, stackLocation, line);
-						} else {
-							Matcher registerWritePostIndexMatcher = registerWritePostIndexPattern.matcher(line);
-							if (registerWritePostIndexMatcher.find()) {
-								reg = Integer.parseInt(registerWritePostIndexMatcher.group(1));
-								if (reg == previousRegister) {
-									System.out.println("Found previous write: " + line);
-									foundPrevious = true;
-									addStackReference(context, stackSpills, stackLocation, line);
-								}
-							}
-						}
-					}
-					
-					// Run out of lines?
-					if (cl == 0 && !foundPrevious) {
-						System.err.println("Couldn't find previous write! :(");
-						foundPrevious = true;
-					}
-				}
-				
-				cl = savedCl;
-				line = traceBody.get(cl);
-				cl = replaceLine(cl, "# Removed: " + line);
-			}
-		}
-		
-		// Half way there!
-		Pattern stackLoadPattern = Pattern.compile("\tldr\tr(\\d+), \\[sp, #(\\d+)\\]$");
-		
-		for (int cl = 0; cl < traceBody.size(); cl++) {
-			String line = traceBody.get(cl);
-
-			Matcher stackLoadMatcher = stackLoadPattern.matcher(line);
-			if (stackLoadMatcher.find()) {
-				System.out.println("Found load of r" + stackLoadMatcher.group(1) + " from stack loc " + stackLoadMatcher.group(2));
-				
-				int register = Integer.parseInt(stackLoadMatcher.group(1));
-				int stackLocation = Integer.parseInt(stackLoadMatcher.group(2));
-				
-				StackSpill spill = stackSpills.get(stackLocation);
-				
-				cl = replaceLine(cl, "# " + line);
-				cl++;
-				
-				switch (spill.type) {
-				case LITPOOL_POINTER:
-					cl = addLine(cl, String.format("\tadr.w\tr%d, ITrace_%#x_LiteralPool", register, curTrace.entry));
-					break;
-				case SUM:
-					cl = addLine(cl, String.format("\tadd\tr%d, r%d, #%d", register, spill.reg, spill.offset));
-					break;
-				case LITPOOL_POINTER_SUM:
-					cl = addLine(cl, String.format("\tadr.w\tr%d, ITrace_%#x_LiteralPool", register, curTrace.entry));
-					cl = addLine(cl, String.format("\tadd\tr%d, r%d, #%d", register, register, spill.offset));
-					break;
-				}
-				
-				cl = addLine(cl, "# replacement done");
-				cl--;
-			}
-		}
-	}
-	
 	private int handleExit(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
 		
+		if (curTrace.meta.stackAllocSize > 0) {
+			cl = addLine(cl, "\tadd\tsp, sp, #" + curTrace.meta.stackAllocSize);
+		}
 		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tb\texit_L(0x[0-9a-f]+)\\(PLT\\)", String.format("\tb\tLT%#x_CC_$1", curTrace.entry)));
 		
 		return cl;
@@ -389,6 +248,9 @@ public class ASMTrace {
 	private int handleException(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
 		
+		if (curTrace.meta.stackAllocSize > 0) {
+			cl = addLine(cl, "\tadd\tsp, sp, #" + curTrace.meta.stackAllocSize);
+		}
 		cl = replaceLine(cl, traceBody.get(cl).replaceFirst("\tb\texception_L(0x[0-9a-f]+)\\(PLT\\)", String.format("\tb\tLT%#x_EH_$1", curTrace.entry)));
 		
 		return cl;
@@ -396,6 +258,10 @@ public class ASMTrace {
 	
 	private int handleReturn(CodeGenContext context, int cl) {
 		Trace curTrace = context.getCurrentTrace();
+		
+		if (curTrace.meta.stackAllocSize > 0) {
+			cl = addLine(cl, "\tadd\tsp, sp, #" + curTrace.meta.stackAllocSize);
+		}
 		
 		// If we add an entry to the literal pool, then the return 
 		// handler will be loaded into this literal pool location.
@@ -426,6 +292,10 @@ public class ASMTrace {
 		}
 		
 		Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
+		
+		if (curTrace.meta.stackAllocSize > 0) {
+			cl = addLine(cl, "\tadd\tsp, sp, #" + curTrace.meta.stackAllocSize);
+		}
 		
 		// Remove the bl placeholder instruction
 		//
