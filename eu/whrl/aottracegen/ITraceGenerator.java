@@ -185,7 +185,6 @@ public class ITraceGenerator {
 		writer.write("\t.global dvmITraceLiteralPoolTable\n");
 		writer.write("\n");
 		writer.write("\t.syntax unified\n");
-		writer.write("\t.thumb\n");
 		writer.write("\t.word 0xDEADBEEF\n");
 		
 	}
@@ -257,6 +256,7 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		writer.write(".align 4\n");
+		writer.write(".thumb\n");
 		
 		// base pc location
 		// NB: this MUST come just before the literal pool!

@@ -3,9 +3,7 @@ package eu.whrl.aottracegen;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.jf.dexlib.Code.Instruction;
@@ -28,14 +26,6 @@ public class CTraceGenerator {
 	// Section where we define...
 	//
 	
-	// This is a set of Opcodes that need helper functions to be generated.
-	private static Set<Opcode> opcodesThatNeedHelperFunctions;
-	static {
-		opcodesThatNeedHelperFunctions = new TreeSet<Opcode>();
-		
-		// ...
-	}
-	
 	private static Set<Opcode> opcodesThatCanReturn;
 	static {
 		opcodesThatCanReturn = new TreeSet<Opcode>();
@@ -50,14 +40,6 @@ public class CTraceGenerator {
 	static {
 		opcodesWithHotChainingCells = new TreeSet<Opcode>();
 		opcodesWithHotChainingCells.add(Opcode.MOVE_RESULT);
-	}
-	
-	// This is a mapping from the Opcodes that need helper functions
-	// to the string that contains that helper function.
-	private static Map<Opcode,String> opcodeFunctionHelpers;
-	static {
-		opcodeFunctionHelpers = new TreeMap<Opcode,String>();
-		// ...
 	}
 	
 	// This is a set of Opcodes that will throw exceptions.
@@ -150,8 +132,6 @@ public class CTraceGenerator {
 		
 		try {
 			// Everything that this calls MUST throw the IOException back up here!
-			emitHelperFunctions();
-			emitExitFunctionPrototypes();
 			emitFunctionStart();
 			
 			for (int i = 0; i < curTrace.getLength(); i++) {
@@ -169,7 +149,6 @@ public class CTraceGenerator {
 			 	updateChainingCells(curTrace, instruction, codeAddress, nextAddress);
 			}
 			
-			emitExitLabels();
 			emitFunctionEnd();
 			
 		} catch (IOException e) {
@@ -203,75 +182,20 @@ public class CTraceGenerator {
 	}
 	
 	/*
-	 * Emit the helper functions that will be used within the trace function.
-	 */
-	private void emitHelperFunctions() throws IOException {
-		writer.write("// --- FUNCTIONS ---\n");
-		
-		Trace curTrace = context.getCurrentTrace();
-		
-		for (int i = 0; i < context.getCurrentTrace().getLength(); i++) {
-			Instruction instruction = context.getInstructionAtCodeAddress(curTrace.addresses.get(i));
-			
-			if (opcodesThatNeedHelperFunctions.contains(instruction.opcode) && !curTrace.meta.opcodesUsedThatNeedHelperFunctions.contains(instruction.opcode)) {
-				curTrace.meta.opcodesUsedThatNeedHelperFunctions.add(instruction.opcode);
-				writer.write(opcodeFunctionHelpers.get(instruction.opcode));
-			}
-		}
-		
-		writer.write("\n");
-	}
-	
-	/*
-	 * Emit the functions that exit labels call. This will be required to correctly identify where the trace is going
-	 * when we're generating our injectable trace.
-	 */
-	private void emitExitFunctionPrototypes() throws IOException {
-		writer.write("// --- EXIT FUNCTION PROTOTYPES ---\n");
-		
-		Trace curTrace = context.getCurrentTrace();
-		
-		// Generate the exception function prototypes.
-		for (int i = 0; i < curTrace.getLength(); i++) {
-			int codeAddress = curTrace.addresses.get(i);
-			
-			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
-		
-			if (opcodesThatThrowExceptions.contains(instruction.opcode)) {
-				writer.write(String.format("void exception_L%#x() {return;}\n", codeAddress));
-				curTrace.meta.codeAddressesThatThrowExceptions.add(codeAddress);
-			}
-			
-			if (opcodesThatCanReturn.contains(instruction.opcode)) {
-				writer.write(String.format("void return_L%#x() {return;}\n", codeAddress));
-			}
-		}
-		
-		// Generate the exit function prototypes.
-		for (int successorAddress : curTrace.successors) {
-			writer.write(String.format("void exit_L%#x() {return;}\n", successorAddress));
-		}
-		
-		writer.write("\n");
-	}
-	
-	/*
 	 * Emit the function signature, basically.
 	 */
 	private void emitFunctionStart() throws IOException {
-		writer.write("// --- INTERPRETER REGISTER PROTECTION ---\n");
-
-		// Taken from vm/compiler/codegen/arm/Thumb2/Factory.cpp
-		writer.write("register int *v asm (\"r5\");\n");
-		writer.write("register char *self asm (\"r6\");\n");
-		writer.write("register int *reserved1 asm (\"r13\");\n");
-		writer.write("register int *reserved2 asm (\"r14\");\n");
-		writer.write("register int *reserved3 asm (\"r15\");\n");
-
+		writer.write("typedef enum {\n");
+		writer.write("\ttrace_exit = 0, trace_exception = 1, trace_return = 2\n");
+		writer.write("} exit_type;\n");
 		writer.write("\n");
-		writer.write(String.format("// --- TRACE %#x START ---\n", context.getCurrentTrace().entry));
-		writer.write("void trace(int *lit) {\n");
+		writer.write("struct trace_exit_info {\n");
+		writer.write("\texit_type type;\n");
+		writer.write("\tint address;\n");
+		writer.write("};\n\n");
 		
+		writer.write(String.format("// --- TRACE %#x START ---\n", context.getCurrentTrace().entry));
+		writer.write("struct trace_exit_info trace(int *lit, int *v, char *self) {\n");
 	}
 	
 	/*
@@ -281,40 +205,6 @@ public class CTraceGenerator {
 		writer.write(stringConverter.convert(context, codeAddress));
 		writer.write(String.format("  __L%#x:\n", codeAddress));
 		writer.write(converter.convert(context, codeAddress));
-		writer.write("\n");
-	}
-	
-	/*
-	 * Emit the exit labels that call functions. This will be required to correctly identify where the trace is going
-	 * when we're generating our injectable trace.
-	 */
-	private void emitExitLabels() throws IOException {
-		writer.write("  // --- EXIT LABELS ---\n");
-		
-		Trace curTrace = context.getCurrentTrace();
-		
-		String saveVRegsString = "";
-		
-		// Generate the exception labels.
-		for (int i = 0; i < curTrace.getLength(); i++) {
-			int codeAddress = curTrace.addresses.get(i);
-			
-			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
-		
-			if (opcodesThatThrowExceptions.contains(instruction.opcode)) {
-				writer.write(String.format("  __exception_L%1$#x: %2$s exception_L%1$#x(); return;\n", codeAddress, saveVRegsString));
-			}
-			
-			if (opcodesThatCanReturn.contains(instruction.opcode)) {
-				writer.write(String.format("  __return_L%1$#x: return_L%1$#x(); return;\n", codeAddress));
-			}
-		}
-		
-		// Generate the exit labels.
-		for (int successorAddress : curTrace.successors) {
-			writer.write(String.format("  __exit_L%1$#x: %2$s exit_L%1$#x(); return;\n", successorAddress, saveVRegsString));
-		}
-		
 		writer.write("\n");
 	}
 	

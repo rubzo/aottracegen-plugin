@@ -11,7 +11,6 @@ import java.util.TreeSet;
 import org.jf.dexlib.Code.Opcode;
 
 public class TraceMetadata {
-	public Set<Opcode> opcodesUsedThatNeedHelperFunctions;
 	public List<Integer> codeAddressesThatThrowExceptions;
 	
 	public int literalPoolSize;
@@ -22,7 +21,6 @@ public class TraceMetadata {
 	public int stackAllocSize;
 	
 	public TraceMetadata() {
-		opcodesUsedThatNeedHelperFunctions = new TreeSet<Opcode>();
 		codeAddressesThatThrowExceptions = new ArrayList<Integer>();
 		literalPoolSize = 0;
 		literalPoolIndices = new ArrayList<Integer>();

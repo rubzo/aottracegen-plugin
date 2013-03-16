@@ -135,7 +135,7 @@ public class BytecodeToCConverter {
 		// opcode: 0e return-void 
 		case RETURN_VOID:
 		{	
-			result = String.format("  goto __return_L%#x;", codeAddress);
+			result = String.format("  { struct trace_exit_info s = {trace_return, %#x}; return s; }", codeAddress);
 			break;
 		}
 		
@@ -145,7 +145,7 @@ public class BytecodeToCConverter {
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
-					 String.format("  goto __return_L%#x;", codeAddress);
+					 String.format("  { struct trace_exit_info s = {trace_return, %#x}; return s; }", codeAddress);
 			break;
 		}
 		
@@ -155,7 +155,7 @@ public class BytecodeToCConverter {
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  *((long long*) (self+%d)) = *((long long*)(v + %d));", offsetThreadRetValue, vA) +
-					 String.format("  goto __return_L%#x;", codeAddress);
+					 String.format("  { struct trace_exit_info s = {trace_return, %#x}; return s; }", codeAddress);
 			break;
 		}
 		
@@ -165,7 +165,7 @@ public class BytecodeToCConverter {
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
-					 String.format("  goto __return_L%#x;", codeAddress);
+					 String.format("  { struct trace_exit_info s = {trace_return, %#x}; return s; }", codeAddress);
 			break;
 		}
 		
@@ -576,7 +576,13 @@ public class BytecodeToCConverter {
 		}
 		
 		// opcode: 67 sput                       
-		// opcode: 68 sput-wide                  
+		// opcode: 68 sput-wide
+		case SPUT_WIDE:
+		{
+			result = emitStaticPut(codeAddress, curTrace, instruction, "long long");
+			break;
+		}
+		
 		// opcode: 69 sput-object                
 		// opcode: 6a sput-boolean               
 		// opcode: 6b sput-byte                  
@@ -586,6 +592,12 @@ public class BytecodeToCConverter {
 		// opcode: 6f invoke-super               
 		// opcode: 70 invoke-direct              
 		// opcode: 71 invoke-static              
+		case INVOKE_STATIC: 
+		{
+			result = String.format("  invoke_static(%#x);", codeAddress);
+			break;
+		}
+		
 		// opcode: 72 invoke-interface           
 		// opcode: 74 invoke-virtual/range       
 		// opcode: 75 invoke-super/range         
@@ -1238,7 +1250,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%2$d] == 0) goto __exception_L%4$#x;\n" +
+			result = String.format("  if (v[%2$d] == 0) { struct trace_exit_info s = {trace_exception, %4$#x}; return s; }\n" +
 		               			   "  v[%1$d] = *((int*) (((char*)v[%2$d]) + %3$#x));", vA, vB, offset, codeAddress);
 			break;
 		}
@@ -1250,7 +1262,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%3$d] == 0) goto __exception_L%6$#x;\n" +
+			result = String.format("  if (v[%3$d] == 0) { struct trace_exit_info s = {trace_exception, %6$#x}; return s; }\n" +
 								   "  v[%1$d] = *((int*) (((char*)v[%3$d]) + %4$#x));\n" +
 								   "  v[%2$d] = *((int*) (((char*)v[%3$d]) + %5$#x));", vA, vA+1, vB, offset, offset+4, codeAddress);
 			break;
@@ -1263,7 +1275,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%2$d] == 0) goto __exception_L%4$#x;\n" +
+			result = String.format("  if (v[%2$d] == 0) { struct trace_exit_info s = {trace_exception, %4$#x}; return s; }\n" +
 		               			   "  v[%1$d] = *((int*) (((char*)v[%2$d]) + %3$#x));", vA, vB, offset, codeAddress);
 			break;
 		}
@@ -1275,7 +1287,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%2$d] == 0) goto __exception_L%4$#x;\n" +
+			result = String.format("  if (v[%2$d] == 0) { struct trace_exit_info s = {trace_exception, %4$#x}; return s; }\n" +
 					               "  *((int*) (((char*)v[%2$d]) + %3$#x)) = v[%1$d];", vA, vB, offset, codeAddress);
 			break;
 		}
@@ -1287,7 +1299,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%3$d] == 0) goto __exception_L%6$#x;\n" +
+			result = String.format("  if (v[%3$d] == 0) { struct trace_exit_info s = {trace_exception, %6$#x}; return s; };\n" +
 					               "  *((int*) (((char*)v[%3$d]) + %4$#x)) = v[%1$d];\n" +
 					               "  *((int*) (((char*)v[%3$d]) + %5$#x)) = v[%2$d];", vA, vA+1, vB, offset, offset+4, codeAddress);
 			break;
@@ -1297,8 +1309,7 @@ public class BytecodeToCConverter {
 		// opcode: f8 +invoke-virtual-quick     
 		case INVOKE_VIRTUAL_QUICK: 
 		{
-			result = String.format("  %s __asm__(\"# invoke_virtual_quick_L%#x\" : : : \"r0\", \"r1\", \"r2\", \"r3\", \"r4\", \"r7\", \"r8\", \"r9\", \"r10\", \"r11\", \"r12\");", 
-					codeAddress);
+			result = String.format("  invoke_virtual_quick(%#x);", codeAddress);
 			break;
 		}
 		
@@ -1401,8 +1412,8 @@ public class BytecodeToCConverter {
 		return String.format("  {\n" +
 				 "    char *array = (char*) v[%2$d];\n" + 
 				 "    int array_size = *((int*) (array + 8));\n" +
-				 "    if (array == 0) goto __exception_L%4$#x;\n" +
-				 "    if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
+				 "    if (array == 0) { struct trace_exit_info s = {trace_exception, %4$#x}; return s; }\n" +
+				 "    if (((unsigned int) v[%3$d]) >= array_size) { struct trace_exit_info s = {trace_exception, %4$#x}; return s; }\n" +
 				 "    %5$s *array_contents = (%5$s*) (array + 16 + (%6$d * v[%3$d]));\n" +
 				 "    %5$s *reg_location = (%5$s*) (v + %1$d);\n" +
 				 "    *reg_location = *array_contents;\n" +
@@ -1418,8 +1429,8 @@ public class BytecodeToCConverter {
 		return String.format("  {\n" +
 				 "    char *array = (char*) v[%2$d];\n" + 
 				 "    int array_size = *((int*) (array + 8));\n" +
-				 "    if (array == 0) goto __exception_L%4$#x;\n" +
-				 "    if (((unsigned int) v[%3$d]) >= array_size) goto __exception_L%4$#x;\n" +
+				 "    if (array == 0) { struct trace_exit_info s = {trace_exception, %4$#x}; return s; }\n" +
+				 "    if (((unsigned int) v[%3$d]) >= array_size) { struct trace_exit_info s = {trace_exception, %4$#x}; return s; }\n" +
 				 "    %5$s *array_contents = (%5$s*) (array + 16 + (%6$d * v[%3$d]));\n" +
 				 "    %5$s *reg_location = (%5$s*) (v + %1$d);\n" +
 				 "    *array_contents = *reg_location;\n" +
@@ -1437,6 +1448,18 @@ public class BytecodeToCConverter {
 			return String.format("  *((long long*) (v + %d)) = *((%s*) lit[%d]);", vA, type, literalPoolLoc);
 		}
 		return String.format("  v[%d] = (int) *((%s*) lit[%d]);", vA, type, literalPoolLoc);
+	}
+	
+	private String emitStaticPut(int codeAddress, Trace curTrace, Instruction instruction, String type) {
+		int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+		int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+		
+		int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_FIELD, field);
+		
+		if (type.equals("long long")) {
+			return String.format("  *((%s*) lit[%d]) = *((long long*) (v + %d));", type, literalPoolLoc, vA);
+		}
+		return String.format("  (int) *((%s*) lit[%d]) = v[%d];", type, literalPoolLoc, vA);
 	}
 	
 	private String emitIntArith(int codeAddress, Trace curTrace, Instruction instruction, String op) {
@@ -1589,10 +1612,9 @@ public class BytecodeToCConverter {
 	}
 	
 	public String getGotoLabel(Trace trace, int codeAddress) {
-		String labelPrefix = "__";
 		if (!trace.containsCodeAddress(codeAddress)) {
-			labelPrefix = "__exit_";
+			return String.format("{ struct trace_exit_info s = {trace_exit, %#x}; return s }", codeAddress);
 		}
-		return String.format("goto %sL%#x", labelPrefix, codeAddress);
+		return String.format("goto __L%#x", codeAddress);
 	}
 }
