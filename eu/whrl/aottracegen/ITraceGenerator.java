@@ -18,10 +18,7 @@ public class ITraceGenerator {
 	
 	private boolean prepared;
 	private FileWriter writer;
-	
-	private Set<String> badLines = new HashSet<String>();
-	private boolean badLinesSet = false;
-	
+
 	public ITraceGenerator() {
 		asmTraces = new ArrayList<ASMTrace>();
 	}
@@ -35,42 +32,12 @@ public class ITraceGenerator {
 		}
 		
 	}
-	
-	public void markBranchOutOfRangeError(int offendingLineNumber, String name) {
-		try {
-			File file = new File("ITraces.S");
-			BufferedReader buff = new BufferedReader(new FileReader(file));
-			
-			int lineNumber = 1;
-			String line = buff.readLine();
-			while (lineNumber != offendingLineNumber) {
-				line = buff.readLine();
-				lineNumber++;
-			}
-			
-			badLines.add(line.replaceFirst("\\s+", "").replaceAll("\\s+", " "));
-			
-			badLinesSet = true;
-			
-			buff.close();
-			
-		} catch (FileNotFoundException e) {
-			
-			e.printStackTrace();
-		} catch (IOException e) {
-			
-			e.printStackTrace();
-		}
-	}
 
 	private void loadAsmFile(CodeGenContext context, String asmFileName) throws ITraceGeneratorFaultException {
 		ASMTrace asmTrace = new ASMTrace();
 	
 		asmTrace.setTraceBody(extractTraceBody(context, asmFileName));
 		asmTrace.cleanupTrace(context);
-		if (badLinesSet) {
-			asmTrace.fixBadBranch(badLines);
-		}
 		asmTraces.add(asmTrace);
 	}
 
@@ -185,37 +152,34 @@ public class ITraceGenerator {
 		writer.write("\t.global dvmITraceLiteralPoolTable\n");
 		writer.write("\n");
 		writer.write("\t.syntax unified\n");
+		writer.write("\t# Magic number used to make sure the ITraceLoader has loaded the right code:\n");
 		writer.write("\t.word 0xDEADBEEF\n");
 		
 	}
 	
 	private void emitTables(CodeGenContext context) throws IOException {
 		int[] traceEntries = new int[context.traces.size()];
-		int idx = 0;
-		for (Trace trace : context.traces) {
-			traceEntries[idx] = trace.entry;
-			idx++;
-		}
+		int numTraces = context.traces.size();
 		
 		writer.write("dvmITraceStartTable:\n");
-		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_%#x_Start\n", traceEntry));
+		for (int i = 0; i < numTraces; i++) {
+			writer.write(String.format("\t.word Start_T%d\n", i));
 		}
 		writer.write("dvmITraceEndTable:\n");
-		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_%#x_End\n", traceEntry));
+		for (int i = 0; i < numTraces; i++) {
+			writer.write(String.format("\t.word End_T%d\n", i));
 		}
 		writer.write("dvmITraceBasePCTable:\n");
-		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_%#x_BasePC\n", traceEntry));
+		for (int i = 0; i < numTraces; i++) {
+			writer.write(String.format("\t.word BasePC_T%d\n", i));
 		}
 		writer.write("dvmITraceChainingCellsTable:\n");
-		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_%#x_ChainingCells\n", traceEntry));
+		for (int i = 0; i < numTraces; i++) {
+			writer.write(String.format("\t.word ChainingCells_T%d\n", i));
 		}
 		writer.write("dvmITraceLiteralPoolTable:\n");
-		for (int traceEntry : traceEntries) {
-			writer.write(String.format("\t.word ITrace_%#x_LiteralPool\n", traceEntry));
+		for (int i = 0; i < numTraces; i++) {
+			writer.write(String.format("\t.word LiteralPool_T%d\n", i));
 		}
 		
 	}
@@ -225,11 +189,11 @@ public class ITraceGenerator {
 			context.setCurrentTraceIndex(traceIdx);
 			Trace curTrace = context.getCurrentTrace();
 			
-			writer.write(String.format("ITrace_%#x_ChainingCells:\n", curTrace.entry));
+			writer.write(String.format("ChainingCells_T%d:\n", traceIdx));
 			
 			for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 				if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
-					writer.write(String.format("\t.word LT%#x_CC_%#x_value\n", curTrace.entry, cc.codeAddress));
+					writer.write(String.format("\t.word ChainingCellValue_T%d_A%#x", context.currentTraceIdx, cc.codeAddress));
 				}
 			}
 		}
@@ -248,19 +212,32 @@ public class ITraceGenerator {
 		ASMTrace curAsmTrace = asmTraces.get(context.getCurrentTraceIndex());
 		
 		// start of the trace
-		writer.write(String.format("ITrace_%#x_Start:\n", curTrace.entry));
-		writer.write("\n");
+		writer.write(String.format("Start_T%d:\n", context.currentTraceIdx));
+		
+		// Code that enters ARM execution mode
+		writer.write("# Code that enters ARM exceution mode.\n");
+		writer.write(String.format("\tadr r0, Start_ARMCode_T%d\n", context.currentTraceIdx));
+		writer.write("\tbx\tr0\n");
+		writer.write(String.format("Start_ARMCode_T%d:\n", context.currentTraceIdx));
+		writer.write("\t.arm\n");
+		writer.write("# Load inputs to the trace code.\n");
+		writer.write(String.format("\tadr\tr0, LiteralPool_T%d\n", context.currentTraceIdx));
+		writer.write("\tmov\tr1, r5\n");
+		writer.write("\tmov\tr2, r6\n");
 		
 		// and the actual trace body now...
+		writer.write("# Actual trace code begins now:\n");
 		writer.write(curAsmTrace.getFullStringTraceBody());
 		writer.write("\n");
+		
+		// Exit code! r0 = {1 = exit, 2 = exception, 3 = return}, r1 = code address
 		
 		writer.write(".align 4\n");
 		writer.write(".thumb\n");
 		
 		// base pc location
 		// NB: this MUST come just before the literal pool!
-		writer.write(String.format("ITrace_%#x_BasePC:\n", curTrace.entry));
+		writer.write(String.format("BasePC_T%d:\n", context.currentTraceIdx));
 		writer.write("\t.word 0x00000000\n");
 		writer.write("\n");
 		
@@ -271,12 +248,12 @@ public class ITraceGenerator {
 		}
 		
 		// its literal pool
-		writer.write(String.format("ITrace_%#x_LiteralPool:\n", curTrace.entry));
+		writer.write(String.format("LiteralPool_T%d:\n", context.currentTraceIdx));
 		for (int litPoolIdx = 0; litPoolIdx < curTrace.meta.literalPoolSize; litPoolIdx++) {
 			if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION) {
-				writer.write(String.format("AOTDebugCounter_%#x:\n", curTrace.entry));
+				writer.write(String.format("AOTDebugCounter_T%d:\n", context.currentTraceIdx));
 			} else if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION) {
-				writer.write(String.format("AOTDebugLogMessage_%#x:\n", curTrace.entry));
+				writer.write(String.format("AOTDebugLogMessage_T%d:\n", context.currentTraceIdx));
 			}
 			writer.write("\t.word 0x00000000\n");
 		}
@@ -285,21 +262,21 @@ public class ITraceGenerator {
 		// exception handlers
 		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
 			for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
-				writer.write(String.format("LT%#x_EH_%#x:\n", curTrace.entry, exceptionCodeAddress));
+				writer.write(String.format("ExceptionHandler_T%d_A%#x:\n", context.currentTraceIdx, exceptionCodeAddress));
 				
 				if (context.config.emitEHCounter) {
-					writer.write(String.format("\tadr.w\tr1, AOTDebugCounter_%#x\n", curTrace.entry));
+					writer.write(String.format("\tadr.w\tr1, AOTDebugCounter_T%d\n", context.currentTraceIdx));
 					writer.write("\tldr\tr1, [r1]\n");
 					writer.write(String.format("\tmovw\tr0, #%d\n", exceptionCodeAddress));
 					writer.write("\tblx\tr1\n");
 				}
-				writer.write(String.format("\tldr\tr0, ITrace_%#x_BasePC\n", curTrace.entry));
+				writer.write(String.format("\tldr\tr0, BasePC_T%d\n", context.currentTraceIdx));
 				writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
-				writer.write(String.format("\tb\tLT%#x_EH_MAIN\n", curTrace.entry));
+				writer.write(String.format("\tb\tMainExceptionHandler_T%d\n", context.currentTraceIdx));
 				
 				
 			}
-			writer.write(String.format("LT%#x_EH_MAIN:\n", curTrace.entry));
+			writer.write(String.format("MainExceptionHandler_T%d:\n", context.currentTraceIdx));
 			writer.write("\tldr\tr1, [r6, #108]\n");
 			writer.write("\tblx\tr1\n");
 			writer.write("\n");
@@ -310,17 +287,17 @@ public class ITraceGenerator {
 
 			if (cc.type == ChainingCell.Type.INVOKE_PREDICTED) {
 				writer.write("\t.align 4\n");
-				writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, cc.codeAddress));
+				writer.write(String.format("ChainingCell_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
 				writer.write("\t.2byte 0xe7fe\n");
 				for (int i = 0; i < 7; i++) {
 					writer.write("\t.2byte 0x0000\n");
 				}
 			} else {
 				writer.write("\t.align 4\n");
-				writer.write(String.format("LT%#x_CC_%#x:\n", curTrace.entry, cc.codeAddress));
-				writer.write(String.format("\tb\tLT%#x_CC_%#x_next\n", curTrace.entry, cc.codeAddress));
+				writer.write(String.format("ChainingCell_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
+				writer.write(String.format("\tb\tChainingCellNext_T%d_A%#x", context.currentTraceIdx, cc.codeAddress));
 				writer.write("\torrs\tr0, r0\n");
-				writer.write(String.format("LT%#x_CC_%#x_next:\n", curTrace.entry, cc.codeAddress));
+				writer.write(String.format("ChainingCellNext_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
 				if (cc.type == ChainingCell.Type.HOT) {
 					writer.write("\tldr\tr0, [r6, #116]\n");
 				} else if (cc.type == ChainingCell.Type.BACKWARD_BRANCH) {
@@ -329,7 +306,7 @@ public class ITraceGenerator {
 					writer.write("\tldr\tr0, [r6, #100]\n");
 				}
 				writer.write("\tblx\tr0\n");
-				writer.write(String.format("LT%#x_CC_%#x_value:\n", curTrace.entry, cc.codeAddress));
+				writer.write(String.format("ChainingCellValue_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
 				writer.write("\t.word 0x00000000\n");
 			}
 		}
@@ -337,7 +314,7 @@ public class ITraceGenerator {
 		
 		// end of the trace
 		writer.write(".align 4\n");
-		writer.write(String.format("ITrace_%#x_End:\n", curTrace.entry));
+		writer.write(String.format("End_T%d:\n", context.currentTraceIdx));
 		writer.write("\t.word 0x00000000\n");
 	}
 }

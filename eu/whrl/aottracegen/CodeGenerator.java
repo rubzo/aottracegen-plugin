@@ -3,8 +3,6 @@ package eu.whrl.aottracegen;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.LinkedList;
-import java.util.List;
 
 import eu.whrl.aottracegen.exceptions.CGeneratorFaultException;
 import eu.whrl.aottracegen.exceptions.CommandException;
@@ -52,25 +50,10 @@ public class CodeGenerator {
 			emitITraceDesc(context, "ITracesDesc.cfg");
 			
 			boolean success = false;
-			int retries = 0;
-			int maxRetries = 3;
+			
 			while (!success) {
-				try {
-					emitSharedObjectITrace(context, "ITraces.S", "ITraces.o", "ITraces.so");
-					success = true;
-				} catch (CommandException exception) {
-					if (retries == maxRetries) {
-						System.out.println("Giving up...");
-						return;
-					}
-					
-					context.reassembling = true;
-					
-					fixAndEmitITrace(context, asmTraceFileNames, "ITraces.S", exception);
-					
-					retries++;
-					System.out.println("-- Retrying to produce SO file!!");
-				}
+				emitSharedObjectITrace(context, "ITraces.S", "ITraces.o", "ITraces.so");
+				success = true;
 			}
 			
 		} catch (UnimplementedInstructionException e) {
@@ -94,13 +77,16 @@ public class CodeGenerator {
 			
 			System.err.println("Fault in the injectable trace description generator. Cannot continue.");
 			
+		} catch (CommandException e) {
+			
+			System.err.println("Command exception when emitting shared object. Cannot continue.");
 		}
 		
 	}
 	
 	private void emitSharedObjectITrace(CodeGenContext context, String iTraceSName, String iTraceOName, String iTraceSOName) throws CommandException {
 		String assembleCommand = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=hard -mfpu=neon -c -fno-rtti -fPIC -o %s %s", iTraceOName, iTraceSName);
-		String sharedObjectCommand = String.format("arm-linux-androideabi-gcc -shared -L/Volumes/Android/4.2/out/target/product/maguro/system/lib -o %s %s", iTraceSOName, iTraceOName);
+		String sharedObjectCommand = String.format("arm-linux-androideabi-gcc -shared -L/Volumes/Android/4.0.4/out/target/product/maguro/system/lib -o %s %s", iTraceSOName, iTraceOName);
 		try {
 			System.out.println("Assembling O file...");
 			System.out.println("  (cmd: " + assembleCommand + ")");
@@ -110,10 +96,6 @@ public class CodeGenerator {
 			System.out.println("  (cmd: " + sharedObjectCommand + ")");
 			runCommand(sharedObjectCommand);
 		} catch (CommandException exception) {
-			
-			if (exception.isRecoverable) {
-				throw exception;
-			}
 			
 			System.err.println("Couldn't create shared object?");
 		}
@@ -135,23 +117,6 @@ public class CodeGenerator {
 		generator.finish();
 	}
 	
-	private boolean isErrorRecoverable(String line) {
-		if (line.contains("branch out of range")) {
-			return true;
-		}
-		return false;
-	}
-	
-	private RecoverableError getRecoverableError(String line) {
-		if (line.contains("branch out of range")) {
-			System.out.println(" ! Going to handle a branch out of range error!");
-			int lineNumber = Integer.parseInt(line.split(":")[1]);
-			return new RecoverableError().setBranchOutOfRange().setLineNumber(lineNumber);
-		}
-		
-		return null;
-	}
-	
 	private void runCommand(String command) throws CommandException {
 		try {
 			Process process = Runtime.getRuntime().exec(command);
@@ -162,16 +127,9 @@ public class CodeGenerator {
 			boolean error = false;
 			String line;
 			
-			List<RecoverableError> recoverableErrors = new LinkedList<RecoverableError>();
-			
 			while (errorStreamReader.ready()) {
 				line = errorStreamReader.readLine();
 				if (line.contains("error") || line.contains("Error")) {
-					
-					if (isErrorRecoverable(line)) {
-						recoverableErrors.add(getRecoverableError(line));
-						continue;
-					}
 					
 					// Error is not recoverable
 					System.err.println(line);
@@ -186,10 +144,6 @@ public class CodeGenerator {
 				throw new CommandException();
 			}
 			
-			// We had recoverable errors
-			if (recoverableErrors.size() > 0) {
-				throw new CommandException().attachRecoverableErrors(recoverableErrors);
-			}
 		} catch (IOException e) {
 			System.err.println("IO Exception encountered when executing command?");
 			throw new CommandException();
@@ -221,29 +175,6 @@ public class CodeGenerator {
 	public void emitITrace(CodeGenContext context, String[] asmFileNames, String iTraceName) throws ITraceGeneratorFaultException {
 		System.out.println("Producing linkable assembly file...");
 		ITraceGenerator iTraceGen = new ITraceGenerator();
-		iTraceGen.loadAsmFiles(context, asmFileNames);
-		iTraceGen.prepare(iTraceName);
-		iTraceGen.generate(context);
-		iTraceGen.finish();
-	}
-	
-	/*
-	 * Convert all the provided asmFileNames into one asm file in the format that can link with the DVM.
-	 * Also uses a list of RecoverableErrors to tell the ITraceGenerator to modify the ASM files before combining them.
-	 */
-	public void fixAndEmitITrace(CodeGenContext context, String[] asmFileNames, String iTraceName, CommandException exception) throws ITraceGeneratorFaultException {
-		System.out.println("Producing AND FIXING linkable assembly file...");
-		ITraceGenerator iTraceGen = new ITraceGenerator();
-		
-		for (RecoverableError error : exception.recoverableErrors) {
-			if (error.branchOutOfRange) {
-				iTraceGen.markBranchOutOfRangeError(error.lineNumber, iTraceName);
-			} else {
-				System.err.println("Don't know how to recover from this particular error?");
-				throw new ITraceGeneratorFaultException();
-			}
-		}
-		
 		iTraceGen.loadAsmFiles(context, asmFileNames);
 		iTraceGen.prepare(iTraceName);
 		iTraceGen.generate(context);

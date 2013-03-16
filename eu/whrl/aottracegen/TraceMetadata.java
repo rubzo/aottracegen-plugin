@@ -1,14 +1,9 @@
 package eu.whrl.aottracegen;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
-
-import org.jf.dexlib.Code.Opcode;
 
 public class TraceMetadata {
 	public List<Integer> codeAddressesThatThrowExceptions;

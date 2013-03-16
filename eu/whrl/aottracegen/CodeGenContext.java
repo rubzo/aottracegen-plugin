@@ -15,7 +15,7 @@ import org.jf.dexlib.Util.SparseIntArray;
  */
 public class CodeGenContext {
 	public List<Trace> traces;
-	private int currentTraceIdx;
+	public int currentTraceIdx;
 	
 	public String method_name;
 	public String class_name;
@@ -36,8 +36,6 @@ public class CodeGenContext {
 	
 	public DexFile dexFile;
 	
-	public boolean reassembling;
-	
 	/*
 	 * NB: A CodeGenContext only works within one method!
 	 * Hence, we pass in the method to the constructor.
@@ -46,7 +44,6 @@ public class CodeGenContext {
 		dexFile = df;
 		traces = new ArrayList<Trace>();
 		currentTraceIdx = 0;
-		reassembling = false;
 		
 		this.config = config;
 		

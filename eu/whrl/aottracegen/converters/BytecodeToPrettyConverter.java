@@ -789,7 +789,19 @@ public class BytecodeToPrettyConverter {
 		}
 		
 		// opcode: 67 sput                       
-		// opcode: 68 sput-wide                  
+		// opcode: 68 sput-wide
+		case SPUT_WIDE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sput-wide v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 69 sput-object                
 		// opcode: 6a sput-boolean               
 		// opcode: 6b sput-byte                  
@@ -798,7 +810,17 @@ public class BytecodeToPrettyConverter {
 		// opcode: 6e invoke-virtual             
 		// opcode: 6f invoke-super               
 		// opcode: 70 invoke-direct    
-		// opcode: 71 invoke-static              
+		// opcode: 71 invoke-static 
+		case INVOKE_STATIC:
+		{
+			int method = ((InstructionWithReference)instruction).getReferencedItem().getIndex(); 
+			
+			String argsString = getArgsString(instruction);
+			
+			result += String.format("invoke-static %s, method@%#x", argsString, method);
+			break;
+		}
+		
 		// opcode: 72 invoke-interface           
 		// opcode: 74 invoke-virtual/range       
 		// opcode: 75 invoke-super/range         
@@ -1021,7 +1043,18 @@ public class BytecodeToPrettyConverter {
 		// opcode: 99 shr-int                    
 		// opcode: 9a ushr-int                   
 		// opcode: 9b add-long                   
-		// opcode: 9c sub-long                   
+		// opcode: 9c sub-long      
+		case SUB_LONG:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("sub-long v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 9d mul-long                   
 		// opcode: 9e div-long                   
 		// opcode: 9f rem-long                   

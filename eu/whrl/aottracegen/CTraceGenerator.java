@@ -62,6 +62,7 @@ public class CTraceGenerator {
 		opcodesThatThrowExceptions.add(Opcode.IPUT_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.IPUT_WIDE_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.INVOKE_VIRTUAL_QUICK);
+		opcodesThatThrowExceptions.add(Opcode.INVOKE_STATIC);
 		
 		// ...
 	}
@@ -132,6 +133,7 @@ public class CTraceGenerator {
 		
 		try {
 			// Everything that this calls MUST throw the IOException back up here!
+			determineInstructionsThatThrowExceptions();
 			emitFunctionStart();
 			
 			for (int i = 0; i < curTrace.getLength(); i++) {
@@ -185,17 +187,35 @@ public class CTraceGenerator {
 	 * Emit the function signature, basically.
 	 */
 	private void emitFunctionStart() throws IOException {
-		writer.write("typedef enum {\n");
-		writer.write("\ttrace_exit = 0, trace_exception = 1, trace_return = 2\n");
-		writer.write("} exit_type;\n");
+		writer.write("#define TRACE_EXIT(a) { unsigned long long r = (((unsigned long long) a) << 32) | 1; return r; }\n");
+		writer.write("#define TRACE_EXCEPTION(a) { unsigned long long r = (((unsigned long long) a) << 32) | 2; return r; }\n");
+		writer.write("#define TRACE_RETURN(a) { unsigned long long r = (((unsigned long long) a) << 32) | 3; return r; }\n");
+		writer.write("#define TRACE_DEPARTURE_INFO long long\n");
 		writer.write("\n");
-		writer.write("struct trace_exit_info {\n");
-		writer.write("\texit_type type;\n");
-		writer.write("\tint address;\n");
-		writer.write("};\n\n");
 		
 		writer.write(String.format("// --- TRACE %#x START ---\n", context.getCurrentTrace().entry));
-		writer.write("struct trace_exit_info trace(int *lit, int *v, char *self) {\n");
+		writer.write("TRACE_DEPARTURE_INFO trace(int *lit, int *v, char *self) {\n");
+	}
+	
+	/*
+	 * Emit the functions that exit labels call. This will be required to correctly identify where the trace is going
+	 * when we're generating our injectable trace.
+	 */
+	private void determineInstructionsThatThrowExceptions() throws IOException {
+		Trace curTrace = context.getCurrentTrace();
+
+		// Generate the exception function prototypes.
+		for (int i = 0; i < curTrace.getLength(); i++) {
+			int codeAddress = curTrace.addresses.get(i);
+
+			Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
+
+			if (opcodesThatThrowExceptions.contains(instruction.opcode)) {
+				curTrace.meta.codeAddressesThatThrowExceptions.add(codeAddress);
+			}
+
+			
+		}
 	}
 	
 	/*
