@@ -36,18 +36,38 @@ public class ASMTrace {
 	private void modifyOriginalProEpiCode(CodeGenContext context) {
 		// Find the push/pop instructions,
 		//
-		for (int cl = 0; cl < traceBody.size(); cl++) {
+		int pushIdx = 0;
+		int popIdx = 0;
+		int cl = 0;
+		
+		for (cl = 0; cl < traceBody.size(); cl++) {
 			String line = traceBody.get(cl);
 			
 			if (line.startsWith("\tldmfd") || line.startsWith("\tpop")) {
-				// exit code
-				cl = replaceLine(cl, "\tpop\t{r5, r6}");
-				cl = addLine(cl+1, String.format("\tb\tLeave_T%d", context.currentTraceIdx));
-			} else if (line.startsWith("\tpush") || line.startsWith("\tstmfd")) {
-				// entrance code
-				cl = replaceLine(cl, "\tpush\t{r5, r6}");
+				popIdx = cl;
 			}
 		}
+		
+		cl = popIdx;
+		cl = replaceLine(cl, "\tpop\t{r5, r6}");
+		cl = addLineAfter(cl, String.format("\tb\tLeave_T%d", context.currentTraceIdx));
+		if (cl != traceBody.size()) {
+			String line = traceBody.get(cl);
+			if (line.startsWith("\tbx\tlr")) {
+				cl = removeLine(cl);
+			}
+		}
+		
+		for (cl = 0; cl < traceBody.size(); cl++) {
+			String line = traceBody.get(cl);
+			
+			if (line.startsWith("\tpush") || line.startsWith("\tstmfd")) {
+				pushIdx = cl;
+			}
+		}
+		
+		cl = pushIdx;
+		cl = replaceLine(cl, "\tpush\t{r5, r6}");
 	}
 	
 	private void renameLabels(CodeGenContext context) {
@@ -122,12 +142,14 @@ public class ASMTrace {
 		cl = addLine(cl, "### START INVOKE VIRTUAL QUICK ###");
 		cl = addLine(cl, "###");
 		
-		cl = addLine(cl, "# Must enter Thumb2 execution mode!");
-		cl = addLine(cl, String.format("\tadr\tr0, Invoke_ThumbCode_T%d_A%#x", context.currentTraceIdx, codeAddress));
-		cl = addLine(cl, "\tadd\tr0, r0, #1");
-		cl = addLine(cl, "\tbx\tr0");
-		cl = addLine(cl, String.format("Invoke_ThumbCode_T%d_A%#x:", context.currentTraceIdx, codeAddress));
-		cl = addLine(cl, "\t.thumb");
+		if (context.config.armMode) {
+			cl = addLine(cl, "# Must enter Thumb2 execution mode!");
+			cl = addLine(cl, String.format("\tadr\tr0, Invoke_ThumbCode_T%d_A%#x", context.currentTraceIdx, codeAddress));
+			cl = addLine(cl, "\tadd\tr0, r0, #1");
+			cl = addLine(cl, "\tbx\tr0");
+			cl = addLine(cl, String.format("Invoke_ThumbCode_T%d_A%#x:", context.currentTraceIdx, codeAddress));
+			cl = addLine(cl, "\t.thumb");
+		}
 		
 		// Handle arguments
 		//
@@ -236,11 +258,13 @@ public class ASMTrace {
 		
 		cl = addLine(cl, String.format("JumpAfterBad_T%d_A%#x:", context.currentTraceIdx, codeAddress));
 		
-		cl = addLine(cl, "# Must enter ARM execution mode!");
-		cl = addLine(cl, String.format("\tadr\tr0, Invoke_ARMCode_T%d_A%#x", context.currentTraceIdx, codeAddress));
-		cl = addLine(cl, "\tbx\tr0");
-		cl = addLine(cl, String.format("Invoke_ARMCode_T%d_A%#x:", context.currentTraceIdx, codeAddress));
-		cl = addLine(cl, "\t.arm");
+		if (context.config.armMode) {
+			cl = addLine(cl, "# Must enter ARM execution mode!");
+			cl = addLine(cl, String.format("\tadr\tr0, Invoke_ARMCode_T%d_A%#x", context.currentTraceIdx, codeAddress));
+			cl = addLine(cl, "\tbx\tr0");
+			cl = addLine(cl, String.format("Invoke_ARMCode_T%d_A%#x:", context.currentTraceIdx, codeAddress));
+			cl = addLine(cl, "\t.arm");
+		}
 		cl = addLine(cl, "\tmov\tr0, r1");
 		cl = addLine(cl, "###");
 		cl = addLine(cl, "### END INVOKE VIRTUAL QUICK ###");
@@ -343,5 +367,11 @@ public class ASMTrace {
 		traceBody.add(cl, line);
 		
 		return cl + 1;
+	}
+	
+	private int addLineAfter(int cl, String line) {
+		traceBody.add(cl+1, line);
+		
+		return cl + 2;
 	}
 }

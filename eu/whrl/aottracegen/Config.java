@@ -28,6 +28,7 @@ public class Config {
 	public boolean onlyPrintTraces = false;
 	public boolean emitDebugFunctions = false;
 	public boolean emitEHCounter = false;
+	public boolean armMode = false;
 		
 	public String cOpts = "-O3";
 	
@@ -75,6 +76,8 @@ public class Config {
 					emitEHCounter = true;
 					// Emitting the counter at every exception handler exit point requires the debug function to be emitted.
 					emitDebugFunctions = true;
+				} else if (line.startsWith("arm")) {
+					armMode = true;
 				} else if (line.startsWith("copts")) {
 					cOpts = line.substring(6, line.length());
 				} else if (line.startsWith("trace all")) {

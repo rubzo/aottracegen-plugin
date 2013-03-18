@@ -152,6 +152,7 @@ public class ITraceGenerator {
 		writer.write("\t.global dvmITraceLiteralPoolTable\n");
 		writer.write("\n");
 		writer.write("\t.syntax unified\n");
+		writer.write("\t.thumb\n");
 		writer.write("\t# Magic number used to make sure the ITraceLoader has loaded the right code:\n");
 		writer.write("\t.word 0xDEADBEEF\n");
 		
@@ -193,7 +194,7 @@ public class ITraceGenerator {
 			
 			for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 				if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
-					writer.write(String.format("\t.word ChainingCellValue_T%d_A%#x", context.currentTraceIdx, cc.codeAddress));
+					writer.write(String.format("\t.word ChainingCellValue_T%d_A%#x\n", context.currentTraceIdx, cc.codeAddress));
 				}
 			}
 		}
@@ -214,13 +215,15 @@ public class ITraceGenerator {
 		// start of the trace
 		writer.write(String.format("Start_T%d:\n", context.currentTraceIdx));
 		
-		// Code that enters ARM execution mode
-		writer.write("# Code that enters ARM exceution mode.\n");
-		writer.write(String.format("\tadr r0, Start_ARMCode_T%d\n", context.currentTraceIdx));
-		writer.write("\tbx\tr0\n");
-		writer.write(String.format("Start_ARMCode_T%d:\n", context.currentTraceIdx));
-		writer.write("\t.arm\n");
-		writer.write("# Load inputs to the trace code.\n");
+		if (context.config.armMode) {
+			// Code that enters ARM execution mode
+			writer.write("# Code that enters ARM exceution mode.\n");
+			writer.write(String.format("\tadr.w\tr0, Start_ARMCode_T%d\n", context.currentTraceIdx));
+			writer.write("\tbx\tr0\n");
+			writer.write(String.format("Start_ARMCode_T%d:\n", context.currentTraceIdx));
+			writer.write("\t.arm\n");
+			writer.write("# Load inputs to the trace code.\n");
+		}
 		writer.write(String.format("\tadr\tr0, LiteralPool_T%d\n", context.currentTraceIdx));
 		writer.write("\tmov\tr1, r5\n");
 		writer.write("\tmov\tr2, r6\n");
@@ -231,9 +234,41 @@ public class ITraceGenerator {
 		writer.write("\n");
 		
 		// Exit code! r0 = {1 = exit, 2 = exception, 3 = return}, r1 = code address
+		writer.write("# End of actual trace code, now for code to determine how we leave the trace:\n");
+		writer.write(String.format("Leave_T%d:\n", context.currentTraceIdx));
+		
+		if (context.config.armMode) {
+			writer.write("# First thing we need to do is enter Thumb2 code again\n");
+			writer.write(String.format("\tadr\tr2, End_ThumbCode_T%d\n", context.currentTraceIdx));
+			writer.write("\tadd\tr2, r2, #1\n");
+			writer.write("\tbx\tr2\n");
+			writer.write(String.format("End_ThumbCode_T%d:\n", context.currentTraceIdx));
+			writer.write(".thumb\n");
+		}
+		
+		writer.write("\tcmp\tr0, #1\n");
+		writer.write(String.format("\tbeq\tExits_T%d\n", context.currentTraceIdx));
+		writer.write("\tcmp\tr0, #2\n");
+		writer.write(String.format("\tbeq\tExceptions_T%d\n", context.currentTraceIdx));
+		writer.write("\tcmp\tr0, #3\n");
+		writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentTraceIdx));
+		
+		writer.write(String.format("Exits_T%d:\n", context.currentTraceIdx));
+		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
+			writer.write(String.format("\tcmp\tr1, #%d\n", cc.codeAddress));
+			writer.write(String.format("\tbeq\tChainingCell_T%d_A%#x\n", context.currentTraceIdx, cc.codeAddress));
+		}
+		
+		writer.write(String.format("Exceptions_T%d:\n", context.currentTraceIdx));
+		for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
+			writer.write(String.format("\tcmp\tr1, #%d\n", exceptionCodeAddress));
+			writer.write(String.format("\tbeq\tExceptionHandler_T%d_A%#x\n", context.currentTraceIdx, exceptionCodeAddress));
+		}
+		
+		writer.write(String.format("Returns_T%d:\n", context.currentTraceIdx));
 		
 		writer.write(".align 4\n");
-		writer.write(".thumb\n");
+		
 		
 		// base pc location
 		// NB: this MUST come just before the literal pool!
@@ -295,7 +330,7 @@ public class ITraceGenerator {
 			} else {
 				writer.write("\t.align 4\n");
 				writer.write(String.format("ChainingCell_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
-				writer.write(String.format("\tb\tChainingCellNext_T%d_A%#x", context.currentTraceIdx, cc.codeAddress));
+				writer.write(String.format("\tb\tChainingCellNext_T%d_A%#x\n", context.currentTraceIdx, cc.codeAddress));
 				writer.write("\torrs\tr0, r0\n");
 				writer.write(String.format("ChainingCellNext_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
 				if (cc.type == ChainingCell.Type.HOT) {
