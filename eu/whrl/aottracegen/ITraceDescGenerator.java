@@ -16,13 +16,17 @@ public class ITraceDescGenerator {
 	static {
 		literalPoolTypeMap = new HashMap<LiteralPoolType,String>();
 		literalPoolTypeMap.put(LiteralPoolType.STATIC_FIELD, "static_field");
+		literalPoolTypeMap.put(LiteralPoolType.STATIC_METHOD, "static_method");
 		literalPoolTypeMap.put(LiteralPoolType.RETURN_HANDLER, "return_handler");
 		literalPoolTypeMap.put(LiteralPoolType.DPC_OFFSET, "dpc_offset");
 		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_PREDICTED_CHAIN_HANDLER, "invoke_method_predicted_chain_handler");
 		literalPoolTypeMap.put(LiteralPoolType.JIT_TO_PATCH_PREDICTED_CHAIN_HANDLER, "jit_to_patch_predicted_chain_handler");
 		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_NO_OPT_HANDLER, "invoke_method_no_opt_handler");
+		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_CHAIN_HANDLER, "invoke_method_chain_handler");
+		literalPoolTypeMap.put(LiteralPoolType.INVOKE_METHOD_NATIVE_HANDLER, "invoke_method_native_handler");
 		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION, "aot_debug_counter_function");
 		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION, "aot_debug_log_message_function");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_AOT_INVOKE_STATIC_NATIVE, "call_aot_invoke_static_native");
 	}
 
 	public void prepare(String name) {
@@ -102,10 +106,15 @@ public class ITraceDescGenerator {
 		Trace curTrace = context.getCurrentTrace();
 		int i = 0;
 		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
-			if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
+			if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
+				writer.write(String.format("chaining_cell_singleton_method %d %#x\n", i, cc.codeAddress));
+				i++;
+			} else if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
 				writer.write(String.format("chaining_cell %d %#x\n", i, cc.codeAddress));
 				i++;
 			}
+			
+			
 		}
 	}
 

@@ -16,6 +16,12 @@ import eu.whrl.aottracegen.Trace;
 
 public class BytecodeToPrettyConverter {
 	
+	public boolean llvmMode = false;
+	
+	public BytecodeToPrettyConverter(boolean usingLLVM) {
+		llvmMode = usingLLVM;
+	}
+	
 	/*
 	 * Return a string representing the instruction at codeAddress,
 	 * as a human readable representation. MUST BE CALLED BEFORE THE
@@ -26,7 +32,12 @@ public class BytecodeToPrettyConverter {
 		
 		Trace curTrace = context.getCurrentTrace();
 		
-		String result = String.format("  // BYTECODE AT %#x: ", codeAddress);
+		String result = "";
+		if (llvmMode) {
+			result = String.format("  ; BYTECODE AT %#x: ", codeAddress);
+		} else {
+			result = String.format("  // BYTECODE AT %#x: ", codeAddress);
+		}
 		
 		switch (instruction.opcode) {
 		

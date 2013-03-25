@@ -2,6 +2,13 @@ package eu.whrl.aottracegen;
 
 import java.util.List;
 import java.util.Set;
+import java.util.TreeMap;
+
+import org.jf.dexlib.MethodIdItem;
+import org.jf.dexlib.ClassDataItem.EncodedMethod;
+import org.jf.dexlib.Code.Instruction;
+import org.jf.dexlib.Code.InstructionWithReference;
+import org.jf.dexlib.Code.InvokeInstruction;
 
 public class Util {
 	public static String toHexString(int[] array) {
@@ -43,5 +50,17 @@ public class Util {
 		}
 		result += "]";
 		return result;
+	}
+	
+	public static TreeMap<String,EncodedMethod> methodMap = new TreeMap<String,EncodedMethod>();
+	
+	public static EncodedMethod getCalleeMethodFromInvoke(Instruction instruction, CodeGenContext context) {
+		MethodIdItem methodId = (MethodIdItem) ((InstructionWithReference)instruction).getReferencedItem();
+		String methodName = methodId.getMethodString();
+		EncodedMethod method = methodMap.get(methodName);
+		if (method == null) {
+			System.err.println("Unable to find method in our mapping: " + methodName);
+		}
+		return method;
 	}
 }

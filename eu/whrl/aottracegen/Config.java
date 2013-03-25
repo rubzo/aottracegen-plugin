@@ -29,6 +29,8 @@ public class Config {
 	public boolean emitDebugFunctions = false;
 	public boolean emitEHCounter = false;
 	public boolean armMode = false;
+	public boolean llvmMode = false;
+	public List<String> coreLibs = new LinkedList<String>();
 		
 	public String cOpts = "-O3";
 	
@@ -78,8 +80,12 @@ public class Config {
 					emitDebugFunctions = true;
 				} else if (line.startsWith("arm")) {
 					armMode = true;
+				} else if (line.startsWith("llvm")) {
+					llvmMode = true;
 				} else if (line.startsWith("copts")) {
 					cOpts = line.substring(6, line.length());
+				} else if (line.startsWith("libs")) {
+					coreLibs.add(line.substring(5, line.length()));
 				} else if (line.startsWith("trace all")) {
 					traceAll = true;
 				} else if (line.startsWith("trace")) {

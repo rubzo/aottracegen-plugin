@@ -14,35 +14,10 @@ import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 public class CodeGenerator {
 	public CodeGenerator() { }
 	
-	/*
-	 * This method is called to generate the C, ASM, and then injectable ASM and trace description files.
-	 * Everything in the CodeGenContext will have been already set up at this point.
-	 */
 	public void generateCodeFromContext(CodeGenContext context) {
-		int numTraces = context.traces.size();
-		String[] cTraceFileNames = new String[numTraces];
-		String[] asmTraceFileNames = new String[numTraces];
-		
-		// Generate all the file names.
-		for (int i = 0; i < numTraces; i++) {
-			cTraceFileNames[i] = String.format("trace_%#x.c", context.traces.get(i).entry);
-			asmTraceFileNames[i] = String.format("trace_%#x.S", context.traces.get(i).entry);
-		}
+		String[] asmTraceFileNames = generateASMTraces(context);
 		
 		try {
-			
-			for (int i = 0; i < numTraces; i++) {
-				
-				// Makes sure the generateC() and compileC() functions use the correct trace!
-				context.setCurrentTraceIndex(i);
-				System.out.println(String.format("Handling trace at %#x", context.getCurrentTrace().entry));
-				
-				// Do the generation and compilation.
-				generateC(context, cTraceFileNames[i]);
-				compileC(context, cTraceFileNames[i], asmTraceFileNames[i]);
-				
-			}
-			
 			// Take the list of generated asm files, and produce a 'injectable trace' asm file.
 			emitITrace(context, asmTraceFileNames, "ITraces.S");
 			
@@ -56,19 +31,6 @@ public class CodeGenerator {
 				success = true;
 			}
 			
-		} catch (UnimplementedInstructionException e) {
-			
-			System.err.println(String.format("Unimplemented instruction: '%s' at %#x. Cannot generate code.", 
-					e.getUnimplementedInstructionName(), e.getUnimplementedInstructionCodeAddress()));
-			
-		} catch (CompilationException e) {
-			
-			System.err.println("Couldn't compile generated C. Cannot continue.");
-			
-		} catch (CGeneratorFaultException e) {
-			
-			System.err.println("Fault in the C generator. Cannot continue.");
-			
 		} catch (ITraceGeneratorFaultException e) {
 			
 			System.err.println("Fault in the injectable trace generator. Cannot continue.");
@@ -81,7 +43,78 @@ public class CodeGenerator {
 			
 			System.err.println("Command exception when emitting shared object. Cannot continue.");
 		}
-		
+	}
+	
+	public String[] generateASMTraces(CodeGenContext context) {
+		int numTraces = context.traces.size();
+		String[] asmTraceFileNames = new String[numTraces];
+		if (!context.config.llvmMode) {
+			//
+			// Using C.
+			//
+			String[] cTraceFileNames = new String[numTraces];
+
+			// Generate all the file names.
+			for (int i = 0; i < numTraces; i++) {
+				cTraceFileNames[i] = String.format("trace_%#x.c", context.traces.get(i).entry);
+				asmTraceFileNames[i] = String.format("trace_%#x.S", context.traces.get(i).entry);
+			}
+
+			try {
+
+				for (int i = 0; i < numTraces; i++) {
+
+					// Makes sure the generateC() and compileC() functions use the correct trace!
+					context.setCurrentTraceIndex(i);
+					System.out.println(String.format("Handling trace at %#x", context.getCurrentTrace().entry));
+
+					// Do the generation and compilation.
+					generateC(context, cTraceFileNames[i]);
+					compileC(context, cTraceFileNames[i], asmTraceFileNames[i]);
+
+				}
+			}catch (UnimplementedInstructionException e) {
+				System.err.println(String.format("Unimplemented instruction: '%s' at %#x. Cannot generate code.", 
+						e.getUnimplementedInstructionName(), e.getUnimplementedInstructionCodeAddress()));
+			} catch (CompilationException e) {
+				System.err.println("Couldn't compile generated C. Cannot continue.");
+
+			} catch (CGeneratorFaultException e) {
+				System.err.println("Fault in the C generator. Cannot continue.");
+			}
+		} else {
+			//
+			// Using LLVM bytecode.
+			//
+			String[] llvmTraceFileNames = new String[numTraces];
+			String[] llvmOptTraceFileNames = new String[numTraces];
+			for (int i = 0; i < numTraces; i++) {
+				// Generate all the file names.
+				llvmTraceFileNames[i] = String.format("trace_%#x.ll", context.traces.get(i).entry);
+				llvmOptTraceFileNames[i] = String.format("trace_%#x.llo", context.traces.get(i).entry);
+				asmTraceFileNames[i] = String.format("trace_%#x.S", context.traces.get(i).entry);
+			}
+
+			try {
+
+				for (int i = 0; i < numTraces; i++) {
+
+					// Makes sure the *LLVM() functions use the correct trace!
+					context.setCurrentTraceIndex(i);
+					System.out.println(String.format("Handling trace at %#x", context.getCurrentTrace().entry));
+
+					// Do the generation and compilation.
+					generateLLVM(context, llvmTraceFileNames[i]);
+					optimiseLLVM(context, llvmTraceFileNames[i], llvmOptTraceFileNames[i]);
+					compileLLVM(context, llvmOptTraceFileNames[i], asmTraceFileNames[i]);
+
+				}
+			} catch (Exception e) {
+
+			}
+		}
+
+		return asmTraceFileNames;
 	}
 	
 	private void emitSharedObjectITrace(CodeGenContext context, String iTraceSName, String iTraceOName, String iTraceSOName) throws CommandException {
@@ -117,6 +150,56 @@ public class CodeGenerator {
 		generator.finish();
 	}
 	
+	/*
+	 * Compile the C file called cTraceFileName into the .S file called asmTraceFileName using GCC.
+	 * 
+	 * Will throw a CompilationException if it encounters any errors during compilation.
+	 */
+	public void compileC(CodeGenContext context, String cTraceFileName, String asmTraceFileName) throws CompilationException {
+		String useThumb = "-mthumb";
+		if (context.config.armMode) {
+			useThumb = "";
+		}
+		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=hard -mfpu=neon %s %s -S -o %s %s", context.config.cOpts, useThumb, asmTraceFileName, cTraceFileName);
+		System.out.println("Compiling C...");
+		System.out.println("  (cmd: " + command + ")");
+		try {
+			runCommand(command);
+		} catch (CommandException e) {
+			throw new CompilationException();
+		}
+	}
+	
+	public void generateLLVM(CodeGenContext context, String llvmTraceFileName) throws UnimplementedInstructionException, CGeneratorFaultException {
+		System.out.println("Generating LLVM bytecode...");
+		LLVMTraceGenerator generator = new LLVMTraceGenerator(context);
+		generator.prepare(llvmTraceFileName);
+		generator.generate();
+		generator.finish();
+	}
+	
+	public void optimiseLLVM(CodeGenContext context, String llvmTraceFileName, String llvmOptTraceFileName) throws CompilationException {
+		System.out.println("Optimising LLVM bytecode...");
+		String command = String.format("opt -O3 -S %s -o %s", llvmTraceFileName, llvmOptTraceFileName);
+		System.out.println("  (cmd: " + command + ")");
+		try {
+			runCommand(command);
+		} catch (CommandException e) {
+			throw new CompilationException();
+		}
+	}
+	
+	public void compileLLVM(CodeGenContext context, String llvmOptTraceFileName, String asmTraceFileName) throws CompilationException {
+		System.out.println("Compiling LLVM bytecode...");
+		String command = String.format("llc -O3 -mcpu=cortex-a9 --enable-unsafe-fp-math %s -o %s", llvmOptTraceFileName, asmTraceFileName);
+		System.out.println("  (cmd: " + command + ")");
+		try {
+			runCommand(command);
+		} catch (CommandException e) {
+			throw new CompilationException();
+		}
+	}
+	
 	private void runCommand(String command) throws CommandException {
 		try {
 			Process process = Runtime.getRuntime().exec(command);
@@ -150,26 +233,6 @@ public class CodeGenerator {
 		} catch (InterruptedException e) {
 			System.err.println("InterruptedException encountered when executing command?");
 			throw new CommandException();
-		}
-	}
-	
-	/*
-	 * Compile the C file called cTraceFileName into the .S file called asmTraceFileName using GCC.
-	 * 
-	 * Will throw a CompilationException if it encounters any errors during compilation.
-	 */
-	public void compileC(CodeGenContext context, String cTraceFileName, String asmTraceFileName) throws CompilationException {
-		String useThumb = "-mthumb";
-		if (context.config.armMode) {
-			useThumb = "";
-		}
-		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=hard -mfpu=neon %s %s -S -o %s %s", context.config.cOpts, useThumb, asmTraceFileName, cTraceFileName);
-		System.out.println("Compiling C...");
-		System.out.println("  (cmd: " + command + ")");
-		try {
-			runCommand(command);
-		} catch (CommandException e) {
-			throw new CompilationException();
 		}
 	}
 	

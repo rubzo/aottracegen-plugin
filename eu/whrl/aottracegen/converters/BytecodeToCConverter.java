@@ -13,6 +13,7 @@ import org.jf.dexlib.Code.TwoRegisterInstruction;
 import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction;
 import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction.PackedSwitchTarget;
 
+import eu.whrl.aottracegen.ChainingCell;
 import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.LiteralPoolType;
 import eu.whrl.aottracegen.Trace;
@@ -135,6 +136,8 @@ public class BytecodeToCConverter {
 		// opcode: 0e return-void 
 		case RETURN_VOID:
 		{	
+			curTrace.meta.containsReturn = true;
+			
 			result = String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
@@ -142,6 +145,8 @@ public class BytecodeToCConverter {
 		// opcode: 0f return    
 		case RETURN:
 		{
+			curTrace.meta.containsReturn = true;
+			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
@@ -152,6 +157,8 @@ public class BytecodeToCConverter {
 		// opcode: 10 return-wide  
 		case RETURN_WIDE:
 		{
+			curTrace.meta.containsReturn = true;
+			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  *((long long*) (self+%d)) = *((long long*)(v + %d));", offsetThreadRetValue, vA) +
@@ -162,6 +169,8 @@ public class BytecodeToCConverter {
 		// opcode: 11 return-object
 		case RETURN_OBJECT:
 		{
+			curTrace.meta.containsReturn = true;
+			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
@@ -414,6 +423,13 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
+		// opcode: 40 itrace-inject
+		case ITRACE_INJECT:
+		{
+			result = "  // Trace Injection Opcode";
+			break;
+		}
+		
 		// opcode: 44 aget          
 		case AGET:
 		{
@@ -594,7 +610,12 @@ public class BytecodeToCConverter {
 		// opcode: 71 invoke-static              
 		case INVOKE_STATIC: 
 		{
-			result = String.format("  if (!invoke_static_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_METHOD, methodIndex);
+			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
+				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
+			}
+			result = String.format("  if (!invoke_static_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
 			break;
 		}
 		

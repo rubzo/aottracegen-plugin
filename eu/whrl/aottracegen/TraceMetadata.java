@@ -12,6 +12,7 @@ public class TraceMetadata {
 	public List<Integer> literalPoolIndices;
 	public List<LiteralPoolType> literalPoolTypes;
 	public boolean containsSwitch;
+	public boolean containsReturn;
 	public Map<Integer, ChainingCell> chainingCells;
 	public int stackAllocSize;
 	
@@ -21,6 +22,7 @@ public class TraceMetadata {
 		literalPoolIndices = new ArrayList<Integer>();
 		literalPoolTypes = new ArrayList<LiteralPoolType>();
 		containsSwitch = false;
+		containsReturn = false;
 		chainingCells = new TreeMap<Integer,ChainingCell>();
 		stackAllocSize = 0;
 	}

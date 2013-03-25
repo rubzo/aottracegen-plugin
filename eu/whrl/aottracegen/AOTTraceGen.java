@@ -1,5 +1,6 @@
 package eu.whrl.aottracegen;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 
@@ -36,6 +37,36 @@ public class AOTTraceGen implements Plugin {
 	 * Loads a config file from the filename provided.
 	 */
 	
+	private void createMethodLookupStructure(DexFile dexFile, String libName) {
+		
+		for (ClassDefItem clazz : dexFile.ClassDefsSection.getItems()) {
+			if (clazz.getClassData() != null) {
+				for (EncodedMethod method : clazz.getClassData().getDirectMethods()) {
+					Util.methodMap.put(method.method.getMethodString(), method);
+				}
+				for (EncodedMethod method : clazz.getClassData().getVirtualMethods()) {
+					Util.methodMap.put(method.method.getMethodString(), method);
+				}
+			}
+		}
+		try {
+			DexFile libDexFile = new DexFile(libName, false, false);
+			for (ClassDefItem clazz : libDexFile.ClassDefsSection.getItems()) {
+				if (clazz.getClassData() != null) {
+					for (EncodedMethod method : clazz.getClassData().getDirectMethods()) {
+						Util.methodMap.put(method.method.getMethodString(), method);
+					}
+					for (EncodedMethod method : clazz.getClassData().getVirtualMethods()) {
+						Util.methodMap.put(method.method.getMethodString(), method);
+					}
+				}
+			}
+		} catch (IOException e) {
+			System.err.println("Couldn't find " + libName + " to load!");
+		}
+		
+		
+	}
 	
 	/*
 	 * Based on the config that we've loaded, get the correct EncodedMethod.
@@ -102,6 +133,10 @@ public class AOTTraceGen implements Plugin {
 	private void generateAOTTraces(DexFile dexFile) {
 		config.printConfig();
 		
+		for (String coreLib : config.coreLibs) {
+			createMethodLookupStructure(dexFile, coreLib);
+		}
+		
 		EncodedMethod methodToUse = findTargetMethod(dexFile);
 		
 		if (methodToUse == null) {
@@ -140,7 +175,6 @@ public class AOTTraceGen implements Plugin {
 		
 		
 		// Generate code for the selected traces
-		CodeGenerator codeGen = new CodeGenerator();
 		for (int traceEntry : config.traceEntries) {
 			Trace trace = traceMap.get(traceEntry);	
 			if (trace == null) {
@@ -152,6 +186,7 @@ public class AOTTraceGen implements Plugin {
 		}
 		
 		if (!config.onlyPrintTraces) {
+			CodeGenerator codeGen = new CodeGenerator();
 			codeGen.generateCodeFromContext(context);
 		}
 	}

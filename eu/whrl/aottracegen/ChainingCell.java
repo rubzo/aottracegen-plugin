@@ -1,7 +1,7 @@
 package eu.whrl.aottracegen;
 
 public class ChainingCell {
-	enum Type {
+	public enum Type {
 		NORMAL,
 		INVOKE_PREDICTED,
 		HOT,
@@ -10,7 +10,7 @@ public class ChainingCell {
 	}
 	
 	public Type type;
-	public int codeAddress;
+	public int codeAddress; // in INVOKE_SINGLE, this is actually the methodIndex
 	
 	public ChainingCell(Type t, int pc) {
 		type = t;

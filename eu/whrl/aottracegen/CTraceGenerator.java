@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.jf.dexlib.ClassDataItem.EncodedMethod;
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.Opcode;
 
@@ -79,7 +80,7 @@ public class CTraceGenerator {
 		} else {
 			converter = new BytecodeToCConverter(context);
 		}
-		stringConverter = new BytecodeToPrettyConverter();
+		stringConverter = new BytecodeToPrettyConverter(false /* not LLVM mode */);
 	}
 	
 	/*

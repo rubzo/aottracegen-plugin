@@ -193,7 +193,9 @@ public class ITraceGenerator {
 			writer.write(String.format("ChainingCells_T%d:\n", traceIdx));
 			
 			for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
-				if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
+				if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
+					writer.write(String.format("\t.word ChainingCellValue_T%d_M%#x\n", context.currentTraceIdx, cc.codeAddress));
+				} else if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
 					writer.write(String.format("\t.word ChainingCellValue_T%d_A%#x\n", context.currentTraceIdx, cc.codeAddress));
 				}
 			}
@@ -250,11 +252,16 @@ public class ITraceGenerator {
 		writer.write(String.format("\tbeq\tExits_T%d\n", context.currentTraceIdx));
 		writer.write("\tcmp\tr0, #2\n");
 		writer.write(String.format("\tbeq\tExceptions_T%d\n", context.currentTraceIdx));
-		writer.write("\tcmp\tr0, #3\n");
-		writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentTraceIdx));
+		if (curTrace.meta.containsReturn) {
+			writer.write("\tcmp\tr0, #3\n");
+			writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentTraceIdx));
+		}
 		
 		writer.write(String.format("Exits_T%d:\n", context.currentTraceIdx));
 		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
+			if (cc.type == ChainingCell.Type.INVOKE_SINGLETON || cc.type == ChainingCell.Type.INVOKE_PREDICTED) {
+				continue;
+			}
 			writer.write(String.format("\tcmp\tr1, #%d\n", cc.codeAddress));
 			writer.write(String.format("\tbeq\tChainingCell_T%d_A%#x\n", context.currentTraceIdx, cc.codeAddress));
 		}
@@ -266,6 +273,15 @@ public class ITraceGenerator {
 		}
 		
 		writer.write(String.format("Returns_T%d:\n", context.currentTraceIdx));
+		
+		if (curTrace.meta.containsReturn) {
+			int literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.RETURN_HANDLER);
+
+			// Create the jump to the return handler
+			writer.write(String.format("\tadr.w\tr2, LiteralPool_T%d\n", context.currentTraceIdx));
+			writer.write(String.format("\tldr\tr0, [r2, #%d]\n", literalPoolLoc*4));
+			writer.write("\tblx\tr0\n");
+		}
 		
 		writer.write(".align 4\n");
 		
@@ -322,18 +338,22 @@ public class ITraceGenerator {
 
 			if (cc.type == ChainingCell.Type.INVOKE_PREDICTED) {
 				writer.write("\t.align 4\n");
-				writer.write(String.format("ChainingCell_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
+				writer.write(String.format("ChainingCell_T%d_M%#x:\n", context.currentTraceIdx, cc.codeAddress));
 				writer.write("\t.2byte 0xe7fe\n");
 				for (int i = 0; i < 7; i++) {
 					writer.write("\t.2byte 0x0000\n");
 				}
 			} else {
+				String id = String.format("T%d_A%#x", context.currentTraceIdx, cc.codeAddress);
+				if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
+					id = String.format("T%d_M%#x", context.currentTraceIdx, cc.codeAddress);
+				}
 				writer.write("\t.align 4\n");
-				writer.write(String.format("ChainingCell_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
-				writer.write(String.format("\tb\tChainingCellNext_T%d_A%#x\n", context.currentTraceIdx, cc.codeAddress));
+				writer.write(String.format("ChainingCell_%s:\n", id));
+				writer.write(String.format("\tb\tChainingCellNext_%s\n", id));
 				writer.write("\torrs\tr0, r0\n");
-				writer.write(String.format("ChainingCellNext_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
-				if (cc.type == ChainingCell.Type.HOT) {
+				writer.write(String.format("ChainingCellNext_%s:\n", id));
+				if (cc.type == ChainingCell.Type.HOT || cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
 					writer.write("\tldr\tr0, [r6, #116]\n");
 				} else if (cc.type == ChainingCell.Type.BACKWARD_BRANCH) {
 					writer.write("\tldr\tr0, [r6, #100]\n"); // I thought this was 120, not 100?
@@ -341,7 +361,7 @@ public class ITraceGenerator {
 					writer.write("\tldr\tr0, [r6, #100]\n");
 				}
 				writer.write("\tblx\tr0\n");
-				writer.write(String.format("ChainingCellValue_T%d_A%#x:\n", context.currentTraceIdx, cc.codeAddress));
+				writer.write(String.format("ChainingCellValue_%s:\n", id));
 				writer.write("\t.word 0x00000000\n");
 			}
 		}

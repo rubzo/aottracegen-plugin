@@ -32,6 +32,15 @@ public class TraceFinder {
 		return false;
 	}
 	
+	private boolean isMoveResultInstruction(Instruction i) {
+		if (i.opcode == Opcode.MOVE_RESULT ||
+			i.opcode == Opcode.MOVE_RESULT_WIDE ||
+			i.opcode == Opcode.MOVE_RESULT_OBJECT) {
+			return true;
+		}
+		return false;
+	}
+	
 	/*
 	 * Checks if a given instruction should cause the tracer to stop.
 	 */
@@ -195,15 +204,17 @@ public class TraceFinder {
 		}
 		
 		// If the last instruction in the trace is an invoke, extend it to include the
-		// return-* instruction.
+		// move-return-* instruction.
 		if (isInvokeInstruction(currentInstruction)) {
 			currentCodeAddress = context.getNextCodeAddress(currentCodeAddress, currentInstruction);
 			if (currentCodeAddress == -1) {
 				// We have a loop, bailout
 				return;
 			}
-			trace.extend(currentCodeAddress);
-			currentInstruction = context.getInstructionAtCodeAddress(currentCodeAddress);
+			if (isMoveResultInstruction(context.getInstructionAtCodeAddress(currentCodeAddress))) {
+				trace.extend(currentCodeAddress);
+				currentInstruction = context.getInstructionAtCodeAddress(currentCodeAddress);
+			}
 		}
 		
 		// Deal with successors

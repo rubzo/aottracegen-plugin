@@ -26,6 +26,8 @@ public class TraceMerger {
 		Trace mergedTrace = tracesToBeMerged.get(config.traceEntries.get(0));
 		tracesToBeMerged.remove(config.traceEntries.get(0));
 		
+		System.err.println("Initial trace " + mergedTrace.entry);
+		
 		int tracesLeft = tracesToBeMerged.size();
 		
 		while (!tracesToBeMerged.isEmpty()) {
