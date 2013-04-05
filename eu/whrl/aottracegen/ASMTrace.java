@@ -183,6 +183,10 @@ public class ASMTrace {
 			cl = addLine(cl, "\t.thumb");
 		}
 		
+		// move interp-special regs back
+		cl = addLine(cl, "\tmov\tr5, r1");
+		cl = addLine(cl, "\tmov\tr6, r2");
+		
 		// Handle arguments
 		//
 		cl = handleArgumentLoading(context, cl, codeAddress);
