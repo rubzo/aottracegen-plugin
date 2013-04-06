@@ -1,7 +1,6 @@
 package eu.whrl.aottracegen;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Map;
 
 import org.jf.baksmali.Plugin;
@@ -37,7 +36,7 @@ public class AOTTraceGen implements Plugin {
 	 * Loads a config file from the filename provided.
 	 */
 	
-	private void createMethodLookupStructure(DexFile dexFile, String libName) {
+	private void createLibraryMethodLookupStructure(DexFile dexFile, String libName) {
 		
 		for (ClassDefItem clazz : dexFile.ClassDefsSection.getItems()) {
 			if (clazz.getClassData() != null) {
@@ -71,10 +70,11 @@ public class AOTTraceGen implements Plugin {
 	/*
 	 * Based on the config that we've loaded, get the correct EncodedMethod.
 	 */
-	private EncodedMethod findTargetMethod(DexFile dexFile) {
+	private EncodedMethod findTargetMethod(DexFile dexFile, Region region) {
 		boolean foundClass = false;
 		
-		String methodName = config.method + config.signature;
+		String methodName = region.method + region.signature;
+		String clazzName = region.clazz + ";";
 		
 		EncodedMethod methodToUse = null;
 		
@@ -82,7 +82,9 @@ public class AOTTraceGen implements Plugin {
 		for (ClassDefItem clazz : dexFile.ClassDefsSection.getItems()) {
 			
 			// Have we found the right class?
-			if (clazz.getClassType().getTypeDescriptor().equals(config.clazz)) {
+			//System.out.println(clazzName);
+			//System.out.println(clazz.getClassType().getTypeDescriptor());
+			if (clazz.getClassType().getTypeDescriptor().equals(clazzName)) {
 				
 				foundClass = true;
 				
@@ -134,60 +136,31 @@ public class AOTTraceGen implements Plugin {
 		config.printConfig();
 		
 		for (String coreLib : config.coreLibs) {
-			createMethodLookupStructure(dexFile, coreLib);
+			createLibraryMethodLookupStructure(dexFile, coreLib);
 		}
 		
-		EncodedMethod methodToUse = findTargetMethod(dexFile);
-		
-		if (methodToUse == null) {
-			return;
+		for (Region region : config.regions) {
+			region.encodedMethod = findTargetMethod(dexFile, region);
 		}
 		
-		CodeGenContext context = new CodeGenContext(dexFile, methodToUse, config);
+		CodeGenContext context = new CodeGenContext(dexFile, config);
 		
-		// Enumerate all the traces in the method
-		TraceFinder traceFinder = new TraceFinder();
-		Map<Integer,Trace> traceMap = traceFinder.generateTracesFromMethod(context);
-		
-		// Add all the traces to the config, now that we've found them, if necessary.
-		if (config.traceAll) {
-			for (int traceEntry : traceMap.keySet()) {
-				config.addEntry(traceEntry);
-			}
-		}
-
-		if (config.sortTraces) {
-			Collections.sort(config.traceEntries);
-		}
-		
-		// Do merging if needed
-		if (config.doMerging) {
+		for (int i = 0; i < config.regions.size(); i++) {
+			context.selectCurrentRegion(i);
+			
 			TraceMerger traceMerger = new TraceMerger();
 			try {
-				traceMap = traceMerger.mergeTraces(context, config, traceMap);
+				traceMerger.mergeTraces(context.currentRegion, config);
 			} catch (TraceMergingException e) {
 				System.err.println("Couldn't merge traces. Could not continue.");
 				return;
 			}
 			
+			context.currentRegion.trace.print(context);
 		}
 		
-		
-		
-		// Generate code for the selected traces
-		for (int traceEntry : config.traceEntries) {
-			Trace trace = traceMap.get(traceEntry);	
-			if (trace == null) {
-				System.err.println(String.format("Specified trace %#x is not a trace head", traceEntry));
-				return;
-			}
-			trace.print(context);
-			context.addTrace(trace);
-		}
-		
-		if (!config.onlyPrintTraces) {
-			CodeGenerator codeGen = new CodeGenerator();
-			codeGen.generateCodeFromContext(context);
-		}
+		// Generate code for the selected traces 
+		CodeGenerator codegen = new CodeGenerator();
+		codegen.generateCodeFromContext(context);
 	}
 }

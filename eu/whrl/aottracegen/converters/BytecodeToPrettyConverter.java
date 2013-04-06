@@ -5,6 +5,7 @@ import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.LiteralInstruction;
 import org.jf.dexlib.Code.OdexedFieldAccess;
+import org.jf.dexlib.Code.OdexedInvokeInline;
 import org.jf.dexlib.Code.OdexedInvokeVirtual;
 import org.jf.dexlib.Code.OffsetInstruction;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
@@ -28,9 +29,9 @@ public class BytecodeToPrettyConverter {
 	 * BYTECODE TO C CONVERTER, AS THAT HAS SIDE EFFECTS.
 	 */
 	public String convert(CodeGenContext context, int codeAddress) {
-		Instruction instruction = context.getInstructionAtCodeAddress(codeAddress);
+		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
 		
-		Trace curTrace = context.getCurrentTrace();
+		Trace curTrace = context.currentRegion.trace;
 		
 		String result = "";
 		if (llvmMode) {
@@ -526,6 +527,15 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
+		// opcode: 3d if-lez   
+		case ITRACE_INJECT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+
+			result += String.format("itrace-inject v%d", vA);
+			break;
+		}
+
 		// opcode: 44 aget    
 		case AGET:
 		{
@@ -1217,7 +1227,15 @@ public class BytecodeToPrettyConverter {
 		// opcode: eb +sput-wide-volatile        
 		// opcode: ec ^breakpoint                
 		// opcode: ed ^throw-verification-error  
-		// opcode: ee +execute-inline            
+		// opcode: ee +execute-inline  
+		case EXECUTE_INLINE:
+		{
+			int inlineIndex = ((OdexedInvokeInline)instruction).getInlineIndex();			
+			String argsString = getArgsString(instruction);
+			result += String.format("+execute-inline %s, [%#x]", argsString, inlineIndex);
+			break;
+		}
+		
 		// opcode: ef +execute-inline/range      
 		// opcode: f0 +invoke-object-init/range  
 		// opcode: f1 +return-void-barrier       

@@ -26,7 +26,7 @@ public class ITraceGenerator {
 	public void loadAsmFiles(CodeGenContext context, String[] asmFileNames) throws ITraceGeneratorFaultException {
 		int i = 0;
 		for (String asmFileName : asmFileNames) {
-			context.setCurrentTraceIndex(i);
+			context.selectCurrentRegion(i);
 			loadAsmFile(context, asmFileName);
 			i++;
 		}
@@ -122,7 +122,7 @@ public class ITraceGenerator {
 		}
 		
 		// Reset the context.
-		context.setCurrentTraceIndex(0);
+		context.selectCurrentRegion(0);
 	
 		try {
 			
@@ -159,8 +159,9 @@ public class ITraceGenerator {
 	}
 	
 	private void emitTables(CodeGenContext context) throws IOException {
-		int[] traceEntries = new int[context.traces.size()];
-		int numTraces = context.traces.size();
+		int numTraces = context.regions.size();
+		int[] traceEntries = new int[numTraces];
+		
 		
 		writer.write("dvmITraceStartTable:\n");
 		for (int i = 0; i < numTraces; i++) {
@@ -186,47 +187,47 @@ public class ITraceGenerator {
 	}
 	
 	private void emitChainingCellsTable(CodeGenContext context) throws IOException {
-		for (int traceIdx = 0; traceIdx < context.traces.size(); traceIdx++) {
-			context.setCurrentTraceIndex(traceIdx);
-			Trace curTrace = context.getCurrentTrace();
+		for (int traceIdx = 0; traceIdx < context.regions.size(); traceIdx++) {
+			context.selectCurrentRegion(traceIdx);
+			Trace curTrace = context.currentRegion.trace;
 			
 			writer.write(String.format("ChainingCells_T%d:\n", traceIdx));
 			
 			for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 				if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
-					writer.write(String.format("\t.word ChainingCellValue_T%d_M%#x\n", context.currentTraceIdx, cc.codeAddress));
+					writer.write(String.format("\t.word ChainingCellValue_T%d_M%#x\n", context.currentRegionIndex, cc.codeAddress));
 				} else if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
-					writer.write(String.format("\t.word ChainingCellValue_T%d_A%#x\n", context.currentTraceIdx, cc.codeAddress));
+					writer.write(String.format("\t.word ChainingCellValue_T%d_A%#x\n", context.currentRegionIndex, cc.codeAddress));
 				}
 			}
 		}
 	}
 	
 	private void emitTraces(CodeGenContext context) throws IOException {
-		for (int traceIdx = 0; traceIdx < context.traces.size(); traceIdx++) {
-			context.setCurrentTraceIndex(traceIdx);
+		for (int traceIdx = 0; traceIdx < context.regions.size(); traceIdx++) {
+			context.selectCurrentRegion(traceIdx);
 			emitTrace(context);
 			writer.write("\n");
 		}
 	}
 	
 	private void emitTrace(CodeGenContext context) throws IOException {
-		Trace curTrace = context.getCurrentTrace();
-		ASMTrace curAsmTrace = asmTraces.get(context.getCurrentTraceIndex());
+		Trace curTrace = context.currentRegion.trace;
+		ASMTrace curAsmTrace = asmTraces.get(context.currentRegionIndex);
 		
 		// start of the trace
-		writer.write(String.format("Start_T%d:\n", context.currentTraceIdx));
+		writer.write(String.format("Start_T%d:\n", context.currentRegionIndex));
 		
 		if (context.config.armMode) {
 			// Code that enters ARM execution mode
 			writer.write("# Code that enters ARM exceution mode.\n");
-			writer.write(String.format("\tadr.w\tr0, Start_ARMCode_T%d\n", context.currentTraceIdx));
+			writer.write(String.format("\tadr.w\tr0, Start_ARMCode_T%d\n", context.currentRegionIndex));
 			writer.write("\tbx\tr0\n");
-			writer.write(String.format("Start_ARMCode_T%d:\n", context.currentTraceIdx));
+			writer.write(String.format("Start_ARMCode_T%d:\n", context.currentRegionIndex));
 			writer.write("\t.arm\n");
 			writer.write("# Load inputs to the trace code.\n");
 		}
-		writer.write(String.format("\tadr\tr0, LiteralPool_T%d\n", context.currentTraceIdx));
+		writer.write(String.format("\tadr\tr0, LiteralPool_T%d\n", context.currentRegionIndex));
 		writer.write("\tmov\tr1, r5\n");
 		writer.write("\tmov\tr2, r6\n");
 		
@@ -237,48 +238,48 @@ public class ITraceGenerator {
 		
 		// Exit code! r0 = {1 = exit, 2 = exception, 3 = return}, r1 = code address
 		writer.write("# End of actual trace code, now for code to determine how we leave the trace:\n");
-		writer.write(String.format("Leave_T%d:\n", context.currentTraceIdx));
+		writer.write(String.format("Leave_T%d:\n", context.currentRegionIndex));
 		
 		if (context.config.armMode) {
 			writer.write("# First thing we need to do is enter Thumb2 code again\n");
-			writer.write(String.format("\tadr\tr2, End_ThumbCode_T%d\n", context.currentTraceIdx));
+			writer.write(String.format("\tadr\tr2, End_ThumbCode_T%d\n", context.currentRegionIndex));
 			writer.write("\tadd\tr2, r2, #1\n");
 			writer.write("\tbx\tr2\n");
-			writer.write(String.format("End_ThumbCode_T%d:\n", context.currentTraceIdx));
+			writer.write(String.format("End_ThumbCode_T%d:\n", context.currentRegionIndex));
 			writer.write(".thumb\n");
 		}
 		
 		writer.write("\tcmp\tr0, #1\n");
-		writer.write(String.format("\tbeq\tExits_T%d\n", context.currentTraceIdx));
+		writer.write(String.format("\tbeq\tExits_T%d\n", context.currentRegionIndex));
 		writer.write("\tcmp\tr0, #2\n");
-		writer.write(String.format("\tbeq\tExceptions_T%d\n", context.currentTraceIdx));
+		writer.write(String.format("\tbeq\tExceptions_T%d\n", context.currentRegionIndex));
 		if (curTrace.meta.containsReturn) {
 			writer.write("\tcmp\tr0, #3\n");
-			writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentTraceIdx));
+			writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentRegionIndex));
 		}
 		
-		writer.write(String.format("Exits_T%d:\n", context.currentTraceIdx));
+		writer.write(String.format("Exits_T%d:\n", context.currentRegionIndex));
 		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 			if (cc.type == ChainingCell.Type.INVOKE_SINGLETON || cc.type == ChainingCell.Type.INVOKE_PREDICTED) {
 				continue;
 			}
 			writer.write(String.format("\tcmp\tr1, #%d\n", cc.codeAddress));
-			writer.write(String.format("\tbeq\tChainingCell_T%d_A%#x\n", context.currentTraceIdx, cc.codeAddress));
+			writer.write(String.format("\tbeq\tChainingCell_T%d_A%#x\n", context.currentRegionIndex, cc.codeAddress));
 		}
 		
-		writer.write(String.format("Exceptions_T%d:\n", context.currentTraceIdx));
+		writer.write(String.format("Exceptions_T%d:\n", context.currentRegionIndex));
 		for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
 			writer.write(String.format("\tcmp\tr1, #%d\n", exceptionCodeAddress));
-			writer.write(String.format("\tbeq\tExceptionHandler_T%d_A%#x\n", context.currentTraceIdx, exceptionCodeAddress));
+			writer.write(String.format("\tbeq\tExceptionHandler_T%d_A%#x\n", context.currentRegionIndex, exceptionCodeAddress));
 		}
 		
-		writer.write(String.format("Returns_T%d:\n", context.currentTraceIdx));
+		writer.write(String.format("Returns_T%d:\n", context.currentRegionIndex));
 		
 		if (curTrace.meta.containsReturn) {
 			int literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.RETURN_HANDLER);
 
 			// Create the jump to the return handler
-			writer.write(String.format("\tadr.w\tr2, LiteralPool_T%d\n", context.currentTraceIdx));
+			writer.write(String.format("\tadr.w\tr2, LiteralPool_T%d\n", context.currentRegionIndex));
 			writer.write(String.format("\tldr\tr0, [r2, #%d]\n", literalPoolLoc*4));
 			writer.write("\tblx\tr0\n");
 		}
@@ -288,7 +289,7 @@ public class ITraceGenerator {
 		
 		// base pc location
 		// NB: this MUST come just before the literal pool!
-		writer.write(String.format("BasePC_T%d:\n", context.currentTraceIdx));
+		writer.write(String.format("BasePC_T%d:\n", context.currentRegionIndex));
 		writer.write("\t.word 0x00000000\n");
 		writer.write("\n");
 		
@@ -299,12 +300,12 @@ public class ITraceGenerator {
 		}
 		
 		// its literal pool
-		writer.write(String.format("LiteralPool_T%d:\n", context.currentTraceIdx));
+		writer.write(String.format("LiteralPool_T%d:\n", context.currentRegionIndex));
 		for (int litPoolIdx = 0; litPoolIdx < curTrace.meta.literalPoolSize; litPoolIdx++) {
 			if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION) {
-				writer.write(String.format("AOTDebugCounter_T%d:\n", context.currentTraceIdx));
+				writer.write(String.format("AOTDebugCounter_T%d:\n", context.currentRegionIndex));
 			} else if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION) {
-				writer.write(String.format("AOTDebugLogMessage_T%d:\n", context.currentTraceIdx));
+				writer.write(String.format("AOTDebugLogMessage_T%d:\n", context.currentRegionIndex));
 			}
 			writer.write("\t.word 0x00000000\n");
 		}
@@ -313,21 +314,21 @@ public class ITraceGenerator {
 		// exception handlers
 		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
 			for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
-				writer.write(String.format("ExceptionHandler_T%d_A%#x:\n", context.currentTraceIdx, exceptionCodeAddress));
+				writer.write(String.format("ExceptionHandler_T%d_A%#x:\n", context.currentRegionIndex, exceptionCodeAddress));
 				
 				if (context.config.emitEHCounter) {
-					writer.write(String.format("\tadr.w\tr1, AOTDebugCounter_T%d\n", context.currentTraceIdx));
+					writer.write(String.format("\tadr.w\tr1, AOTDebugCounter_T%d\n", context.currentRegionIndex));
 					writer.write("\tldr\tr1, [r1]\n");
 					writer.write(String.format("\tmovw\tr0, #%d\n", exceptionCodeAddress));
 					writer.write("\tblx\tr1\n");
 				}
-				writer.write(String.format("\tldr\tr0, BasePC_T%d\n", context.currentTraceIdx));
+				writer.write(String.format("\tldr\tr0, BasePC_T%d\n", context.currentRegionIndex));
 				writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
-				writer.write(String.format("\tb\tMainExceptionHandler_T%d\n", context.currentTraceIdx));
+				writer.write(String.format("\tb\tMainExceptionHandler_T%d\n", context.currentRegionIndex));
 				
 				
 			}
-			writer.write(String.format("MainExceptionHandler_T%d:\n", context.currentTraceIdx));
+			writer.write(String.format("MainExceptionHandler_T%d:\n", context.currentRegionIndex));
 			writer.write("\tldr\tr1, [r6, #108]\n");
 			writer.write("\tblx\tr1\n");
 			writer.write("\n");
@@ -338,15 +339,15 @@ public class ITraceGenerator {
 
 			if (cc.type == ChainingCell.Type.INVOKE_PREDICTED) {
 				writer.write("\t.align 4\n");
-				writer.write(String.format("ChainingCell_T%d_M%#x:\n", context.currentTraceIdx, cc.codeAddress));
+				writer.write(String.format("ChainingCell_T%d_M%#x:\n", context.currentRegionIndex, cc.codeAddress));
 				writer.write("\t.2byte 0xe7fe\n");
 				for (int i = 0; i < 7; i++) {
 					writer.write("\t.2byte 0x0000\n");
 				}
 			} else {
-				String id = String.format("T%d_A%#x", context.currentTraceIdx, cc.codeAddress);
+				String id = String.format("T%d_A%#x", context.currentRegionIndex, cc.codeAddress);
 				if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
-					id = String.format("T%d_M%#x", context.currentTraceIdx, cc.codeAddress);
+					id = String.format("T%d_M%#x", context.currentRegionIndex, cc.codeAddress);
 				}
 				writer.write("\t.align 4\n");
 				writer.write(String.format("ChainingCell_%s:\n", id));
@@ -369,7 +370,7 @@ public class ITraceGenerator {
 		
 		// end of the trace
 		writer.write(".align 4\n");
-		writer.write(String.format("End_T%d:\n", context.currentTraceIdx));
+		writer.write(String.format("End_T%d:\n", context.currentRegionIndex));
 		writer.write("\t.word 0x00000000\n");
 	}
 }

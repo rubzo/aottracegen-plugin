@@ -61,21 +61,21 @@ public class ITraceDescGenerator {
 		}
 		
 		// Reset the context.
-		context.setCurrentTraceIndex(0);
+		context.selectCurrentRegion(0);
 		
 		try {
 			emitHeader(context);
 			writer.write("\n");
 			
-			for (int i = 0; i < context.traces.size(); i++) {
-				context.setCurrentTraceIndex(i);
+			for (int i = 0; i < context.regions.size(); i++) {
+				context.selectCurrentRegion(i);
 			
-				int curTraceEntryAddress = context.getCurrentTrace().entry;
+				int curTraceEntryAddress = context.currentRegion.entryOffset;
 				
 				writer.write("trace\n");
 				
-				writer.write(String.format("class %s\n", context.config.clazz));
-				writer.write(String.format("method %s\n", context.config.method));
+				writer.write(String.format("class %s\n", context.currentRegion.clazz));
+				writer.write(String.format("method %s\n", context.currentRegion.method));
 				writer.write(String.format("pc_offset %#x\n", curTraceEntryAddress));
 				
 				emitLiteralPoolInfo(context);
@@ -90,7 +90,7 @@ public class ITraceDescGenerator {
 	}
 
 	private void emitLiteralPoolInfo(CodeGenContext context) throws IOException {
-		Trace curTrace = context.getCurrentTrace();
+		Trace curTrace = context.currentRegion.trace;
 		for (int i = 0; i < curTrace.meta.literalPoolSize; i++) {
 			
 			int value = curTrace.meta.literalPoolIndices.get(i);
@@ -103,7 +103,7 @@ public class ITraceDescGenerator {
 	}
 	
 	private void emitChainingCellInfo(CodeGenContext context) throws IOException {
-		Trace curTrace = context.getCurrentTrace();
+		Trace curTrace = context.currentRegion.trace;
 		int i = 0;
 		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 			if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {

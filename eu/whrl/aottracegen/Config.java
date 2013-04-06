@@ -15,29 +15,17 @@ public class Config {
 	private boolean validConfigFileLoaded = false;
 	
 	public String app = "";
-	public String clazz = "";
-	public String method = "";
-	public String signature = "";
-	public int numTraces = 0;
-	public List<Integer> traceEntries = new LinkedList<Integer>();
 	
-	public boolean doMerging = false;
-	public boolean traceAll = false;
-	public boolean sortTraces = false;
-	public boolean produceUnsafe = false;
-	public boolean onlyPrintTraces = false;
+	public List<Region> regions = new LinkedList<Region>();
+	public Region currentRegion = null;
+	
 	public boolean emitDebugFunctions = false;
 	public boolean emitEHCounter = false;
 	public boolean armMode = false;
 	public boolean llvmMode = false;
 	public List<String> coreLibs = new LinkedList<String>();
-		
-	public String cOpts = "-O3";
 	
-	public void addEntry(int e) {
-		numTraces++;
-		traceEntries.add(e);
-	}
+	public String cOpts = "-O3";
 	
 	public void loadConfigFile(String filename) {
 		File file = new File(filename);
@@ -54,24 +42,31 @@ public class Config {
 		try {
 			while (buff.ready()) {
 				String line = buff.readLine();
-				if (line.startsWith("#")) {
+				if (line.startsWith("#") || line.isEmpty()) {
 					continue;
 			    } else if (line.startsWith("app")) {
 					app = line.substring(4, line.length());
-				} else if (line.startsWith("class")) {
-					clazz = line.substring(6, line.length());
+					
+			    } else if (line.startsWith("region")) {
+			    	currentRegion = new Region();
+			    	currentRegion.id = regions.size();
+			    	regions.add(currentRegion);
 				} else if (line.startsWith("method")) {
-					method = line.substring(7, line.length());
-				} else if (line.startsWith("signature")) {
-					signature = line.substring(10, line.length());
+					String fullMethodName = line.substring(7, line.length());
+					String[] splits = fullMethodName.split(";");
+					currentRegion.clazz = splits[0];
+					currentRegion.method = splits[1];
+					currentRegion.signature = splits[2];
+				} else if (line.startsWith("entry")) {
+					int entryOffset = Integer.parseInt(line.substring(8, line.length()), 16);
+					currentRegion.entryOffset = entryOffset;
 				} else if (line.startsWith("merge")) {
-					doMerging = true;
-				} else if (line.startsWith("sort")) {
-					sortTraces = true;
-				} else if (line.startsWith("unsafe")) {
-					produceUnsafe = true;
-				} else if (line.startsWith("print")) {
-					onlyPrintTraces = true;
+					int mergeOffset = Integer.parseInt(line.substring(8, line.length()), 16);
+					currentRegion.merges.add(mergeOffset);
+				} else if (line.startsWith("end_region")) {
+					currentRegion.completed = true;
+					currentRegion = null;
+					
 				} else if (line.startsWith("debugfuncs")) {
 					emitDebugFunctions = true;
 				} else if (line.startsWith("ehcounter")) {
@@ -86,10 +81,6 @@ public class Config {
 					cOpts = line.substring(6, line.length());
 				} else if (line.startsWith("libs")) {
 					coreLibs.add(line.substring(5, line.length()));
-				} else if (line.startsWith("trace all")) {
-					traceAll = true;
-				} else if (line.startsWith("trace")) {
-					addEntry(Integer.parseInt(line.substring(8, line.length()), 16));
 				} else {
 					System.err.println("Couldn't make sense of line " + lineCounter + ": " + line);
 				}
@@ -99,7 +90,7 @@ public class Config {
 			System.err.println("Couldn't read config file");
 		}
 		
-		if (app != "" && clazz != "" && method != "" && signature != "" && (numTraces > 0 || traceAll)) {
+		if (regions.size() > 0 && app != "") {
 			validConfigFileLoaded = true;
 		}
 	}
@@ -118,15 +109,12 @@ public class Config {
 		if (isConfigFileValid()) {
 			System.out.println("Printing Config...");
 			System.out.println("  App: " + app);
-			System.out.println("  Class: " + clazz);
-			System.out.println("  Method: " + method);
-			System.out.println("  Signature: " + signature);
-			if (!traceAll) {
-				System.out.println("  Number of traces: " + numTraces);
-			} else {
-				System.out.println("  Number of traces: all");
+			System.out.println("  Number of regions: " + regions.size());
+			for (Region region : regions) {
+				System.out.println(String.format("  Region %s;%s;%s + %#x", region.clazz, region.method, region.signature, region.entryOffset));
 			}
 			System.out.println();
+			
 		} else {
 			System.out.println("Cannot print config, as it's invalid!");
 		}

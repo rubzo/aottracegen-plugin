@@ -9,16 +9,16 @@ import java.util.TreeSet;
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.Opcode;
 
-import eu.whrl.aottracegen.converters.BytecodeToCConverter;
+import eu.whrl.aottracegen.converters.BytecodeToLLVMConverter;
 import eu.whrl.aottracegen.converters.BytecodeToPrettyConverter;
 import eu.whrl.aottracegen.exceptions.CGeneratorFaultException;
 import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
-public class CTraceGenerator {
+public class LLVMTraceGenerator {
 	private CodeGenContext context;
 	private FileWriter writer;
 	private boolean prepared;
-	private BytecodeToCConverter converter;
+	private BytecodeToLLVMConverter converter;
 	private BytecodeToPrettyConverter stringConverter;
 	
 	//
@@ -67,18 +67,18 @@ public class CTraceGenerator {
 	}
 	
 	/*
-	 * Constructor for the CTraceGenerator.
+	 * Constructor for the LLVMTraceGenerator.
 	 */
-	public CTraceGenerator(CodeGenContext context) {
+	public LLVMTraceGenerator(CodeGenContext context) {
 		this.context = context;
 		writer = null;
 		prepared = false;
-		converter = new BytecodeToCConverter(context);
-		stringConverter = new BytecodeToPrettyConverter(false /* not LLVM mode */);
+		converter = new BytecodeToLLVMConverter(context);
+		stringConverter = new BytecodeToPrettyConverter(true /* LLVM mode */);
 	}
 	
 	/*
-	 * Opens the 'name' file to write C to it.
+	 * Opens the 'name' file to write LLVM to it.
 	 */
 	public void prepare(String name) {
 		try {
@@ -86,12 +86,12 @@ public class CTraceGenerator {
 			writer = new FileWriter(cFile);			
 			prepared = true;	
 		} catch (IOException e) {
-			System.err.println("Couldn't open C file for writing!");
+			System.err.println("Couldn't open LLVM file for writing!");
 		}
 	}
 	
 	/*
-	 * Closes the file we've been writing C to.
+	 * Closes the file we've been writing LLVM to.
 	 */
 	public void finish() {
 		if (!prepared) {
@@ -101,16 +101,16 @@ public class CTraceGenerator {
 		try {
 			writer.close();
 		} catch (IOException e) {
-			System.err.println("Couldn't close C file?");
+			System.err.println("Couldn't close LLVM file?");
 		}
 	}
 	
 	/*
-	 * Perform the actual generation of C.
+	 * Perform the actual generation of LLVM.
 	 */
 	public void generate() throws UnimplementedInstructionException, CGeneratorFaultException {
 		if (!prepared) {
-			System.err.println("C generator wasn't prepared?");
+			System.err.println("LLVM generator wasn't prepared?");
 			throw new CGeneratorFaultException();
 		}
 		

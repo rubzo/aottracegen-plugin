@@ -46,27 +46,26 @@ public class CodeGenerator {
 	}
 	
 	public String[] generateASMTraces(CodeGenContext context) {
-		int numTraces = context.traces.size();
-		String[] asmTraceFileNames = new String[numTraces];
+		int numRegions = context.regions.size();
+		String[] asmTraceFileNames = new String[numRegions];
 		if (!context.config.llvmMode) {
 			//
 			// Using C.
 			//
-			String[] cTraceFileNames = new String[numTraces];
+			String[] cTraceFileNames = new String[numRegions];
 
 			// Generate all the file names.
-			for (int i = 0; i < numTraces; i++) {
-				cTraceFileNames[i] = String.format("trace_%#x.c", context.traces.get(i).entry);
-				asmTraceFileNames[i] = String.format("trace_%#x.S", context.traces.get(i).entry);
+			for (int i = 0; i < numRegions; i++) {
+				cTraceFileNames[i] = String.format("region_%03d.c", i);
+				asmTraceFileNames[i] = String.format("region_%03d.S", i);
 			}
 
 			try {
 
-				for (int i = 0; i < numTraces; i++) {
-
+				for (int i = 0; i < numRegions; i++) {
 					// Makes sure the generateC() and compileC() functions use the correct trace!
-					context.setCurrentTraceIndex(i);
-					System.out.println(String.format("Handling trace at %#x", context.getCurrentTrace().entry));
+					context.selectCurrentRegion(i);
+					System.out.println(String.format("Handling region at %s + %#x", context.currentRegion.method, context.currentRegion.entryOffset));
 
 					// Do the generation and compilation.
 					generateC(context, cTraceFileNames[i]);
@@ -86,22 +85,22 @@ public class CodeGenerator {
 			//
 			// Using LLVM bytecode.
 			//
-			String[] llvmTraceFileNames = new String[numTraces];
-			String[] llvmOptTraceFileNames = new String[numTraces];
-			for (int i = 0; i < numTraces; i++) {
+			String[] llvmTraceFileNames = new String[numRegions];
+			String[] llvmOptTraceFileNames = new String[numRegions];
+			for (int i = 0; i < numRegions; i++) {
 				// Generate all the file names.
-				llvmTraceFileNames[i] = String.format("trace_%#x.ll", context.traces.get(i).entry);
-				llvmOptTraceFileNames[i] = String.format("trace_%#x.llo", context.traces.get(i).entry);
-				asmTraceFileNames[i] = String.format("trace_%#x.S", context.traces.get(i).entry);
+				llvmTraceFileNames[i] = String.format("region_%03d.ll", i);
+				llvmOptTraceFileNames[i] = String.format("region_%03d.llo", i);
+				asmTraceFileNames[i] = String.format("region_%03d.S", i);
 			}
 
 			try {
 
-				for (int i = 0; i < numTraces; i++) {
+				for (int i = 0; i < numRegions; i++) {
 
 					// Makes sure the *LLVM() functions use the correct trace!
-					context.setCurrentTraceIndex(i);
-					System.out.println(String.format("Handling trace at %#x", context.getCurrentTrace().entry));
+					context.selectCurrentRegion(i);
+					System.out.println(String.format("Handling region at %s + %#x", context.currentRegion.method, context.currentRegion.entryOffset));
 
 					// Do the generation and compilation.
 					generateLLVM(context, llvmTraceFileNames[i]);

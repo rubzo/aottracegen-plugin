@@ -1,6 +1,6 @@
 package eu.whrl.aottracegen;
 
-import java.util.HashMap;
+import java.util.Map;
 
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InvokeInstruction;
@@ -10,17 +10,6 @@ import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction;
 import org.jf.dexlib.Code.Format.SparseSwitchDataPseudoInstruction;
 
 public class TraceFinder {
-	/*
-	 * This will populate a trace map with all traces possible in the method 
-	 * that the provided CodeGenContext represents.
-	 */
-	public HashMap<Integer,Trace> generateTracesFromMethod(CodeGenContext context) {
-        // Generate all the traces.
-        HashMap<Integer,Trace> traceMap = new HashMap<Integer,Trace>();
-        generateAllTracesInMethod(context, traceMap);
-        
-        return traceMap;
-	}
 	
 	/*
 	 * Checks if a given instruction is an invoke instruction.
@@ -44,7 +33,7 @@ public class TraceFinder {
 	/*
 	 * Checks if a given instruction should cause the tracer to stop.
 	 */
-	private boolean isTraceEndingInstruction(CodeGenContext context, int codeAddress, Instruction instruction) {
+	private boolean isTraceEndingInstruction(Region region, int codeAddress, Instruction instruction) {
 		// Conditional branch? 
 		if (instruction.opcode == Opcode.IF_EQ ||
 				instruction.opcode == Opcode.IF_EQZ ||
@@ -86,8 +75,8 @@ public class TraceFinder {
 		}
 		
 		// The instruction after you is going to be a switch statement?
-		int nextCodeAddress = context.getNextCodeAddress(codeAddress, instruction);
-		Instruction nextInstruction = context.getInstructionAtCodeAddress(nextCodeAddress);
+		int nextCodeAddress = region.getNextCodeAddress(codeAddress, instruction);
+		Instruction nextInstruction = region.getInstructionAtCodeAddress(nextCodeAddress);
 		if (nextInstruction.opcode == Opcode.PACKED_SWITCH ||
 				nextInstruction.opcode == Opcode.SPARSE_SWITCH) {
 			return true;
@@ -100,9 +89,9 @@ public class TraceFinder {
 	/*
 	 * Allocates the correct space for successors in the trace, and adds all successor code addresses to that array.
 	 */
-	private void handleSuccessors(CodeGenContext context, Trace trace, int currentCodeAddress, Instruction currentInstruction) {
+	private void handleSuccessors(Region region, Trace trace, int currentCodeAddress, Instruction currentInstruction) {
 		// Get the address where we'll be going next.
-		int fallthruCodeAddress = context.getNextCodeAddress(currentCodeAddress, currentInstruction);
+		int fallthruCodeAddress = region.getNextCodeAddress(currentCodeAddress, currentInstruction);
 		
 		if (currentInstruction.opcode == Opcode.RETURN ||
 				currentInstruction.opcode == Opcode.RETURN_VOID ||
@@ -134,7 +123,7 @@ public class TraceFinder {
 			int switchDataAddress = currentCodeAddress + 
 					((OffsetInstruction)currentInstruction).getTargetAddressOffset();
 			
-			PackedSwitchDataPseudoInstruction switchData = (PackedSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(switchDataAddress);
+			PackedSwitchDataPseudoInstruction switchData = (PackedSwitchDataPseudoInstruction) region.getInstructionAtCodeAddress(switchDataAddress);
 			
 			trace.addSuccessor(fallthruCodeAddress);
 			for (int target : switchData.getTargets()) {
@@ -149,7 +138,7 @@ public class TraceFinder {
 			int switchDataAddress = currentCodeAddress + 
 					((OffsetInstruction)currentInstruction).getTargetAddressOffset();
 			
-			SparseSwitchDataPseudoInstruction switchData = (SparseSwitchDataPseudoInstruction) context.getInstructionAtCodeAddress(switchDataAddress);
+			SparseSwitchDataPseudoInstruction switchData = (SparseSwitchDataPseudoInstruction) region.getInstructionAtCodeAddress(switchDataAddress);
 		
 			trace.addSuccessor(fallthruCodeAddress);
 			for (int target : switchData.getTargets()) {
@@ -166,16 +155,9 @@ public class TraceFinder {
 	}
 	
 	/*
-	 * Starts trace generation from the start of the method.
-	 */
-	private void generateAllTracesInMethod(CodeGenContext context, HashMap<Integer,Trace> traceMap) {
-		generateTracesFromCodeAddress(context, traceMap, 0x0);
-	}
-	
-	/*
 	 * Starts trace generation from a given code address.
 	 */
-	private void generateTracesFromCodeAddress(CodeGenContext context, HashMap<Integer,Trace> traceMap, int codeAddress) {
+	public void generateTracesFromCodeAddress(Region region, Map<Integer,Trace> traceMap, int codeAddress) {
 		// First check, have we already generated the traces starting from this point?
 		if (traceMap.containsKey(codeAddress)) {
 			return;
@@ -189,36 +171,36 @@ public class TraceFinder {
 		
 		// Initialise the trace
 		trace.extend(currentCodeAddress);
-		currentInstruction = context.getInstructionAtCodeAddress(currentCodeAddress);
+		currentInstruction = region.getInstructionAtCodeAddress(currentCodeAddress);
 		
 		// Trace!
-		while (!isTraceEndingInstruction(context, currentCodeAddress, currentInstruction)) {
-			currentCodeAddress = context.getNextCodeAddress(currentCodeAddress, currentInstruction);
+		while (!isTraceEndingInstruction(region, currentCodeAddress, currentInstruction)) {
+			currentCodeAddress = region.getNextCodeAddress(currentCodeAddress, currentInstruction);
 			if (currentCodeAddress == -1) {
 				// We have a loop, bailout
 				return;
 			}
 			
 			trace.extend(currentCodeAddress);
-			currentInstruction = context.getInstructionAtCodeAddress(currentCodeAddress);
+			currentInstruction = region.getInstructionAtCodeAddress(currentCodeAddress);
 		}
 		
 		// If the last instruction in the trace is an invoke, extend it to include the
 		// move-return-* instruction.
 		if (isInvokeInstruction(currentInstruction)) {
-			currentCodeAddress = context.getNextCodeAddress(currentCodeAddress, currentInstruction);
+			currentCodeAddress = region.getNextCodeAddress(currentCodeAddress, currentInstruction);
 			if (currentCodeAddress == -1) {
 				// We have a loop, bailout
 				return;
 			}
-			if (isMoveResultInstruction(context.getInstructionAtCodeAddress(currentCodeAddress))) {
+			if (isMoveResultInstruction(region.getInstructionAtCodeAddress(currentCodeAddress))) {
 				trace.extend(currentCodeAddress);
-				currentInstruction = context.getInstructionAtCodeAddress(currentCodeAddress);
+				currentInstruction = region.getInstructionAtCodeAddress(currentCodeAddress);
 			}
 		}
 		
 		// Deal with successors
-		handleSuccessors(context, trace, currentCodeAddress, currentInstruction);
+		handleSuccessors(region, trace, currentCodeAddress, currentInstruction);
 		
 		trace.entry = trace.addresses.get(0);
 		
@@ -227,7 +209,7 @@ public class TraceFinder {
 		
 		// Recurse into the successors to get their traces
 		for (int successor : trace.successors) {
-			generateTracesFromCodeAddress(context, traceMap, successor);
+			generateTracesFromCodeAddress(region, traceMap, successor);
 		}
 	}
 }

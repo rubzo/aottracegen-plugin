@@ -86,7 +86,7 @@ public class Trace {
 
     	for (int i = 0; i < addresses.size(); i++) {
     		int codeAddress = addresses.get(i);
-    		Instruction inst = context.getInstructionAtCodeAddress(codeAddress);
+    		Instruction inst = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
     		System.out.println(String.format("%#x: %s", codeAddress, inst.opcode.name));
     	}
     	

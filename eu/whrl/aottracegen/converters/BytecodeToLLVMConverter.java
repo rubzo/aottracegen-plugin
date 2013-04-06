@@ -6,7 +6,6 @@ import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.LiteralInstruction;
 import org.jf.dexlib.Code.OdexedFieldAccess;
-import org.jf.dexlib.Code.OdexedInvokeInline;
 import org.jf.dexlib.Code.OffsetInstruction;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
@@ -14,19 +13,18 @@ import org.jf.dexlib.Code.TwoRegisterInstruction;
 import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction;
 import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction.PackedSwitchTarget;
 
-import eu.whrl.aottracegen.ChainingCell;
 import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.LiteralPoolType;
 import eu.whrl.aottracegen.Trace;
 import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
-public class BytecodeToCConverter {
+public class BytecodeToLLVMConverter {
 	
 	private static final int offsetThreadRetValue = 16; 
 	
 	private CodeGenContext context;
 	
-	public BytecodeToCConverter(CodeGenContext context) {
+	public BytecodeToLLVMConverter(CodeGenContext context) {
 		this.context = context;
 	}
 	
@@ -137,8 +135,6 @@ public class BytecodeToCConverter {
 		// opcode: 0e return-void 
 		case RETURN_VOID:
 		{	
-			curTrace.meta.containsReturn = true;
-			
 			result = String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
@@ -146,8 +142,6 @@ public class BytecodeToCConverter {
 		// opcode: 0f return    
 		case RETURN:
 		{
-			curTrace.meta.containsReturn = true;
-			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
@@ -158,8 +152,6 @@ public class BytecodeToCConverter {
 		// opcode: 10 return-wide  
 		case RETURN_WIDE:
 		{
-			curTrace.meta.containsReturn = true;
-			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  *((long long*) (self+%d)) = *((long long*)(v + %d));", offsetThreadRetValue, vA) +
@@ -170,8 +162,6 @@ public class BytecodeToCConverter {
 		// opcode: 11 return-object
 		case RETURN_OBJECT:
 		{
-			curTrace.meta.containsReturn = true;
-			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
 			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
@@ -424,13 +414,6 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 40 itrace-inject
-		case ITRACE_INJECT:
-		{
-			result = "  // Trace Injection Opcode";
-			break;
-		}
-		
 		// opcode: 44 aget          
 		case AGET:
 		{
@@ -611,12 +594,7 @@ public class BytecodeToCConverter {
 		// opcode: 71 invoke-static              
 		case INVOKE_STATIC: 
 		{
-			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
-			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_METHOD, methodIndex);
-			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
-				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
-			}
-			result = String.format("  if (!invoke_static_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			result = String.format("  if (!invoke_static_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
 			break;
 		}
 		
@@ -1261,13 +1239,7 @@ public class BytecodeToCConverter {
 		// opcode: eb +sput-wide-volatile        
 		// opcode: ec ^breakpoint                
 		// opcode: ed ^throw-verification-error  
-		// opcode: ee +execute-inline
-		case EXECUTE_INLINE:
-		{
-			result = String.format("  if (!execute_inline_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
-			break;
-		}
-		
+		// opcode: ee +execute-inline            
 		// opcode: ef +execute-inline/range      
 		// opcode: f0 +invoke-object-init/range  
 		// opcode: f1 +return-void-barrier       
