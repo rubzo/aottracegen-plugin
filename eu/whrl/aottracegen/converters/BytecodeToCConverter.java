@@ -1264,7 +1264,10 @@ public class BytecodeToCConverter {
 		// opcode: ee +execute-inline
 		case EXECUTE_INLINE:
 		{
-			result = String.format("  if (!execute_inline_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			int inlineIndex = ((OdexedInvokeInline)instruction).getInlineIndex();
+			
+			result = String.format("  *((double*) (self+16)) = execute_inline_%#x(*((double*) (v + %d)));\n", inlineIndex, 1);
+			
 			break;
 		}
 		

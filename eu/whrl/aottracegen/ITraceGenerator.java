@@ -216,6 +216,7 @@ public class ITraceGenerator {
 		ASMTrace curAsmTrace = asmTraces.get(context.currentRegionIndex);
 		
 		// start of the trace
+		writer.write(".align 4\n");
 		writer.write(String.format("Start_T%d:\n", context.currentRegionIndex));
 		
 		if (context.config.armMode) {
@@ -251,31 +252,57 @@ public class ITraceGenerator {
 		
 		writer.write("\tcmp\tr0, #1\n");
 		writer.write(String.format("\tbeq\tExits_T%d\n", context.currentRegionIndex));
-		writer.write("\tcmp\tr0, #2\n");
-		writer.write(String.format("\tbeq\tExceptions_T%d\n", context.currentRegionIndex));
+		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
+			writer.write("\tcmp\tr0, #2\n");
+			writer.write(String.format("\tbeq\tExceptions_T%d\n", context.currentRegionIndex));
+		}
 		if (curTrace.meta.containsReturn) {
 			writer.write("\tcmp\tr0, #3\n");
 			writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentRegionIndex));
 		}
 		
 		writer.write(String.format("Exits_T%d:\n", context.currentRegionIndex));
+		int jumpsProduced = 0;
+		int previousCodeAddress = 0;
 		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 			if (cc.type == ChainingCell.Type.INVOKE_SINGLETON || cc.type == ChainingCell.Type.INVOKE_PREDICTED) {
 				continue;
 			}
-			writer.write(String.format("\tcmp\tr1, #%d\n", cc.codeAddress));
+			
+			writer.write(String.format("\t# Jump to offset %#x\n", cc.codeAddress));
+			if (jumpsProduced == 0) {
+				writer.write(String.format("\tmov\tr2, #%d\n", cc.codeAddress));
+				writer.write("\tcmp\tr1, r2\n");
+				previousCodeAddress = cc.codeAddress;
+			} else {
+				writer.write(String.format("\tadd\tr2, r2, #%d\n", cc.codeAddress - previousCodeAddress));
+				writer.write("\tcmp\tr1, r2\n");
+				previousCodeAddress = cc.codeAddress;
+			}
+			jumpsProduced++;
+			
 			writer.write(String.format("\tbeq\tChainingCell_T%d_A%#x\n", context.currentRegionIndex, cc.codeAddress));
 		}
 		
-		writer.write(String.format("Exceptions_T%d:\n", context.currentRegionIndex));
-		for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
-			writer.write(String.format("\tcmp\tr1, #%d\n", exceptionCodeAddress));
-			writer.write(String.format("\tbeq\tExceptionHandler_T%d_A%#x\n", context.currentRegionIndex, exceptionCodeAddress));
+		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
+			writer.write(String.format("Exceptions_T%d:\n", context.currentRegionIndex));
+
+			writer.write(String.format("\tldr\tr0, BasePC_T%d\n", context.currentRegionIndex));
+			writer.write("\tlsl\tr1, r1, #1\n");
+			writer.write("\tadd\tr0, r0, r1\n");
+			writer.write(String.format("\tb\tMainExceptionHandler_T%d\n", context.currentRegionIndex));
+			
+			/*
+			for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
+				writer.write(String.format("\tcmp\tr1, #%d\n", exceptionCodeAddress));
+				writer.write(String.format("\tbeq\tExceptionHandler_T%d_A%#x\n", context.currentRegionIndex, exceptionCodeAddress));
+			}
+			 */
 		}
 		
-		writer.write(String.format("Returns_T%d:\n", context.currentRegionIndex));
-		
 		if (curTrace.meta.containsReturn) {
+			writer.write(String.format("Returns_T%d:\n", context.currentRegionIndex));
+			
 			int literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.RETURN_HANDLER);
 
 			// Create the jump to the return handler
@@ -286,7 +313,9 @@ public class ITraceGenerator {
 		
 		writer.write(".align 4\n");
 		
-		
+		writer.write("\t.word 0x00000000\n");
+		writer.write("\t.word 0x00000000\n");
+		writer.write("\t.word 0x00000000\n");
 		// base pc location
 		// NB: this MUST come just before the literal pool!
 		writer.write(String.format("BasePC_T%d:\n", context.currentRegionIndex));
@@ -313,6 +342,7 @@ public class ITraceGenerator {
 		
 		// exception handlers
 		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
+			/*
 			for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
 				writer.write(String.format("ExceptionHandler_T%d_A%#x:\n", context.currentRegionIndex, exceptionCodeAddress));
 				
@@ -328,6 +358,7 @@ public class ITraceGenerator {
 				
 				
 			}
+			*/
 			writer.write(String.format("MainExceptionHandler_T%d:\n", context.currentRegionIndex));
 			writer.write("\tldr\tr1, [r6, #108]\n");
 			writer.write("\tblx\tr1\n");

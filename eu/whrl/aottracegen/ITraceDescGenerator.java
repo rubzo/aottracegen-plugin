@@ -27,6 +27,7 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION, "aot_debug_counter_function");
 		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION, "aot_debug_log_message_function");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_AOT_INVOKE_STATIC_NATIVE, "call_aot_invoke_static_native");
+		literalPoolTypeMap.put(LiteralPoolType.EXECUTE_INLINE, "execute_inline");
 	}
 
 	public void prepare(String name) {
@@ -74,8 +75,9 @@ public class ITraceDescGenerator {
 				
 				writer.write("trace\n");
 				
-				writer.write(String.format("class %s\n", context.currentRegion.clazz));
+				writer.write(String.format("class %s;\n", context.currentRegion.clazz));
 				writer.write(String.format("method %s\n", context.currentRegion.method));
+				writer.write(String.format("signature %s\n", context.currentRegion.signature));
 				writer.write(String.format("pc_offset %#x\n", curTraceEntryAddress));
 				
 				emitLiteralPoolInfo(context);

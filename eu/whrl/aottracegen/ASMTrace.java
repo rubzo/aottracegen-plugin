@@ -92,16 +92,12 @@ public class ASMTrace {
 
 		// Push
 		int pushIdx = findPushInstruction();
-		for (cl = 0; cl < traceBody.size(); cl++) {
-			String line = traceBody.get(cl);
+		
 
-			if (line.startsWith("\tpush") || line.startsWith("\tstm")) {
-				pushIdx = cl;
-			}
+		if (pushIdx != -1) {
+			cl = pushIdx;
+			cl = replaceLine(cl, "\tpush\t{r5, r6}");
 		}
-
-		cl = pushIdx;
-		cl = replaceLine(cl, "\tpush\t{r5, r6}");
 	}
 
 	private void renameLabels(CodeGenContext context) {
@@ -153,8 +149,37 @@ public class ASMTrace {
 				cl = handleInvokeVirtualQuick(context, cl);
 			} else if (line.contains("invoke_static")) {
 				cl = handleInvokeStatic(context, cl);
+			} else if (line.contains("execute_inline")) {
+				cl = handleExecuteInline(context, cl);
 			}
+			
 		}
+	}
+	
+	private int handleExecuteInline(CodeGenContext context, int cl) {
+		Trace curTrace = context.currentRegion.trace;
+
+		String line = traceBody.get(cl);
+
+		int inlineIndex = 0;
+		Pattern p = Pattern
+				.compile("bl\texecute_inline_0x(.*)\\(PLT\\)$");
+		Matcher m = p.matcher(line);
+		if (m.find()) {
+			inlineIndex = Integer.parseInt(m.group(1), 16);
+		}
+		
+		cl = removeLine(cl);
+		
+		int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(
+				LiteralPoolType.EXECUTE_INLINE, inlineIndex);
+		cl = addLine(cl, String.format("\tadr\tr2, LiteralPool_T%d",
+				context.currentRegionIndex));
+		cl = addLine(cl,
+				String.format("\tldr\tr2, [r2, #%d]", literalPoolLoc * 4));
+		cl = addLine(cl, "\tblx\tr2");
+		
+		return cl;
 	}
 
 	private int handleInvokeVirtualQuick(CodeGenContext context, int cl) {
@@ -171,7 +196,7 @@ public class ASMTrace {
 		}
 
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
-
+		
 		// Remove the bl placeholder instruction
 		//
 		cl = removeLine(cl);
