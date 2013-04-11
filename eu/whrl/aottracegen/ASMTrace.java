@@ -151,9 +151,58 @@ public class ASMTrace {
 				cl = handleInvokeStatic(context, cl);
 			} else if (line.contains("execute_inline")) {
 				cl = handleExecuteInline(context, cl);
+			} else if (line.contains("single_step")) {
+				cl = handleSingleStep(context, cl);
 			}
 			
 		}
+	}
+	
+	private int handleSingleStep(CodeGenContext context, int cl) {
+		Trace curTrace = context.currentRegion.trace;
+		String line = traceBody.get(cl);
+		
+		int thisOffset = 0;
+		int nextOffset = 0;
+		Pattern p = Pattern
+				.compile("bl\tsingle_step_0x(.*)_0x(.*)\\(PLT\\)$");
+		Matcher m = p.matcher(line);
+		if (m.find()) {
+			thisOffset = Integer.parseInt(m.group(1), 16);
+			nextOffset = Integer.parseInt(m.group(2), 16);
+		}
+		
+		cl = removeLine(cl);
+		
+		int thisOffsetLPL = curTrace.meta.addLiteralPoolTypeAndValue(
+				LiteralPoolType.DPC_OFFSET, thisOffset);
+		int nextOffsetLPL = curTrace.meta.addLiteralPoolTypeAndValue(
+				LiteralPoolType.DPC_OFFSET, nextOffset);
+		
+		
+		cl = addLine(cl, "\t# Single stepping...");
+		// preserve regs
+		cl = addLine(cl, "\tpush\t{r0-r3}");
+		
+		cl = enterThumb2Mode(context, cl, thisOffset);
+		
+		// restore interp regs
+		cl = addLine(cl, "\tmov\tr5, r1");
+		cl = addLine(cl, "\tmov\tr6, r2");
+		
+		cl = addLine(cl,
+				String.format("\tldr\tr1, [r0, #%d]", nextOffsetLPL * 4));
+		cl = addLine(cl,
+				String.format("\tldr\tr0, [r0, #%d]", thisOffsetLPL * 4));
+		
+		cl = addLine(cl, "\tldr\tr2, [r6, #112]");
+		cl = addLine(cl, "\tblx\tr2");
+		cl = addLine(cl, "\t# ...should return here.");
+		
+		cl = enterArmMode(context, cl, thisOffset);
+		cl = addLine(cl, "\tpop\t{r0-r3}");
+		
+		return cl;
 	}
 	
 	private int handleExecuteInline(CodeGenContext context, int cl) {
@@ -181,6 +230,35 @@ public class ASMTrace {
 		
 		return cl;
 	}
+	
+	private int enterThumb2Mode(CodeGenContext context, int cl, int codeAddress) {
+		if (context.config.armMode) {
+			cl = addLine(cl, "# Must enter Thumb2 execution mode!");
+			cl = addLine(cl, String.format(
+					"\tadr\tr3, Invoke_ThumbCode_T%d_A%#x",
+					context.currentRegionIndex, codeAddress));
+			cl = addLine(cl, "\tadd\tr3, r3, #1");
+			cl = addLine(cl, "\tbx\tr3");
+			cl = addLine(cl, String.format("Invoke_ThumbCode_T%d_A%#x:",
+					context.currentRegionIndex, codeAddress));
+			cl = addLine(cl, "\t.thumb");
+		}
+		return cl;
+	}
+	
+	private int enterArmMode(CodeGenContext context, int cl, int codeAddress) {
+		if (context.config.armMode) {
+			cl = addLine(cl, "# Must enter ARM execution mode!");
+			cl = addLine(cl, String.format(
+					"\tadr\tr3, Invoke_ARMCode_T%d_A%#x",
+					context.currentRegionIndex, codeAddress));
+			cl = addLine(cl, "\tbx\tr3");
+			cl = addLine(cl, String.format("Invoke_ARMCode_T%d_A%#x:",
+					context.currentRegionIndex, codeAddress));
+			cl = addLine(cl, "\t.arm");
+		}
+		return cl;
+	}
 
 	private int handleInvokeVirtualQuick(CodeGenContext context, int cl) {
 		Trace curTrace = context.currentRegion.trace;
@@ -205,17 +283,7 @@ public class ASMTrace {
 		cl = addLine(cl, "### START INVOKE VIRTUAL QUICK ###");
 		cl = addLine(cl, "###");
 
-		if (context.config.armMode) {
-			cl = addLine(cl, "# Must enter Thumb2 execution mode!");
-			cl = addLine(cl, String.format(
-					"\tadr\tr0, Invoke_ThumbCode_T%d_A%#x",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\tadd\tr0, r0, #1");
-			cl = addLine(cl, "\tbx\tr0");
-			cl = addLine(cl, String.format("Invoke_ThumbCode_T%d_A%#x:",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\t.thumb");
-		}
+		cl = enterThumb2Mode(context, cl, codeAddress);
 
 		// move interp-special regs back
 		cl = addLine(cl, "\tmov\tr5, r1");
@@ -361,16 +429,7 @@ public class ASMTrace {
 		cl = addLine(cl, String.format("JumpAfterBad_T%d_A%#x:",
 				context.currentRegionIndex, codeAddress));
 
-		if (context.config.armMode) {
-			cl = addLine(cl, "# Must enter ARM execution mode!");
-			cl = addLine(cl, String.format(
-					"\tadr\tr0, Invoke_ARMCode_T%d_A%#x",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\tbx\tr0");
-			cl = addLine(cl, String.format("Invoke_ARMCode_T%d_A%#x:",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\t.arm");
-		}
+		cl = enterArmMode(context, cl, codeAddress);
 		cl = addLine(cl, "\tmov\tr0, r1");
 		cl = addLine(cl, "###");
 		cl = addLine(cl, "### END INVOKE VIRTUAL QUICK ###");
@@ -456,17 +515,7 @@ public class ASMTrace {
 		cl = addLine(cl, "# Save caller-save regs");
 		cl = addLine(cl, "\tpush\t{r4-r11}");
 
-		if (context.config.armMode) {
-			cl = addLine(cl, "# Must enter Thumb2 execution mode!");
-			cl = addLine(cl, String.format(
-					"\tadr\tr0, Invoke_ThumbCode_T%d_A%#x",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\tadd\tr0, r0, #1");
-			cl = addLine(cl, "\tbx\tr0");
-			cl = addLine(cl, String.format("Invoke_ThumbCode_T%d_A%#x:",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\t.thumb");
-		}
+		cl = enterThumb2Mode(context, cl, codeAddress);
 
 		// Handle arguments
 		//
@@ -573,16 +622,7 @@ public class ASMTrace {
 		cl = addLine(cl, String.format("JumpAfterBad_T%d_A%#x:",
 				context.currentRegionIndex, codeAddress));
 
-		if (context.config.armMode) {
-			cl = addLine(cl, "# Must enter ARM execution mode!");
-			cl = addLine(cl, String.format(
-					"\tadr\tr0, Invoke_ARMCode_T%d_A%#x",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\tbx\tr0");
-			cl = addLine(cl, String.format("Invoke_ARMCode_T%d_A%#x:",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\t.arm");
-		}
+		cl = enterArmMode(context, cl, codeAddress);
 		cl = addLine(cl, "\tmov\tr0, r1");
 
 		cl = addLine(cl, "# Restore caller-save regs");
