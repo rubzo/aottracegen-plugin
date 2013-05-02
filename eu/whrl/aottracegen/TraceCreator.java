@@ -8,9 +8,14 @@ import java.util.Set;
 
 import eu.whrl.aottracegen.exceptions.TraceMergingException;
 
-public class TraceMerger {
+public class TraceCreator {
 
-	public void mergeTraces(Region region, Config config) throws TraceMergingException {
+	public void createMethodTrace(Region region) {
+		TraceFinder traceFinder = new TraceFinder();
+		traceFinder.generateMethodTrace(region);
+	}
+	
+	public void mergeTraces(Region region) throws TraceMergingException {
 		
 		TraceFinder traceFinder = new TraceFinder();
 		

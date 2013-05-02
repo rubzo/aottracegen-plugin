@@ -33,8 +33,30 @@ public class ASMTrace {
 		renameLabels(context);
 		generalCleanup(context);
 		emitHandlers(context);
+		removeCBZ(context);
 	}
 
+	private void removeCBZ(CodeGenContext context) {
+		for (int cl = 0; cl < traceBody.size(); cl++) {
+			String line = traceBody.get(cl);
+
+			if (line.startsWith("\tcbz") || line.startsWith("\tcbnz")) {
+				Pattern p = Pattern
+						.compile("(cbz|cbnz)\tr(\\d+), (.*)$");
+				Matcher m = p.matcher(line);
+				if (m.find()) {
+					cl = replaceLine(cl, String.format("\tcmp\tr%s, #0", m.group(2)));
+					cl++;
+					if (m.group(1).equals("cbz")) {
+						cl = addLine(cl, String.format("\tbeq\t%s", m.group(3)));
+					} else {
+						cl = addLine(cl, String.format("\tbne\t%s", m.group(3)));
+					}
+				}
+			}
+		}
+	}
+	
 	private int findPopInstruction() {
 		int idx = -1;
 		for (int cl = 0; cl < traceBody.size(); cl++) {
@@ -259,8 +281,82 @@ public class ASMTrace {
 		}
 		return cl;
 	}
-
+	
 	private int handleInvokeVirtualQuick(CodeGenContext context, int cl) {
+		Trace curTrace = context.currentRegion.trace;
+
+		String line = traceBody.get(cl);
+
+		int codeAddress = 0;
+		Pattern p = Pattern
+				.compile("bl\tinvoke_virtual_quick_0x(.*)\\(PLT\\)$");
+		Matcher m = p.matcher(line);
+		if (m.find()) {
+			codeAddress = Integer.parseInt(m.group(1), 16);
+		}
+
+		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
+
+		// Remove the bl placeholder instruction
+		//
+		cl = removeLine(cl);
+
+		cl = addLine(cl, "### START INVOKE VIRTUAL QUICK ###");
+		cl = addLine(cl, "# Save \"callee\"-save regs");
+		cl = addLine(cl, "\tpush\t{r4-r11}");
+		
+		cl = enterThumb2Mode(context, cl, codeAddress);
+
+		cl = handleArgumentLoading(context, cl, codeAddress, true, "r1");
+
+		// r5 now contains object, move it to r0
+		cl = addLine(cl, "\tmov\tr0, r5");
+		
+		// move v
+		cl = addLine(cl, "\tmov\tr3, r1");
+		// move self
+		cl = addLine(cl, "\tmov\tr4, r2");
+		// load dPCoffset
+		cl = addLine(cl, String.format("\tmov\tr1, #%d", codeAddress));
+		// load vtable offset
+		cl = addLine(cl, String.format("\tmov\tr2, #%d", ((OdexedInvokeVirtual) instruction).getVtableIndex()));
+		// load &predictedChainingCell
+		cl = addLine(cl, String.format(
+				"\tadr.w\tr5, ChainingCell_T%d_M%#x",
+				context.currentRegionIndex, codeAddress));
+		
+		int literalPoolLoc = 0;
+		cl = addLine(cl, "\t# load and call aotVirtualQuick()");
+		literalPoolLoc = curTrace.meta
+				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_VIRTUAL_QUICK);
+
+		cl = addLine(cl, String.format("\tadr.w\tr6, LiteralPool_T%d",
+				context.currentRegionIndex));
+		cl = addLine(cl,
+				String.format("\tldr\tr6, [r6, #%d]", literalPoolLoc * 4));
+		cl = addLine(cl, "\tblx\tr6");
+		
+		cl = addLine(cl, String.format("\tb\tJumpAfter_T%d_A%#x",
+				context.currentRegionIndex, codeAddress));
+		
+		cl = addLine(cl, String.format("RaiseException_T%d_A%#x:",
+				context.currentRegionIndex, codeAddress));
+		
+		cl = addLine(cl, "\tmov\tr0, #0");
+		
+		cl = addLine(cl, String.format("JumpAfter_T%d_A%#x:",
+				context.currentRegionIndex, codeAddress));
+		
+		cl = enterArmMode(context, cl, codeAddress);
+
+		cl = addLine(cl, "# Restore \"callee\"-save regs");
+		cl = addLine(cl, "\tpop\t{r4-r11}");
+		cl = addLine(cl, "### END INVOKE VIRTUAL QUICK ###");
+
+		return cl;
+	}
+
+	private int handleInvokeVirtualQuickN(CodeGenContext context, int cl) {
 		Trace curTrace = context.currentRegion.trace;
 
 		String line = traceBody.get(cl);
@@ -291,7 +387,7 @@ public class ASMTrace {
 
 		// Handle arguments
 		//
-		cl = handleArgumentLoading(context, cl, codeAddress);
+		cl = handleArgumentLoading(context, cl, codeAddress, true, "r1");
 
 		// Load DPC from literal pool into r4
 		//
@@ -437,12 +533,10 @@ public class ASMTrace {
 
 		return cl;
 	}
-
+	
 	private int handleInvokeStatic(CodeGenContext context, int cl) {
-		Trace curTrace = context.currentRegion.trace;
-
 		String line = traceBody.get(cl);
-
+		
 		int codeAddress = 0;
 		Pattern p = Pattern.compile("bl\tinvoke_static_0x(.*)\\(PLT\\)$");
 		Matcher m = p.matcher(line);
@@ -453,54 +547,18 @@ public class ASMTrace {
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
 		EncodedMethod method = Util.getCalleeMethodFromInvoke(instruction,
 				context);
-
-		// Remove the bl placeholder instruction
-		//
-		cl = removeLine(cl);
-
-		cl = addLine(cl, "### START INVOKE STATIC ###");
-		cl = addLine(cl, "# Save \"callee\"-save regs");
-		cl = addLine(cl, "\tpush\t{r4-r11}");
-
-		int literalPoolLoc = 0;
+		
 		if ((method.accessFlags & 0x100) != 0 /* native? */) {
-			cl = addLine(cl, "\t# load and call aotInvokeStaticNative()");
-			literalPoolLoc = curTrace.meta
-					.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_STATIC_NATIVE);
+			return handleInvokeStaticNative(context, cl, codeAddress, method);
 		} else {
-			// can't happen just yet
-			cl = addLine(cl, "\t# load and call aotInvokeStatic()");
+			return handleInvokeStaticJava(context, cl, codeAddress, method);
 		}
-		cl = addLine(cl, String.format("\tadr\tr4, LiteralPool_T%d",
-				context.currentRegionIndex));
-		cl = addLine(cl,
-				String.format("\tldr\tr4, [r4, #%d]", literalPoolLoc * 4));
-		cl = addLine(cl, "\tblx\tr4");
-
-		cl = addLine(cl, "# Restore \"callee\"-save regs");
-		cl = addLine(cl, "\tpop\t{r4-r11}");
-		cl = addLine(cl, "### END INVOKE STATIC ###");
-
-		return cl;
 	}
 
-	// to be removed
-	private int handleInvokeStaticN(CodeGenContext context, int cl) {
-
+	private int handleInvokeStaticJava(CodeGenContext context, int cl, int codeAddress, EncodedMethod method) {
 		Trace curTrace = context.currentRegion.trace;
 
-		String line = traceBody.get(cl);
-
-		int codeAddress = 0;
-		Pattern p = Pattern.compile("bl\tinvoke_static_0x(.*)\\(PLT\\)$");
-		Matcher m = p.matcher(line);
-		if (m.find()) {
-			codeAddress = Integer.parseInt(m.group(1), 16);
-		}
-
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
-		EncodedMethod method = Util.getCalleeMethodFromInvoke(instruction,
-				context);
 		int methodIndex = ((InstructionWithReference) instruction)
 				.getReferencedItem().getIndex();
 
@@ -508,184 +566,125 @@ public class ASMTrace {
 		//
 		cl = removeLine(cl);
 
-		cl = addLine(cl, "###");
-		cl = addLine(cl, "### START INVOKE STATIC ###");
-		cl = addLine(cl, "###");
-
-		cl = addLine(cl, "# Save caller-save regs");
+		cl = addLine(cl, "### START INVOKE STATIC (JAVA) ###");
+		cl = addLine(cl, "# Save \"callee\"-save regs");
 		cl = addLine(cl, "\tpush\t{r4-r11}");
 
-		cl = enterThumb2Mode(context, cl, codeAddress);
+		cl = handleArgumentLoading(context, cl, codeAddress, false, "r2");
 
-		// Handle arguments
-		//
-		cl = handleArgumentLoading(context, cl, codeAddress);
+		int literalPoolLoc = 0;
+		cl = addLine(cl, "\t# load and call aotInvokeStatic()");
+		literalPoolLoc = curTrace.meta
+				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_STATIC_JAVA);
+		cl = addLine(cl, String.format(
+				"\tadr.w\tr4, ChainingCell_T%d_M%#x",
+				context.currentRegionIndex, methodIndex));
+		cl = addLine(cl, String.format(
+				"\tadr.w\tr5, JumpAfter_T%d_A%#x",
+				context.currentRegionIndex, codeAddress));
 
-		// r0 = static method pointer
-		//
-		cl = addLine(cl, "# r0 = static method's pointer (resolved at runtime)");
-		int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(
-				LiteralPoolType.STATIC_METHOD, methodIndex);
-		cl = addLine(cl, String.format("\tadr.w\tr2, LiteralPool_T%d",
+		cl = addLine(cl, String.format("\tadr.w\tr6, LiteralPool_T%d",
 				context.currentRegionIndex));
 		cl = addLine(cl,
-				String.format("\tldr\tr0, [r2, #%d]", literalPoolLoc * 4));
-
-		// r1 = where we jump after this method has been invoked, within this
-		// trace
-		//
-		cl = addLine(cl,
-				"# r1 = label to jump to after method has been invoked");
-		cl = addLine(cl, String.format("\tadr.w\tr1, JumpAfter_T%d_A%#x",
-				context.currentRegionIndex, codeAddress));
-
-		// r4 = callsite dPC
-		//
-		cl = addLine(cl, "# r4 = dalvik PC of call site");
-		literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(
-				LiteralPoolType.DPC_OFFSET, codeAddress);
-		cl = addLine(cl,
-				String.format("\tldr\tr4, [r2, #%d]", literalPoolLoc * 4));
-
-		if ((method.accessFlags & 0x100) != 0 /* native? */) {
-			// r7 = # regs in callee method
-			//
-			cl = addLine(
-					cl,
-					"# r7 = # regs used by callee (assumed to be 0 currently when executing native. TBC)");
-			cl = addLine(cl, "\tmov\tr7, #0");
-
-			// load dvmJitToPatchPredictedChain pointer
-			//
-			cl = addLine(cl, "# Call TEMPLATE_INVOKE_METHOD_NATIVE");
-			literalPoolLoc = curTrace.meta
-					.addLiteralPoolType(LiteralPoolType.INVOKE_METHOD_NATIVE_HANDLER);
-			cl = addLine(cl,
-					String.format("\tldr\tr2, [r2, #%d]", literalPoolLoc * 4));
-			// Jump to it
-			cl = addLine(cl, "\tblx\tr2");
-
-		} else {
-			// r7 = # regs in callee method
-			//
-			cl = addLine(cl, "# r7 = #Êregs used by callee");
-			cl = addLine(
-					cl,
-					String.format("\tmov\tr7, #%d",
-							method.codeItem.getRegisterCount()));
-
-			// load dvmJitToPatchPredictedChain pointer
-			//
-			cl = addLine(cl, "# Call TEMPLATE_INVOKE_METHOD_CHAIN");
-			literalPoolLoc = curTrace.meta
-					.addLiteralPoolType(LiteralPoolType.INVOKE_METHOD_CHAIN_HANDLER);
-			cl = addLine(cl,
-					String.format("\tldr\tr2, [r2, #%d]", literalPoolLoc * 4));
-			// Jump to it
-			cl = addLine(cl, "\tblx\tr2");
-
-			// r2 = # outs in callee method
-			//
-			cl = addLine(cl, "# r2 = # outs in callee");
-			cl = addLine(
-					cl,
-					String.format("\tmov\tr2, #%d",
-							method.codeItem.getOutWords()));
-
-			// Jump to the chaining cell
-			cl = addLine(cl, "# Jump to the Invoke Singleton Chaining Cell");
-			cl = addLine(cl, String.format(
-					"\tadr.w\tr7, ChainingCell_T%d_M%#x",
-					context.currentRegionIndex, methodIndex));
-			cl = addLine(cl, "\tblx\tr7");
-		}
-
-		// If there's an exception in the handler, we'll return here, so jump to
-		// our exception handler.
-		//
-		cl = addLine(cl, "# If we return to this point, there was an exception");
-		cl = addLine(cl, "\tmov\tr1, #0"); // 0 indicates exception must be
-											// raised
-		cl = addLine(cl, String.format("\tb\tJumpAfterBad_T%d_A%#x",
-				context.currentRegionIndex, codeAddress));
-
-		cl = addLine(cl, "\t.align 4");
-
-		// Emit this label that we use as the return point after function
-		// invocation.
-		//
-		cl = addLine(cl, "# If we return to this point, everything went okay");
+				String.format("\tldr\tr6, [r6, #%d]", literalPoolLoc * 4));
+		cl = addLine(cl, "\tblx\tr6");
+		
 		cl = addLine(cl, String.format("JumpAfter_T%d_A%#x:",
 				context.currentRegionIndex, codeAddress));
-		cl = addLine(cl, "\tmov\tr1, #1"); // 1 indicates everything went okay
+		
+		cl = addLine(cl, "\tmov\tr0, #1");
 
-		cl = addLine(cl, String.format("JumpAfterBad_T%d_A%#x:",
-				context.currentRegionIndex, codeAddress));
-
-		cl = enterArmMode(context, cl, codeAddress);
-		cl = addLine(cl, "\tmov\tr0, r1");
-
-		cl = addLine(cl, "# Restore caller-save regs");
+		cl = addLine(cl, "# Restore \"callee\"-save regs");
 		cl = addLine(cl, "\tpop\t{r4-r11}");
-		cl = addLine(cl, "###");
-		cl = addLine(cl, "### END INVOKE STATIC ###");
-		cl = addLine(cl, "###");
+		cl = addLine(cl, "### END INVOKE STATIC (JAVA) ###");
 
 		return cl;
+	}
+	
+	private int handleInvokeStaticNative(CodeGenContext context, int cl, int codeAddress, EncodedMethod method) {
+		Trace curTrace = context.currentRegion.trace;
 
+		// Remove the bl placeholder instruction
+		//
+		cl = removeLine(cl);
+
+		cl = addLine(cl, "### START INVOKE STATIC (NATIVE) ###");
+		cl = addLine(cl, "# Save \"callee\"-save regs");
+		cl = addLine(cl, "\tpush\t{r4-r11}");
+
+		cl = handleArgumentLoading(context, cl, codeAddress, false, "r2");
+
+		int literalPoolLoc = 0;
+		cl = addLine(cl, "# load and call aotInvokeStaticNative()");
+		literalPoolLoc = curTrace.meta
+				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_STATIC_NATIVE);
+
+		cl = addLine(cl, String.format("\tadr\tr5, LiteralPool_T%d",
+				context.currentRegionIndex));
+		cl = addLine(cl,
+				String.format("\tldr\tr5, [r5, #%d]", literalPoolLoc * 4));
+		cl = addLine(cl, "\tblx\tr5");
+
+		cl = addLine(cl, "# Restore \"callee\"-save regs");
+		cl = addLine(cl, "\tpop\t{r4-r11}");
+		cl = addLine(cl, "### END INVOKE STATIC (NATIVE) ###");
+		cl = addLine(cl, "# (success or EH check comes next...)");
+
+		return cl;
 	}
 
 	private int handleArgumentLoading(CodeGenContext context, int cl,
-			int codeAddress) {
+			int codeAddress, boolean nullCheck, String fpReg) {
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
 
 		cl = addLine(cl, "# begin arg loading");
 		int regCount = ((FiveRegisterInstruction) instruction).getRegCount();
 
 		if (regCount > 0) {
-			cl = addLine(cl, String.format("\tldr\tr0, [r5, #%d]",
+			cl = addLine(cl, String.format("\tldr\tr5, [%s, #%d]", fpReg,
 					((FiveRegisterInstruction) instruction).getRegisterD() * 4));
 		}
 		if (regCount > 1) {
-			cl = addLine(cl, String.format("\tldr\tr1, [r5, #%d]",
+			cl = addLine(cl, String.format("\tldr\tr6, [%s, #%d]", fpReg,
 					((FiveRegisterInstruction) instruction).getRegisterE() * 4));
 		}
 		if (regCount > 2) {
-			cl = addLine(cl, String.format("\tldr\tr2, [r5, #%d]",
+			cl = addLine(cl, String.format("\tldr\tr7, [%s, #%d]", fpReg,
 					((FiveRegisterInstruction) instruction).getRegisterF() * 4));
 		}
 		if (regCount > 3) {
-			cl = addLine(cl, String.format("\tldr\tr3, [r5, #%d]",
+			cl = addLine(cl, String.format("\tldr\tr8, [%s, #%d]", fpReg,
 					((FiveRegisterInstruction) instruction).getRegisterG() * 4));
 		}
 		if (regCount > 4) {
-			cl = addLine(cl, String.format("\tldr\tr4, [r5, #%d]",
+			cl = addLine(cl, String.format("\tldr\tr9, [%s, #%d]", fpReg,
 					((FiveRegisterInstruction) instruction).getRegisterA() * 4));
 		}
 
 		cl = addLine(
 				cl,
 				String.format(
-						"\tsub\tr7, r5, #%d",
+						"\tsub\tr10, %s, #%d",
+						fpReg,
 						20 /* size of StackSaveArea */+ ((FiveRegisterInstruction) instruction)
-								.getRegCount() * 4));
+						.getRegCount() * 4));
 
 		if (regCount > 0) {
-			cl = addLine(cl, "\tcmp\tr0, #0");
-			// normally we'd need to set r0 to 0 to indicate exception, luckily
-			// r0 already contains 0 if this happens!
-			cl = addLine(cl, String.format("\tbeq\tJumpAfterBad_T%d_A%#x",
-					context.currentRegionIndex, codeAddress));
+			if (nullCheck) {
+				cl = addLine(cl, "\tcmp\tr5, #0");
+				cl = addLine(cl, String.format("\tbeq\tRaiseException_T%d_A%#x",
+						context.currentRegionIndex, codeAddress));
+			}
 
 			String argsToPush = "";
 			for (int i = 0; i < regCount; i++) {
-				argsToPush += String.format("r%d", i);
+				argsToPush += String.format("r%d", i + 5);
 				if (i != (regCount - 1)) {
 					argsToPush += ",";
 				}
 			}
 
-			cl = addLine(cl, String.format("\tstmia\tr7, {%s}", argsToPush));
+			cl = addLine(cl, String.format("\tstmia\tr10, {%s}", argsToPush));
 		}
 		cl = addLine(cl, "  # end arg loading");
 

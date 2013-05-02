@@ -27,6 +27,8 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION, "aot_debug_counter_function");
 		literalPoolTypeMap.put(LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION, "aot_debug_log_message_function");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_AOT_INVOKE_STATIC_NATIVE, "call_aot_invoke_static_native");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_AOT_INVOKE_STATIC_JAVA, "call_aot_invoke_static_java");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_AOT_INVOKE_VIRTUAL_QUICK, "call_aot_invoke_virtual_quick");
 		literalPoolTypeMap.put(LiteralPoolType.EXECUTE_INLINE, "execute_inline");
 	}
 

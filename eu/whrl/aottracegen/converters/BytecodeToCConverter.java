@@ -611,14 +611,14 @@ public class BytecodeToCConverter {
 		// opcode: 71 invoke-static              
 		case INVOKE_STATIC: 
 		{
-			/*int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_METHOD, methodIndex);
 			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
 				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
 			}
 			result = String.format("  if (!invoke_static_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
-			*/
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			
+			//result = emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -1342,8 +1342,8 @@ public class BytecodeToCConverter {
 		// opcode: f8 +invoke-virtual-quick     
 		case INVOKE_VIRTUAL_QUICK: 
 		{
-			//result = String.format("  if (!invoke_virtual_quick_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result = String.format("  if (!invoke_virtual_quick_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			//result = emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		

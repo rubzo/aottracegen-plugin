@@ -212,4 +212,16 @@ public class TraceFinder {
 			generateTracesFromCodeAddress(region, traceMap, successor);
 		}
 	}
+	
+	public void generateMethodTrace(Region region) {
+		Trace trace = new Trace();
+		
+		int codeAddress = 0;
+		for (Instruction inst : region.instructions) {
+			trace.extend(codeAddress);
+			codeAddress += inst.getSize(codeAddress);
+		}
+		
+		region.trace = trace;
+	}
 }

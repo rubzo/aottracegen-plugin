@@ -63,10 +63,11 @@ public class Config {
 				} else if (line.startsWith("merge")) {
 					int mergeOffset = Integer.parseInt(line.substring(8, line.length()), 16);
 					currentRegion.merges.add(mergeOffset);
+				} else if (line.startsWith("entire")) {
+					currentRegion.entireMethod = true;
 				} else if (line.startsWith("end_region")) {
 					currentRegion.completed = true;
 					currentRegion = null;
-					
 				} else if (line.startsWith("debugfuncs")) {
 					emitDebugFunctions = true;
 				} else if (line.startsWith("ehcounter")) {
@@ -111,7 +112,11 @@ public class Config {
 			System.out.println("  App: " + app);
 			System.out.println("  Number of regions: " + regions.size());
 			for (Region region : regions) {
-				System.out.println(String.format("  Region %s;%s;%s + %#x", region.clazz, region.method, region.signature, region.entryOffset));
+				if (region.entireMethod) {
+					System.out.println(String.format("  Region (Method) %s;%s;%s", region.clazz, region.method, region.signature));
+				} else {
+					System.out.println(String.format("  Region %s;%s;%s + %#x", region.clazz, region.method, region.signature, region.entryOffset));
+				}
 			}
 			System.out.println();
 			

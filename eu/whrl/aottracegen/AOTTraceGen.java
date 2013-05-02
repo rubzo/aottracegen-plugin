@@ -82,8 +82,6 @@ public class AOTTraceGen implements Plugin {
 		for (ClassDefItem clazz : dexFile.ClassDefsSection.getItems()) {
 			
 			// Have we found the right class?
-			//System.out.println(clazzName);
-			//System.out.println(clazz.getClassType().getTypeDescriptor());
 			if (clazz.getClassType().getTypeDescriptor().equals(clazzName)) {
 				
 				foundClass = true;
@@ -148,12 +146,17 @@ public class AOTTraceGen implements Plugin {
 		for (int i = 0; i < config.regions.size(); i++) {
 			context.selectCurrentRegion(i);
 			
-			TraceMerger traceMerger = new TraceMerger();
-			try {
-				traceMerger.mergeTraces(context.currentRegion, config);
-			} catch (TraceMergingException e) {
-				System.err.println("Couldn't merge traces. Could not continue.");
-				return;
+			TraceCreator traceCreator = new TraceCreator();
+			
+			if (context.currentRegion.entireMethod) {
+				traceCreator.createMethodTrace(context.currentRegion);
+			} else {
+				try {
+					traceCreator.mergeTraces(context.currentRegion);
+				} catch (TraceMergingException e) {
+					System.err.println("Couldn't merge traces. Could not continue.");
+					return;
+				}
 			}
 			
 			context.currentRegion.trace.print(context);

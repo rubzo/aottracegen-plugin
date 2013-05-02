@@ -286,7 +286,16 @@ public class ITraceGenerator {
 		
 		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
 			writer.write(String.format("Exceptions_T%d:\n", context.currentRegionIndex));
-
+			if (context.config.emitEHCounter) {
+				writer.write("# Calling the AOTDebugCounter...\n");
+				writer.write("\tmov\tr0, r1\n");
+				writer.write("\tmov\tr4, r1\n");
+				writer.write(String.format("\tadr.w\tr2, AOTDebugCounter_T%d\n", context.currentRegionIndex));
+				writer.write("\tldr\tr2, [r2]\n");
+				writer.write("\tblx\tr2\n");
+				writer.write("\tmov\tr1, r4\n");
+				writer.write("# ...done.\n");
+			}
 			writer.write(String.format("\tldr\tr0, BasePC_T%d\n", context.currentRegionIndex));
 			writer.write("\tlsl\tr1, r1, #1\n");
 			writer.write("\tadd\tr0, r0, r1\n");

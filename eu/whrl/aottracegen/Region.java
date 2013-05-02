@@ -21,6 +21,8 @@ public class Region {
 	
 	public boolean completed = false;
 	
+	public boolean entireMethod = false;
+	
 	public EncodedMethod encodedMethod;
 	
 	// the "trace" that represents this region
