@@ -579,20 +579,12 @@ public class ASMTrace {
 		cl = addLine(cl, String.format(
 				"\tadr.w\tr4, ChainingCell_T%d_M%#x",
 				context.currentRegionIndex, methodIndex));
-		cl = addLine(cl, String.format(
-				"\tadr.w\tr5, JumpAfter_T%d_A%#x",
-				context.currentRegionIndex, codeAddress));
 
-		cl = addLine(cl, String.format("\tadr.w\tr6, LiteralPool_T%d",
+		cl = addLine(cl, String.format("\tadr.w\tr5, LiteralPool_T%d",
 				context.currentRegionIndex));
 		cl = addLine(cl,
-				String.format("\tldr\tr6, [r6, #%d]", literalPoolLoc * 4));
-		cl = addLine(cl, "\tblx\tr6");
-		
-		cl = addLine(cl, String.format("JumpAfter_T%d_A%#x:",
-				context.currentRegionIndex, codeAddress));
-		
-		cl = addLine(cl, "\tmov\tr0, #1");
+				String.format("\tldr\tr5, [r5, #%d]", literalPoolLoc * 4));
+		cl = addLine(cl, "\tblx\tr5");
 
 		cl = addLine(cl, "# Restore \"callee\"-save regs");
 		cl = addLine(cl, "\tpop\t{r4-r11}");
