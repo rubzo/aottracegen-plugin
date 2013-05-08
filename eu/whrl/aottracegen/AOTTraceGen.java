@@ -1,7 +1,7 @@
 package eu.whrl.aottracegen;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.List;
 
 import org.jf.baksmali.Plugin;
 import org.jf.dexlib.ClassDataItem.EncodedMethod;
@@ -36,34 +36,40 @@ public class AOTTraceGen implements Plugin {
 	 * Loads a config file from the filename provided.
 	 */
 	
-	private void createLibraryMethodLookupStructure(DexFile dexFile, String libName) {
+	private void populateMethodLookup(DexFile dexFile, List<String> libNames) {
 		
+		MethodLookup lookup = MethodLookup.getMethodLookup();
+		
+		// Add all the methods declared in our original dex file
 		for (ClassDefItem clazz : dexFile.ClassDefsSection.getItems()) {
 			if (clazz.getClassData() != null) {
 				for (EncodedMethod method : clazz.getClassData().getDirectMethods()) {
-					Util.methodMap.put(method.method.getMethodString(), method);
+					lookup.addMethod(method.method.getMethodString(), method);
 				}
 				for (EncodedMethod method : clazz.getClassData().getVirtualMethods()) {
-					Util.methodMap.put(method.method.getMethodString(), method);
+					lookup.addMethod(method.method.getMethodString(), method);
 				}
 			}
-		}
-		try {
-			DexFile libDexFile = new DexFile(libName, false, false);
-			for (ClassDefItem clazz : libDexFile.ClassDefsSection.getItems()) {
-				if (clazz.getClassData() != null) {
-					for (EncodedMethod method : clazz.getClassData().getDirectMethods()) {
-						Util.methodMap.put(method.method.getMethodString(), method);
-					}
-					for (EncodedMethod method : clazz.getClassData().getVirtualMethods()) {
-						Util.methodMap.put(method.method.getMethodString(), method);
-					}
-				}
-			}
-		} catch (IOException e) {
-			System.err.println("Couldn't find " + libName + " to load!");
 		}
 		
+		// Add all the methods declared in specified library dex files
+		for (String libName : libNames) {
+			try {
+				DexFile libDexFile = new DexFile(libName, false, false);
+				for (ClassDefItem clazz : libDexFile.ClassDefsSection.getItems()) {
+					if (clazz.getClassData() != null) {
+						for (EncodedMethod method : clazz.getClassData().getDirectMethods()) {
+							lookup.addMethod(method.method.getMethodString(), method);
+						}
+						for (EncodedMethod method : clazz.getClassData().getVirtualMethods()) {
+							lookup.addMethod(method.method.getMethodString(), method);
+						}
+					}
+				}
+			} catch (IOException e) {
+				System.err.println("Couldn't find " + libName + " to load!");
+			}
+		}
 		
 	}
 	
@@ -71,59 +77,8 @@ public class AOTTraceGen implements Plugin {
 	 * Based on the config that we've loaded, get the correct EncodedMethod.
 	 */
 	private EncodedMethod findTargetMethod(DexFile dexFile, Region region) {
-		boolean foundClass = false;
-		
-		String methodName = region.method + region.signature;
-		String clazzName = region.clazz + ";";
-		
-		EncodedMethod methodToUse = null;
-		
-		// Search all the classes
-		for (ClassDefItem clazz : dexFile.ClassDefsSection.getItems()) {
-			
-			// Have we found the right class?
-			if (clazz.getClassType().getTypeDescriptor().equals(clazzName)) {
-				
-				foundClass = true;
-				
-				boolean foundMethod = false;
-						
-				// Search the direct methods first.
-				for (EncodedMethod method : clazz.getClassData().getDirectMethods()) {
-					if (method.method.getShortMethodString().equals(methodName)) {
-						methodToUse = method;
-						foundMethod = true;
-						break;
-					}
-				}
-				
-				// Then, if we haven't found it, search the virtual ones.
-				if (!foundMethod) {
-					for (EncodedMethod method : clazz.getClassData().getVirtualMethods()) {
-						if (method.method.getShortMethodString().equals(methodName)) {
-							methodToUse = method;
-							foundMethod = true;
-							
-							// Found the method, so we're done.
-							break;
-						}
-					}
-				}
-				
-				if (!foundMethod) {
-					System.err.println("Couldn't find the given method in this class!");
-				}
-				
-				// Found the class, so we're done.
-				break;
-			}
-		}
-		
-		if (!foundClass) {
-			System.err.println("Couldn't find the given class in this DEX file!");
-		}
-		
-		return methodToUse;
+		String methodName = region.clazz + ";->" + region.method + region.signature;
+		return MethodLookup.getMethodLookup().getMethodByName(methodName);
 	}
 	
 	/*
@@ -133,9 +88,7 @@ public class AOTTraceGen implements Plugin {
 	private void generateAOTTraces(DexFile dexFile) {
 		config.printConfig();
 		
-		for (String coreLib : config.coreLibs) {
-			createLibraryMethodLookupStructure(dexFile, coreLib);
-		}
+		populateMethodLookup(dexFile, config.extraLibs);
 		
 		for (Region region : config.regions) {
 			region.encodedMethod = findTargetMethod(dexFile, region);

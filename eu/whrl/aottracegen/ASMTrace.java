@@ -81,7 +81,6 @@ public class ASMTrace {
 		
 		for (ConditionCode cc : ConditionCode.values()) {
 			if (line.startsWith(cc.toString().toLowerCase(), instruction.length())) {
-				System.out.println("Line contains " + cc.toString());
 				return cc;
 			}
 		}
@@ -411,7 +410,7 @@ public class ASMTrace {
 		}
 
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
-		EncodedMethod method = Util.getCalleeMethodFromInvoke(instruction,
+		EncodedMethod method = MethodLookup.getMethodLookup().getCalleeMethodFromInstruction(instruction,
 				context);
 		
 		if ((method.accessFlags & 0x100) != 0 /* native? */) {

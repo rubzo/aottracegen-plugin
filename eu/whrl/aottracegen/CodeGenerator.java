@@ -159,7 +159,7 @@ public class CodeGenerator {
 		if (context.config.armMode) {
 			useThumb = "";
 		}
-		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=hard -mfpu=neon %s %s -S -o %s %s", context.config.cOpts, useThumb, asmTraceFileName, cTraceFileName);
+		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a -mfloat-abi=hard -mfpu=neon %s %s -S -o %s %s", context.config.cflags, useThumb, asmTraceFileName, cTraceFileName);
 		System.out.println("Compiling C...");
 		System.out.println("  (cmd: " + command + ")");
 		try {

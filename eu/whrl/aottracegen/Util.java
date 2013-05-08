@@ -51,16 +51,4 @@ public class Util {
 		result += "]";
 		return result;
 	}
-	
-	public static TreeMap<String,EncodedMethod> methodMap = new TreeMap<String,EncodedMethod>();
-	
-	public static EncodedMethod getCalleeMethodFromInvoke(Instruction instruction, CodeGenContext context) {
-		MethodIdItem methodId = (MethodIdItem) ((InstructionWithReference)instruction).getReferencedItem();
-		String methodName = methodId.getMethodString();
-		EncodedMethod method = methodMap.get(methodName);
-		if (method == null) {
-			System.err.println("Unable to find method in our mapping: " + methodName);
-		}
-		return method;
-	}
 }
