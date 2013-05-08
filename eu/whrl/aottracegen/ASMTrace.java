@@ -51,7 +51,9 @@ public class ASMTrace {
 		renameLabels(context);
 		generalCleanup(context);
 		emitHandlers(context);
-		removeCBZ(context);
+		if (!context.config.armMode && context.config.enableRemoveCBZs) {
+			removeCBZ(context);
+		}
 	}
 
 	private void removeCBZ(CodeGenContext context) {

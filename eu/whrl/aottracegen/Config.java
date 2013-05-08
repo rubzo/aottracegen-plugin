@@ -27,6 +27,8 @@ public class Config {
 	
 	public String cOpts = "-O3";
 	
+	public boolean enableRemoveCBZs = true;
+	
 	public void loadConfigFile(String filename) {
 		File file = new File(filename);
 		FileReader reader = null;
@@ -78,6 +80,8 @@ public class Config {
 					armMode = true;
 				} else if (line.startsWith("llvm")) {
 					llvmMode = true;
+				} else if (line.startsWith("no-remove-cbz")) {
+					enableRemoveCBZs = false;
 				} else if (line.startsWith("copts")) {
 					cOpts = line.substring(6, line.length());
 				} else if (line.startsWith("libs")) {
