@@ -39,6 +39,8 @@ public class CTraceGenerator {
 	static {
 		opcodesWithHotChainingCells = new TreeSet<Opcode>();
 		opcodesWithHotChainingCells.add(Opcode.MOVE_RESULT);
+		opcodesWithHotChainingCells.add(Opcode.MOVE_RESULT_WIDE);
+		opcodesWithHotChainingCells.add(Opcode.MOVE_RESULT_OBJECT);
 	}
 	
 	// This is a set of Opcodes that will throw exceptions.

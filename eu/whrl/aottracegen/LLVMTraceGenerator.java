@@ -19,7 +19,7 @@ public class LLVMTraceGenerator {
 	private FileWriter writer;
 	private boolean prepared;
 	private BytecodeToLLVMConverter converter;
-	private BytecodeToPrettyConverter stringConverter;
+	private BytecodeToPrettyConverter prettyConverter;
 	
 	//
 	// Section where we define...
@@ -39,6 +39,8 @@ public class LLVMTraceGenerator {
 	static {
 		opcodesWithHotChainingCells = new TreeSet<Opcode>();
 		opcodesWithHotChainingCells.add(Opcode.MOVE_RESULT);
+		opcodesWithHotChainingCells.add(Opcode.MOVE_RESULT_WIDE);
+		opcodesWithHotChainingCells.add(Opcode.MOVE_RESULT_OBJECT);
 	}
 	
 	// This is a set of Opcodes that will throw exceptions.
@@ -74,7 +76,7 @@ public class LLVMTraceGenerator {
 		writer = null;
 		prepared = false;
 		converter = new BytecodeToLLVMConverter(context);
-		stringConverter = new BytecodeToPrettyConverter(true /* LLVM mode */);
+		prettyConverter = new BytecodeToPrettyConverter(true /* LLVM mode */);
 	}
 	
 	/*
@@ -182,14 +184,33 @@ public class LLVMTraceGenerator {
 	 * Emit the function signature, basically.
 	 */
 	private void emitFunctionStart() throws IOException {
-		writer.write("#define TRACE_EXIT(a) { unsigned long long r = (((unsigned long long) a) << 32) | 1; return r; }\n");
-		writer.write("#define TRACE_EXCEPTION(a) { unsigned long long r = (((unsigned long long) a) << 32) | 2; return r; }\n");
-		writer.write("#define TRACE_RETURN(a) { unsigned long long r = (((unsigned long long) a) << 32) | 3; return r; }\n");
-		writer.write("#define TRACE_DEPARTURE_INFO long long\n");
+		writer.write("target datalayout = \"e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:32:64-v128:32:128-a0:0:32-n32-S32\"\n");
+		writer.write("target triple = \"armv7--\"\n");
 		writer.write("\n");
 		
-		writer.write(String.format("// --- TRACE %2d START ---\n", context.currentRegionIndex));
-		writer.write("TRACE_DEPARTURE_INFO trace(int *lit, int *v, char *self) {\n");
+		int registerCount = context.currentRegion.encodedMethod.codeItem.getRegisterCount();
+		
+		writer.write(String.format("; --- TRACE %d START ---\n", context.currentRegionIndex));
+		writer.write(String.format("define i64 @trace(i32* noalias nocapture inreg %%lit, [%d x i32]* noalias nocapture inreg %%v, i8* %%self) nounwind {\n", registerCount));
+		
+		//writer.write("#define TRACE_EXIT(a) { unsigned long long r = (((unsigned long long) a) << 32) | 1; return r; }\n");
+		//writer.write("#define TRACE_EXCEPTION(a) { unsigned long long r = (((unsigned long long) a) << 32) | 2; return r; }\n");
+		//writer.write("#define TRACE_RETURN(a) { unsigned long long r = (((unsigned long long) a) << 32) | 3; return r; }\n");
+		//writer.write("#define TRACE_DEPARTURE_INFO long long\n");
+		
+		for (int reg = 0; reg < registerCount; reg++) {
+			writer.write(String.format("\t%%i%1$d_p = getelementpointer inbounds [%2$d x i32]* %%v, i32 0, i32 %1$d\n", reg, registerCount));
+		}
+		// Do double pointer obtaining
+		for (int reg = 0; reg < registerCount; reg++) {
+			writer.write(String.format("\t%%d%1$d_p = bitcast i32* %%i%1$d_p to double*\n", reg, registerCount));
+		}
+		for (int reg = 0; reg < registerCount; reg++) {
+			writer.write(String.format("\t%%f%1$d_p = bitcast i32* %%i%1$d_p to float*\n", reg, registerCount));
+		}
+		for (int reg = 0; reg < registerCount; reg++) {
+			writer.write(String.format("\t%%l%1$d_p = bitcast i32* %%i%1$d_p to i64*\n", reg, registerCount));
+		}
 	}
 	
 	/*
@@ -214,10 +235,10 @@ public class LLVMTraceGenerator {
 	}
 	
 	/*
-	 * Emit the comment, label and actual C for the given instruction.
+	 * Emit the comment, label and LLVM for the given instruction.
 	 */
 	private void emitForCodeAddress(int codeAddress) throws IOException, UnimplementedInstructionException {
-		writer.write(stringConverter.convert(context, codeAddress));
+		writer.write(prettyConverter.convert(context, codeAddress));
 		writer.write(String.format("  __L%#x:\n", codeAddress));
 		writer.write(converter.convert(context, codeAddress));
 		writer.write("\n");
