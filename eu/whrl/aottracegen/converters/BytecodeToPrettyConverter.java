@@ -527,15 +527,6 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 3d if-lez   
-		case ITRACE_INJECT:
-		{
-			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
-
-			result += String.format("itrace-inject v%d", vA);
-			break;
-		}
-
 		// opcode: 44 aget    
 		case AGET:
 		{

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BAKSMALI_JAR=~/Code/itrace-smali/baksmali/build/libs/baksmali-1.4.2-dev.jar
+BAKSMALI_JAR=/home/skyle/bin/smali_extra/baksmali-1.4.2-dev.jar
 
 if [ ! -e "$BAKSMALI_JAR" ]; then
 	echo "Cannot find baksmali.jar - needed in plugin creation."

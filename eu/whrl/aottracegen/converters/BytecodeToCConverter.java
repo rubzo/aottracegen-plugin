@@ -424,13 +424,6 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 40 itrace-inject
-		case ITRACE_INJECT:
-		{
-			result = "  // Trace Injection Opcode";
-			break;
-		}
-		
 		// opcode: 44 aget          
 		case AGET:
 		{
