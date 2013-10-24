@@ -22,7 +22,6 @@ public class Config {
 	public boolean emitDebugFunctions = false;
 	public boolean emitEHCounter = false;
 	public boolean armMode = false;
-	public boolean llvmMode = false;
 	public List<String> extraLibs = new LinkedList<String>();
 	
 	public String cflags = "-O3";
@@ -78,8 +77,6 @@ public class Config {
 					emitDebugFunctions = true;
 				} else if (line.startsWith("arm")) {
 					armMode = true;
-				} else if (line.startsWith("llvm")) {
-					llvmMode = true;
 				} else if (line.startsWith("no-remove-cbz")) {
 					enableRemoveCBZs = false;
 				} else if (line.startsWith("cflags")) {

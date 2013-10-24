@@ -48,69 +48,35 @@ public class CodeGenerator {
 	public String[] generateASMTraces(CodeGenContext context) {
 		int numRegions = context.regions.size();
 		String[] asmTraceFileNames = new String[numRegions];
-		if (!context.config.llvmMode) {
-			//
-			// Using C.
-			//
-			String[] cTraceFileNames = new String[numRegions];
+		
+		String[] cTraceFileNames = new String[numRegions];
 
-			// Generate all the file names.
+		// Generate all the file names.
+		for (int i = 0; i < numRegions; i++) {
+			cTraceFileNames[i] = String.format("region_%03d.c", i);
+			asmTraceFileNames[i] = String.format("region_%03d.S", i);
+		}
+
+		try {
+
 			for (int i = 0; i < numRegions; i++) {
-				cTraceFileNames[i] = String.format("region_%03d.c", i);
-				asmTraceFileNames[i] = String.format("region_%03d.S", i);
-			}
+				// Makes sure the generateC() and compileC() functions use the correct trace!
+				context.selectCurrentRegion(i);
+				System.out.println(String.format("Handling region at %s + %#x", context.currentRegion.method, context.currentRegion.entryOffset));
 
-			try {
-
-				for (int i = 0; i < numRegions; i++) {
-					// Makes sure the generateC() and compileC() functions use the correct trace!
-					context.selectCurrentRegion(i);
-					System.out.println(String.format("Handling region at %s + %#x", context.currentRegion.method, context.currentRegion.entryOffset));
-
-					// Do the generation and compilation.
-					generateC(context, cTraceFileNames[i]);
-					compileC(context, cTraceFileNames[i], asmTraceFileNames[i]);
-
-				}
-			}catch (UnimplementedInstructionException e) {
-				System.err.println(String.format("Unimplemented instruction: '%s' at %#x. Cannot generate code.", 
-						e.getUnimplementedInstructionName(), e.getUnimplementedInstructionCodeAddress()));
-			} catch (CompilationException e) {
-				System.err.println("Couldn't compile generated C. Cannot continue.");
-
-			} catch (CGeneratorFaultException e) {
-				System.err.println("Fault in the C generator. Cannot continue.");
-			}
-		} else {
-			//
-			// Using LLVM bytecode.
-			//
-			String[] llvmTraceFileNames = new String[numRegions];
-			String[] llvmOptTraceFileNames = new String[numRegions];
-			for (int i = 0; i < numRegions; i++) {
-				// Generate all the file names.
-				llvmTraceFileNames[i] = String.format("region_%03d.ll", i);
-				llvmOptTraceFileNames[i] = String.format("region_%03d.llo", i);
-				asmTraceFileNames[i] = String.format("region_%03d.S", i);
-			}
-
-			try {
-
-				for (int i = 0; i < numRegions; i++) {
-
-					// Makes sure the *LLVM() functions use the correct trace!
-					context.selectCurrentRegion(i);
-					System.out.println(String.format("Handling region at %s + %#x", context.currentRegion.method, context.currentRegion.entryOffset));
-
-					// Do the generation and compilation.
-					generateLLVM(context, llvmTraceFileNames[i]);
-					optimiseLLVM(context, llvmTraceFileNames[i], llvmOptTraceFileNames[i]);
-					compileLLVM(context, llvmOptTraceFileNames[i], asmTraceFileNames[i]);
-
-				}
-			} catch (Exception e) {
+				// Do the generation and compilation.
+				generateC(context, cTraceFileNames[i]);
+				compileC(context, cTraceFileNames[i], asmTraceFileNames[i]);
 
 			}
+		}catch (UnimplementedInstructionException e) {
+			System.err.println(String.format("Unimplemented instruction: '%s' at %#x. Cannot generate code.", 
+					e.getUnimplementedInstructionName(), e.getUnimplementedInstructionCodeAddress()));
+		} catch (CompilationException e) {
+			System.err.println("Couldn't compile generated C. Cannot continue.");
+
+		} catch (CGeneratorFaultException e) {
+			System.err.println("Fault in the C generator. Cannot continue.");
 		}
 
 		return asmTraceFileNames;
@@ -167,14 +133,6 @@ public class CodeGenerator {
 		} catch (CommandException e) {
 			throw new CompilationException();
 		}
-	}
-	
-	public void generateLLVM(CodeGenContext context, String llvmTraceFileName) throws UnimplementedInstructionException, CGeneratorFaultException {
-		System.out.println("Generating LLVM bytecode...");
-		LLVMTraceGenerator generator = new LLVMTraceGenerator(context);
-		generator.prepare(llvmTraceFileName);
-		generator.generate();
-		generator.finish();
 	}
 	
 	public void optimiseLLVM(CodeGenContext context, String llvmTraceFileName, String llvmOptTraceFileName) throws CompilationException {
