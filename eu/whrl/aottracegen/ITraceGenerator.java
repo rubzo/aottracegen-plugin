@@ -391,7 +391,7 @@ public class ITraceGenerator {
 				}
 				writer.write("\t.align 4\n");
 				writer.write(String.format("ChainingCell_%s:\n", id));
-				writer.write(String.format("\tb\tChainingCellNext_%s\n", id));
+				writer.write(String.format("\tb.n\tChainingCellNext_%s\n", id));
 				writer.write("\torrs\tr0, r0\n");
 				writer.write(String.format("ChainingCellNext_%s:\n", id));
 				if (cc.type == ChainingCell.Type.HOT || cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
