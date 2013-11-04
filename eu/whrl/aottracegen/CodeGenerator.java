@@ -19,15 +19,15 @@ public class CodeGenerator {
 		
 		try {
 			// Take the list of generated asm files, and produce a 'injectable trace' asm file.
-			emitITrace(context, asmTraceFileNames, "ITraces.S");
+			emitITrace(context, asmTraceFileNames, "IRegions.S");
 			
 			// Produce the trace description file that the VM will read to know when to inject traces.
-			emitITraceDesc(context, "ITracesDesc.cfg");
+			emitITraceDesc(context, "IRegions.cfg");
 			
 			boolean success = false;
 			
 			while (!success) {
-				emitSharedObjectITrace(context, "ITraces.S", "ITraces.o", "ITraces.so");
+				emitSharedObjectITrace(context, "IRegions.S", "IRegions.o", "IRegions.so");
 				success = true;
 			}
 			

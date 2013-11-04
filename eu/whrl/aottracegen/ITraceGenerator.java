@@ -145,15 +145,15 @@ public class ITraceGenerator {
 	private void emitStart() throws IOException {
 		
 		writer.write("\t.text\n");
-		writer.write("\t.global dvmITraceStartTable\n");
-		writer.write("\t.global dvmITraceEndTable\n");
-		writer.write("\t.global dvmITraceBasePCTable\n");
-		writer.write("\t.global dvmITraceChainingCellsTable\n");
-		writer.write("\t.global dvmITraceLiteralPoolTable\n");
+		writer.write("\t.global dvmIRegionsStartTable\n");
+		writer.write("\t.global dvmIRegionsEndTable\n");
+		writer.write("\t.global dvmIRegionsBasePCTable\n");
+		writer.write("\t.global dvmIRegionsChainingCellsTable\n");
+		writer.write("\t.global dvmIRegionsLiteralPoolTable\n");
 		writer.write("\n");
 		writer.write("\t.syntax unified\n");
 		writer.write("\t.thumb\n");
-		writer.write("\t# Magic number used to make sure the ITraceLoader has loaded the right code:\n");
+		writer.write("\t# Magic number used to make sure the loader has loaded the right code:\n");
 		writer.write("\t.word 0xDEADBEEF\n");
 		
 	}
@@ -163,23 +163,23 @@ public class ITraceGenerator {
 		int[] traceEntries = new int[numTraces];
 		
 		
-		writer.write("dvmITraceStartTable:\n");
+		writer.write("dvmIRegionsStartTable:\n");
 		for (int i = 0; i < numTraces; i++) {
 			writer.write(String.format("\t.word Start_T%d\n", i));
 		}
-		writer.write("dvmITraceEndTable:\n");
+		writer.write("dvmIRegionsEndTable:\n");
 		for (int i = 0; i < numTraces; i++) {
 			writer.write(String.format("\t.word End_T%d\n", i));
 		}
-		writer.write("dvmITraceBasePCTable:\n");
+		writer.write("dvmIRegionsBasePCTable:\n");
 		for (int i = 0; i < numTraces; i++) {
 			writer.write(String.format("\t.word BasePC_T%d\n", i));
 		}
-		writer.write("dvmITraceChainingCellsTable:\n");
+		writer.write("dvmIRegionsChainingCellsTable:\n");
 		for (int i = 0; i < numTraces; i++) {
 			writer.write(String.format("\t.word ChainingCells_T%d\n", i));
 		}
-		writer.write("dvmITraceLiteralPoolTable:\n");
+		writer.write("dvmIRegionsLiteralPoolTable:\n");
 		for (int i = 0; i < numTraces; i++) {
 			writer.write(String.format("\t.word LiteralPool_T%d\n", i));
 		}

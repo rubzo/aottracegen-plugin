@@ -75,7 +75,7 @@ public class ITraceDescGenerator {
 			
 				int curTraceEntryAddress = context.currentRegion.entryOffset;
 				
-				writer.write("trace\n");
+				writer.write("region\n");
 				
 				writer.write(String.format("class %s;\n", context.currentRegion.clazz));
 				writer.write(String.format("method %s\n", context.currentRegion.method));
@@ -84,7 +84,7 @@ public class ITraceDescGenerator {
 				
 				emitLiteralPoolInfo(context);
 				emitChainingCellInfo(context);
-				writer.write("end_trace\n");
+				writer.write("end_region\n");
 			}
 			
 		} catch (IOException e) {
