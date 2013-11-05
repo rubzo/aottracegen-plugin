@@ -77,10 +77,18 @@ public class ITraceDescGenerator {
 				
 				writer.write("region\n");
 				
+				int literalPoolSize = context.currentRegion.trace.meta.literalPoolSize;
+				for (ChainingCell cc : context.currentRegion.trace.meta.chainingCells.values()) {
+					if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
+						literalPoolSize++;
+					}
+				}
+				
 				writer.write(String.format("class %s;\n", context.currentRegion.clazz));
 				writer.write(String.format("method %s\n", context.currentRegion.method));
 				writer.write(String.format("signature %s\n", context.currentRegion.signature));
 				writer.write(String.format("pc_offset %#x\n", curTraceEntryAddress));
+				writer.write(String.format("literal_pool_size %d\n", literalPoolSize));
 				
 				emitLiteralPoolInfo(context);
 				emitChainingCellInfo(context);
@@ -124,5 +132,8 @@ public class ITraceDescGenerator {
 
 	private void emitHeader(CodeGenContext context) throws IOException {
 		writer.write("application_name " + context.config.app + "\n");
+		writer.write("region_count " + context.regions.size() + "\n");
+		writer.write("#method_jit 5\n");
+		writer.write("load_immediate\n");
 	}
 }
