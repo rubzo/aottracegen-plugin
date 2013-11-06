@@ -1075,12 +1075,68 @@ public class BytecodeToPrettyConverter {
 		// opcode: a2 xor-long                   
 		// opcode: a3 shl-long                   
 		// opcode: a4 shr-long                   
-		// opcode: a5 ushr-long                  
-		// opcode: a6 add-float                  
-		// opcode: a7 sub-float                  
-		// opcode: a8 mul-float                  
-		// opcode: a9 div-float                  
-		// opcode: aa rem-float                  
+		// opcode: a5 ushr-long      
+		
+		// opcode: a6 add-float
+		case ADD_FLOAT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("add-float v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: a7 sub-float    
+		case SUB_FLOAT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("sub-float v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: a8 mul-float
+		case MUL_FLOAT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("mul-float v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: a9 div-float
+		case DIV_FLOAT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("div-float v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
+		// opcode: aa rem-float
+		case REM_FLOAT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("rem-float v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: ab add-double 
 		case ADD_DOUBLE:
 		{
@@ -1149,12 +1205,58 @@ public class BytecodeToPrettyConverter {
 		// opcode: c2 xor-long/2addr             
 		// opcode: c3 shl-long/2addr             
 		// opcode: c4 shr-long/2addr             
-		// opcode: c5 ushr-long/2addr            
-		// opcode: c6 add-float/2addr            
-		// opcode: c7 sub-float/2addr            
-		// opcode: c8 mul-float/2addr            
-		// opcode: c9 div-float/2addr            
-		// opcode: ca rem-float/2addr            
+		// opcode: c5 ushr-long/2addr      
+		
+		// opcode: c6 add-float/2addr
+		case ADD_FLOAT_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("add-float/2addr v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: c7 sub-float/2addr
+		case SUB_FLOAT_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("sub-float/2addr v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: c8 mul-float/2addr
+		case MUL_FLOAT_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("mul-float/2addr v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: c9 div-float/2addr
+		case DIV_FLOAT_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("div-float/2addr v%d, v%d", vA, vB);
+			break;
+		}
+		
+		// opcode: ca rem-float/2addr
+		case REM_FLOAT_2ADDR:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result += String.format("rem-float/2addr v%d, v%d", vA, vB);
+			break;
+		}
+		
 		// opcode: cb add-double/2addr
 		case ADD_DOUBLE_2ADDR:
 		{

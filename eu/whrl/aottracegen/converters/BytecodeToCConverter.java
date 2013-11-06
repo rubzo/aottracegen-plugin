@@ -133,6 +133,14 @@ public class BytecodeToCConverter {
 		}
 		
 		// opcode: 0c move-result-object
+		case MOVE_RESULT_OBJECT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadRetValue);
+			break;
+		}
+		
 		// opcode: 0d move-exception             
 		// opcode: 0e return-void 
 		case RETURN_VOID:
@@ -890,11 +898,41 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: a6 add-float                  
-		// opcode: a7 sub-float                  
-		// opcode: a8 mul-float                  
-		// opcode: a9 div-float                  
-		// opcode: aa rem-float                  
+		// opcode: a6 add-float
+		case ADD_FLOAT:
+		{
+			result = emitFloatArith(codeAddress, curTrace, instruction, "+");
+			break;
+		}
+		
+		// opcode: a7 sub-float
+		case SUB_FLOAT:
+		{
+			result = emitFloatArith(codeAddress, curTrace, instruction, "-");
+			break;
+		}
+		
+		// opcode: a8 mul-float
+		case MUL_FLOAT:
+		{
+			result = emitFloatArith(codeAddress, curTrace, instruction, "*");
+			break;
+		}
+		
+		// opcode: a9 div-float
+		case DIV_FLOAT:
+		{
+			result = emitFloatArith(codeAddress, curTrace, instruction, "/");
+			break;
+		}
+		
+		// opcode: aa rem-float    
+		case REM_FLOAT:
+		{
+			result = emitFloatArith(codeAddress, curTrace, instruction, "%");
+			break;
+		}
+		
 		// opcode: ab add-double   
 		case ADD_DOUBLE:
 		{
@@ -1084,11 +1122,41 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: c6 add-float/2addr            
-		// opcode: c7 sub-float/2addr            
-		// opcode: c8 mul-float/2addr            
-		// opcode: c9 div-float/2addr            
-		// opcode: ca rem-float/2addr            
+		// opcode: c6 add-float/2addr
+		case ADD_FLOAT_2ADDR:
+		{
+			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "+");
+			break;
+		}
+		
+		// opcode: c7 sub-float/2addr
+		case SUB_FLOAT_2ADDR:
+		{
+			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "-");
+			break;
+		}
+		
+		// opcode: c8 mul-float/2addr
+		case MUL_FLOAT_2ADDR:
+		{
+			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "*");
+			break;
+		}
+		
+		// opcode: c9 div-float/2addr
+		case DIV_FLOAT_2ADDR:
+		{
+			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "/");
+			break;
+		}
+		
+		// opcode: ca rem-float/2addr   
+		case REM_FLOAT_2ADDR:
+		{
+			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "%");
+			break;
+		}
+		
 		// opcode: cb add-double/2addr  
 		case ADD_DOUBLE_2ADDR:
 		{
@@ -1546,6 +1614,40 @@ public class BytecodeToCConverter {
 		}
 		return String.format("  v[%d] = v[%d] %s %s;", vA, vB, op, vC);
 	}
+	
+	/* FLOAT */
+	
+	private String emitFloatArith(int codeAddress, Trace curTrace, Instruction instruction, String op) {
+		return emitFloatArithImpl(codeAddress, curTrace, instruction, op, false);
+	}
+	
+	private String emitFloatArith2Addr(int codeAddress, Trace curTrace, Instruction instruction, String op) {
+		return emitFloatArithImpl(codeAddress, curTrace, instruction, op, true);
+	}
+	
+	private String emitFloatArithImpl(int codeAddress, Trace curTrace, Instruction instruction, String op, boolean twoaddr) {
+		int vA = 0;
+		int vB = 0;
+		int vC = 0;
+		if (!twoaddr) {
+			vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+		} else {
+			vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			vB = ((TwoRegisterInstruction)instruction).getRegisterA();
+			vC = ((TwoRegisterInstruction)instruction).getRegisterB();
+		}
+		
+		return String.format(
+		"  {\n" +
+		"    float a = *((float*) (v + %2$d));\n" +
+		"    float b = *((float*) (v + %3$d));\n" +
+		"    *(((float*) (v + %1$d))) = a %4$s b;\n" +
+		"  }", vA, vB, vC, op);
+	}
+	
+	/* DOUBLE */
 	
 	private String emitDoubleArith(int codeAddress, Trace curTrace, Instruction instruction, String op) {
 		return emitDoubleArithImpl(codeAddress, curTrace, instruction, op, false);
