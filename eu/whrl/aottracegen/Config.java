@@ -53,11 +53,23 @@ public class Config {
 			    	currentRegion.id = regions.size();
 			    	regions.add(currentRegion);
 				} else if (line.startsWith("method")) {
+					boolean endsWithColon = false;
 					String fullMethodName = line.substring(7, line.length());
+					if (fullMethodName.endsWith(";")) {
+						endsWithColon = true;
+					}
 					String[] splits = fullMethodName.split(";");
 					currentRegion.clazz = splits[0];
 					currentRegion.method = splits[1];
 					currentRegion.signature = splits[2];
+					if (splits.length > 3) {
+						for (int i = 3; i < splits.length; i++) {
+							currentRegion.signature += (";" + splits[i]);
+						}
+					}
+					if (endsWithColon) {
+						currentRegion.signature += ";";
+					}
 				} else if (line.startsWith("entry")) {
 					int entryOffset = Integer.parseInt(line.substring(8, line.length()), 16);
 					currentRegion.entryOffset = entryOffset;
