@@ -7,6 +7,7 @@ import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.LiteralInstruction;
 import org.jf.dexlib.Code.OdexedFieldAccess;
 import org.jf.dexlib.Code.OdexedInvokeInline;
+import org.jf.dexlib.Code.OdexedInvokeVirtual;
 import org.jf.dexlib.Code.OffsetInstruction;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
@@ -644,8 +645,6 @@ public class BytecodeToCConverter {
 				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
 			}
 			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
-			
-			//result = emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -658,8 +657,6 @@ public class BytecodeToCConverter {
 				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
 			}
 			result = String.format("  if (!invoke_singleton_nonullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
-			
-			//result = emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -1448,7 +1445,18 @@ public class BytecodeToCConverter {
 		}
 		
 		// opcode: f9 +invoke-virtual-quick/range
-		// opcode: fa +invoke-super-quick  		
+		// opcode: fa +invoke-super-quick  
+		case INVOKE_SUPER_QUICK: 
+		{
+			int vtableIndex = ((OdexedInvokeVirtual) instruction).getVtableIndex();
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.SUPERQUICK_METHOD, vtableIndex);
+			if (!curTrace.meta.chainingCells.containsKey(vtableIndex)) {
+				curTrace.meta.chainingCells.put(vtableIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, vtableIndex)));
+			}
+			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: fb +invoke-super-quick/range  
 		// opcode: fc +iput-object-volatile      
 		// opcode: fd +sget-object-volatile      
