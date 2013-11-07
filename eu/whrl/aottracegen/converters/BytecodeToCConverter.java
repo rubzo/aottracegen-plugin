@@ -22,7 +22,8 @@ import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 
 public class BytecodeToCConverter {
 	
-	private static final int offsetThreadRetValue = 16; 
+	private static final int offsetThreadReturn = 16; 
+	private static final int offsetThreadException = 68; 
 	
 	private CodeGenContext context;
 	
@@ -119,7 +120,7 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadRetValue);
+			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadReturn);
 			break;
 		}
 		
@@ -128,7 +129,7 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((long long*)(v + %d)) = *((long long*) (self+%d));", vA, offsetThreadRetValue);
+			result = String.format("  *((long long*)(v + %d)) = *((long long*) (self+%d));", vA, offsetThreadReturn);
 			break;
 		}
 		
@@ -137,11 +138,19 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadRetValue);
+			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadReturn);
 			break;
 		}
 		
-		// opcode: 0d move-exception             
+		// opcode: 0d move-exception  
+		case MOVE_EXCEPTION:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadException);
+			break;
+		}
+		
 		// opcode: 0e return-void 
 		case RETURN_VOID:
 		{	
@@ -158,7 +167,7 @@ public class BytecodeToCConverter {
 			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
+			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadReturn, vA) +
 					 String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
@@ -170,7 +179,7 @@ public class BytecodeToCConverter {
 			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((long long*) (self+%d)) = *((long long*)(v + %d));", offsetThreadRetValue, vA) +
+			result = String.format("  *((long long*) (self+%d)) = *((long long*)(v + %d));", offsetThreadReturn, vA) +
 					 String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
@@ -182,7 +191,7 @@ public class BytecodeToCConverter {
 			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadRetValue, vA) +
+			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadReturn, vA) +
 					 String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
@@ -1435,12 +1444,11 @@ public class BytecodeToCConverter {
 		case INVOKE_VIRTUAL_QUICK: 
 		{
 			result = String.format("  if (!invoke_virtual_quick_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
-			//result = emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: f9 +invoke-virtual-quick/range
-		// opcode: fa +invoke-super-quick        
+		// opcode: fa +invoke-super-quick  		
 		// opcode: fb +invoke-super-quick/range  
 		// opcode: fc +iput-object-volatile      
 		// opcode: fd +sget-object-volatile      
