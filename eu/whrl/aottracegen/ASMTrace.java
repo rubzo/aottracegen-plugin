@@ -212,8 +212,8 @@ public class ASMTrace {
 
 			if (line.contains("invoke_virtual_quick")) {
 				cl = handleInvokeVirtualQuick(context, cl);
-			} else if (line.contains("invoke_static")) {
-				cl = handleInvokeStatic(context, cl);
+			} else if (line.contains("invoke_singleton")) {
+				cl = handleInvokeSingleton(context, cl);
 			} else if (line.contains("execute_inline")) {
 				cl = handleExecuteInline(context, cl);
 			} else if (line.contains("single_step")) {
@@ -399,14 +399,20 @@ public class ASMTrace {
 		return cl;
 	}
 	
-	private int handleInvokeStatic(CodeGenContext context, int cl) {
+	private int handleInvokeSingleton(CodeGenContext context, int cl) {
 		String line = traceBody.get(cl);
 		
 		int codeAddress = 0;
-		Pattern p = Pattern.compile("bl\tinvoke_static_0x(.*)\\(PLT\\)$");
+		boolean nullCheckArgs = false;
+		Pattern p = Pattern.compile("bl\tinvoke_singleton_(.*)_0x(.*)\\(PLT\\)$");
 		Matcher m = p.matcher(line);
 		if (m.find()) {
-			codeAddress = Integer.parseInt(m.group(1), 16);
+			codeAddress = Integer.parseInt(m.group(2), 16);
+			if (m.group(1) == "nullcheck") {
+				nullCheckArgs = true;
+			}
+		} else {
+			System.out.println("Failure to parse invoke_singleton label in .S file. Investigate.");
 		}
 
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
@@ -414,13 +420,13 @@ public class ASMTrace {
 				context);
 		
 		if ((method.accessFlags & 0x100) != 0 /* native? */) {
-			return handleInvokeStaticNative(context, cl, codeAddress, method);
+			return handleInvokeSingletonNative(context, cl, codeAddress, method, nullCheckArgs);
 		} else {
-			return handleInvokeStaticJava(context, cl, codeAddress, method);
+			return handleInvokeSingletonJava(context, cl, codeAddress, method, nullCheckArgs);
 		}
 	}
 
-	private int handleInvokeStaticJava(CodeGenContext context, int cl, int codeAddress, EncodedMethod method) {
+	private int handleInvokeSingletonJava(CodeGenContext context, int cl, int codeAddress, EncodedMethod method, boolean nullCheckArgs) {
 		Trace curTrace = context.currentRegion.trace;
 
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
@@ -431,18 +437,18 @@ public class ASMTrace {
 		//
 		cl = removeLine(cl);
 
-		cl = addLine(cl, "### START INVOKE STATIC (JAVA) ###");
+		cl = addLine(cl, "### START INVOKE SINGLETON (JAVA) ###");
 		cl = addLine(cl, "# Save \"callee\"-save regs");
 		cl = addLine(cl, "\tpush\t{r4-r11}");
 
 		cl = enterThumb2Mode(context, cl, codeAddress);
 		
-		cl = handleArgumentLoading(context, cl, codeAddress, false, "r2");
+		cl = handleArgumentLoading(context, cl, codeAddress, nullCheckArgs, "r2");
 
 		int literalPoolLoc = 0;
-		cl = addLine(cl, "\t# load and call aotInvokeStatic()");
+		cl = addLine(cl, "\t# load and call aotInvokeSingleton()");
 		literalPoolLoc = curTrace.meta
-				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_STATIC_JAVA);
+				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_JAVA);
 		cl = addLine(cl, String.format(
 				"\tadr\tr4, ChainingCell_T%d_M%#x",
 				context.currentRegionIndex, methodIndex));
@@ -457,30 +463,31 @@ public class ASMTrace {
 
 		cl = addLine(cl, "# Restore \"callee\"-save regs");
 		cl = addLine(cl, "\tpop\t{r4-r11}");
-		cl = addLine(cl, "### END INVOKE STATIC (JAVA) ###");
+		cl = addLine(cl, "### END INVOKE SINGLETON (JAVA) ###");
+		cl = addLine(cl, "# (success or EH check comes next...)");
 
 		return cl;
 	}
 	
-	private int handleInvokeStaticNative(CodeGenContext context, int cl, int codeAddress, EncodedMethod method) {
+	private int handleInvokeSingletonNative(CodeGenContext context, int cl, int codeAddress, EncodedMethod method, boolean nullCheckArgs) {
 		Trace curTrace = context.currentRegion.trace;
 
 		// Remove the bl placeholder instruction
 		//
 		cl = removeLine(cl);
 
-		cl = addLine(cl, "### START INVOKE STATIC (NATIVE) ###");
+		cl = addLine(cl, "### START INVOKE SINGLETON (NATIVE) ###");
 		cl = addLine(cl, "# Save \"callee\"-save regs");
 		cl = addLine(cl, "\tpush\t{r4-r11}");
 		
 		cl = enterThumb2Mode(context, cl, codeAddress);
 
-		cl = handleArgumentLoading(context, cl, codeAddress, false, "r2");
+		cl = handleArgumentLoading(context, cl, codeAddress, nullCheckArgs, "r2");
 
 		int literalPoolLoc = 0;
-		cl = addLine(cl, "# load and call aotInvokeStaticNative()");
+		cl = addLine(cl, "# load and call aotInvokeSingletonNative()");
 		literalPoolLoc = curTrace.meta
-				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_STATIC_NATIVE);
+				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_NATIVE);
 
 		cl = addLine(cl, String.format("\tadr\tr5, LiteralPool_T%d",
 				context.currentRegionIndex));
@@ -492,7 +499,7 @@ public class ASMTrace {
 		
 		cl = addLine(cl, "# Restore \"callee\"-save regs");
 		cl = addLine(cl, "\tpop\t{r4-r11}");
-		cl = addLine(cl, "### END INVOKE STATIC (NATIVE) ###");
+		cl = addLine(cl, "### END INVOKE SINGLETON (NATIVE) ###");
 		cl = addLine(cl, "# (success or EH check comes next...)");
 
 		return cl;
@@ -536,6 +543,7 @@ public class ASMTrace {
 
 		if (regCount > 0) {
 			if (nullCheck) {
+				cl = addLine(cl, "# null-check (method is not static)");
 				cl = addLine(cl, "\tcmp\tr5, #0");
 				cl = addLine(cl, String.format("\tbeq\tRaiseException_T%d_A%#x",
 						context.currentRegionIndex, codeAddress));

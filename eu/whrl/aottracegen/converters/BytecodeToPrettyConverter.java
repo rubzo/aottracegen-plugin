@@ -350,7 +350,18 @@ public class BytecodeToPrettyConverter {
 		}
 		
 		// opcode: 2c sparse-switch              
-		// opcode: 2d cmpl-float                 
+		// opcode: 2d cmpl-float 
+		case CMPL_FLOAT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("cmpl-float v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 2e cmpg-float                 
 		// opcode: 2f cmpl-double  
 		case CMPL_DOUBLE:
@@ -822,6 +833,16 @@ public class BytecodeToPrettyConverter {
 		// opcode: 6e invoke-virtual             
 		// opcode: 6f invoke-super               
 		// opcode: 70 invoke-direct    
+		case INVOKE_DIRECT:
+		{
+			int method = ((InstructionWithReference)instruction).getReferencedItem().getIndex(); 
+			
+			String argsString = getArgsString(instruction);
+			
+			result += String.format("invoke-direct %s, method@%#x", argsString, method);
+			break;
+		}
+		
 		// opcode: 71 invoke-static 
 		case INVOKE_STATIC:
 		{

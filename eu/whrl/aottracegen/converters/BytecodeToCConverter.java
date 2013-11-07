@@ -307,7 +307,25 @@ public class BytecodeToCConverter {
 		}
 		
 		// opcode: 2c sparse-switch              
-		// opcode: 2d cmpl-float                 
+		// opcode: 2d cmpl-float      
+		case CMPL_FLOAT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+			
+			result = String.format(
+			"  {\n" +
+			"    float value1 = *((float*) (v + %1$d));\n" +
+			"    float value2 = *((float*) (v + %2$d));\n" +
+			"    if (value1 == value2) { v[%3$d] = 0; }\n" +
+			"    else if (value1 > value2) { v[%3$d] = 1; }\n" +
+			"    else { v[%3$d] = -1; }\n" +
+			"  }", vB, vC, vA);
+					
+			break;
+		}
+		
 		// opcode: 2e cmpg-float                 
 		// opcode: 2f cmpl-double  
 		case CMPL_DOUBLE:
@@ -608,7 +626,20 @@ public class BytecodeToCConverter {
 		// opcode: 6d sput-short                 
 		// opcode: 6e invoke-virtual             
 		// opcode: 6f invoke-super               
-		// opcode: 70 invoke-direct              
+		// opcode: 70 invoke-direct
+		case INVOKE_DIRECT: 
+		{
+			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.DIRECT_METHOD, methodIndex);
+			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
+				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
+			}
+			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			
+			//result = emitSingleStep(codeAddress, curTrace, instruction);
+			break;
+		}
+		
 		// opcode: 71 invoke-static              
 		case INVOKE_STATIC: 
 		{
@@ -617,7 +648,7 @@ public class BytecodeToCConverter {
 			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
 				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
 			}
-			result = String.format("  if (!invoke_static_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			result = String.format("  if (!invoke_singleton_nonullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
 			
 			//result = emitSingleStep(codeAddress, curTrace, instruction);
 			break;
