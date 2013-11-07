@@ -1391,7 +1391,29 @@ public class BytecodeToPrettyConverter {
 		}
 		
 		// opcode: f6 +iput-wide-quick           
+		case IPUT_WIDE_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+
+			result += String.format("+iput-wide-quick v%d, v%d, [obj+%d]",
+					vA, vB, offset);
+			break;
+		}
+
 		// opcode: f7 +iput-object-quick         
+		case IPUT_OBJECT_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+
+			result += String.format("+iput-object-quick v%d, v%d, [obj+%d]",
+					vA, vB, offset);
+			break;
+		}
+
 		// opcode: f8 +invoke-virtual-quick      
 		case INVOKE_VIRTUAL_QUICK:
 		{

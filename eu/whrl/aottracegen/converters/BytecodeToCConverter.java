@@ -1437,6 +1437,17 @@ public class BytecodeToCConverter {
 		}
 		
 		// opcode: f7 +iput-object-quick         
+		case IPUT_OBJECT_QUICK:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
+			
+			result = String.format("  if (v[%2$d] == 0) TRACE_EXCEPTION(%4$#x)\n" +
+					               "  *((int*) (((char*)v[%2$d]) + %3$#x)) = v[%1$d];", vA, vB, offset, codeAddress);
+			break;
+		}
+
 		// opcode: f8 +invoke-virtual-quick     
 		case INVOKE_VIRTUAL_QUICK: 
 		{
