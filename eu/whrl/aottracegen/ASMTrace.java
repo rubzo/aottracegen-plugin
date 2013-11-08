@@ -218,6 +218,8 @@ public class ASMTrace {
 				cl = handleExecuteInline(context, cl);
 			} else if (line.contains("single_step")) {
 				cl = handleSingleStep(context, cl);
+			} else if (line.contains("instanceof")) {
+				cl = handleInstanceof(context, cl);
 			}
 			
 		}
@@ -322,6 +324,38 @@ public class ASMTrace {
 					context.currentRegionIndex, codeAddress));
 			cl = addLine(cl, "\t.arm");
 		}
+		return cl;
+	}
+	
+	private int handleInstanceof(CodeGenContext context, int cl) {
+		Trace curTrace = context.currentRegion.trace;
+		
+		cl = removeLine(cl);
+		
+		/* C code ensures the following: */
+		/* r0 contains reference, already null-checked */
+		/* r1 contains class pointer */
+		
+		/* call dvmInstanceofNonTrivial */
+		
+		/* function expects r0 to actually be r0->clazz, so get it */
+		cl = addLine(cl, "\tldr\tr0, [r0]");
+		
+		/* note this is a C function, so it will be do the callee-saved regs saving */
+		
+		int literalPoolLoc = 0;
+		cl = addLine(cl, "\t# load and call dvmInstanceofNonTrivial()");
+		literalPoolLoc = curTrace.meta
+				.addLiteralPoolType(LiteralPoolType.CALL_INSTANCEOF_NON_TRIVIAL);
+		cl = addLine(cl, String.format("\tadr\tr2, LiteralPool_T%d",
+				context.currentRegionIndex));
+		cl = addLine(cl,
+				String.format("\tldr\tr2, [r2, #%d]", literalPoolLoc * 4));
+		cl = addLine(cl, "\tblx\tr2");
+		
+		/* result will be returned in r0, C code expects this, so carry on! */
+		
+		
 		return cl;
 	}
 	

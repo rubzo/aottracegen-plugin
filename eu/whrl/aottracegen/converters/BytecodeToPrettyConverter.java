@@ -302,7 +302,20 @@ public class BytecodeToPrettyConverter {
 		// opcode: 1d monitor-enter              
 		// opcode: 1e monitor-exit               
 		// opcode: 1f check-cast                 
-		// opcode: 20 instance-of                
+		// opcode: 20 instance-of
+		case INSTANCE_OF:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int clazz = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+
+			result += String.format("instance-of v%d, v%d, class@%#x (lit pool idx: %d)",
+					vA, vB, clazz, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 21 array-length               
 		// opcode: 22 new-instance  		
 		// opcode: 23 new-array                  

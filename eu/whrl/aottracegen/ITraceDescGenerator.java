@@ -15,6 +15,7 @@ public class ITraceDescGenerator {
 	static Map<LiteralPoolType,String> literalPoolTypeMap;
 	static {
 		literalPoolTypeMap = new HashMap<LiteralPoolType,String>();
+		literalPoolTypeMap.put(LiteralPoolType.CLASS_POINTER, "class_pointer");
 		literalPoolTypeMap.put(LiteralPoolType.STATIC_FIELD, "static_field");
 		literalPoolTypeMap.put(LiteralPoolType.STATIC_METHOD, "static_method");
 		literalPoolTypeMap.put(LiteralPoolType.DIRECT_METHOD, "direct_method");
@@ -31,6 +32,7 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_NATIVE, "call_aot_invoke_singleton_native");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_JAVA, "call_aot_invoke_singleton_java");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_AOT_INVOKE_VIRTUAL_QUICK, "call_aot_invoke_virtual_quick");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_INSTANCEOF_NON_TRIVIAL, "call_instanceof_non_trivial");
 		literalPoolTypeMap.put(LiteralPoolType.EXECUTE_INLINE, "execute_inline");
 	}
 

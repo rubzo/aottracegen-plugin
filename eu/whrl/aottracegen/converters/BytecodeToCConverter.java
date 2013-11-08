@@ -260,6 +260,22 @@ public class BytecodeToCConverter {
 		// opcode: 1e monitor-exit               
 		// opcode: 1f check-cast                 
 		// opcode: 20 instance-of                
+		case INSTANCE_OF:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+
+			int classIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+		
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
+			
+			result  = "  {\n";
+			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x)\n", vB, codeAddress);
+			result += String.format("    v[%d] = instanceof_%#x(v[%d], lit[%d])\n", vA, codeAddress, vB, literalPoolLoc);
+			result += "  }\n";
+
+			break;
+		}
 		// opcode: 21 array-length               
 		// opcode: 22 new-instance               
 		// opcode: 23 new-array                  
