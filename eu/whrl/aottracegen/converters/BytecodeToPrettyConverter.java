@@ -13,6 +13,7 @@ import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
 
 import eu.whrl.aottracegen.CodeGenContext;
+import eu.whrl.aottracegen.LiteralPoolType;
 import eu.whrl.aottracegen.Trace;
 
 public class BytecodeToPrettyConverter {
@@ -301,7 +302,22 @@ public class BytecodeToPrettyConverter {
 		// opcode: 1c const-class                
 		// opcode: 1d monitor-enter              
 		// opcode: 1e monitor-exit               
-		// opcode: 1f check-cast                 
+		// opcode: 1f check-cast
+		case CHECK_CAST:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int clazz = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.getLiteralPoolLocationForTypeAndValue(LiteralPoolType.CLASS_POINTER, clazz);
+			if (literalPoolLoc == -1) {
+				literalPoolLoc = curTrace.meta.literalPoolSize;
+			}
+
+			result += String.format("check-cast v%d, class@%#x (lit pool idx: %d)",
+					vA, clazz, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 20 instance-of
 		case INSTANCE_OF:
 		{
@@ -309,7 +325,10 @@ public class BytecodeToPrettyConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int clazz = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
 
-			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			int literalPoolLoc = curTrace.meta.getLiteralPoolLocationForTypeAndValue(LiteralPoolType.CLASS_POINTER, clazz);
+			if (literalPoolLoc == -1) {
+				literalPoolLoc = curTrace.meta.literalPoolSize;
+			}
 
 			result += String.format("instance-of v%d, v%d, class@%#x (lit pool idx: %d)",
 					vA, vB, clazz, literalPoolLoc);

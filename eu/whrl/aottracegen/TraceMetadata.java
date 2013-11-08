@@ -66,4 +66,14 @@ public class TraceMetadata {
 		
 		return -1;
 	}
+	
+	public int getLiteralPoolLocationForTypeAndValue(LiteralPoolType type, int value) {
+		for (int i = 0; i < literalPoolSize; i++) {
+			if (literalPoolTypes.get(i) == type && literalPoolIndices.get(i) == value) {
+				return i;
+			}
+		}
+		
+		return -1;
+	}
 }

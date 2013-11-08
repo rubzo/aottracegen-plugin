@@ -258,7 +258,22 @@ public class BytecodeToCConverter {
 		// opcode: 1c const-class                
 		// opcode: 1d monitor-enter              
 		// opcode: 1e monitor-exit               
-		// opcode: 1f check-cast                 
+		// opcode: 1f check-cast   
+		case CHECK_CAST:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+
+			int classIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+		
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
+			
+			result  = "  {\n";
+			result += String.format("    if (!instanceof_%2$#x(v[%1$d], lit[%3$d])) TRACE_EXCEPTION(%2$#x);\n", vA, codeAddress, literalPoolLoc);
+			result += "  }\n";
+
+			break;
+		}
+		
 		// opcode: 20 instance-of                
 		case INSTANCE_OF:
 		{
@@ -270,8 +285,8 @@ public class BytecodeToCConverter {
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
 			
 			result  = "  {\n";
-			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x)\n", vB, codeAddress);
-			result += String.format("    v[%d] = instanceof_%#x(v[%d], lit[%d])\n", vA, codeAddress, vB, literalPoolLoc);
+			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
+			result += String.format("    v[%d] = instanceof_%#x(v[%d], lit[%d]);\n", vA, codeAddress, vB, literalPoolLoc);
 			result += "  }\n";
 
 			break;

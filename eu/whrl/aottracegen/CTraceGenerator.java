@@ -62,8 +62,13 @@ public class CTraceGenerator {
 		opcodesThatThrowExceptions.add(Opcode.IGET_OBJECT_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.IPUT_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.IPUT_WIDE_QUICK);
+		opcodesThatThrowExceptions.add(Opcode.IPUT_OBJECT_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.INVOKE_VIRTUAL_QUICK);
 		opcodesThatThrowExceptions.add(Opcode.INVOKE_STATIC);
+		opcodesThatThrowExceptions.add(Opcode.INVOKE_SUPER_QUICK);
+		opcodesThatThrowExceptions.add(Opcode.INVOKE_DIRECT);
+		opcodesThatThrowExceptions.add(Opcode.INSTANCE_OF);
+		opcodesThatThrowExceptions.add(Opcode.CHECK_CAST);
 		
 		// ...
 	}
