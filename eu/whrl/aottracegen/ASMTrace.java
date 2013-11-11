@@ -222,6 +222,8 @@ public class ASMTrace {
 				cl = handleSingleStep(context, cl);
 			} else if (line.contains("instanceof")) {
 				cl = handleInstanceof(context, cl);
+			} else if (line.contains("new_instance")) {
+				cl = handleNewInstance(context, cl);
 			}
 			
 		}
@@ -357,6 +359,37 @@ public class ASMTrace {
 		
 		/* result will be returned in r0, C code expects this, so carry on! */
 		
+		
+		return cl;
+	}
+	
+	private int handleNewInstance(CodeGenContext context, int cl) {
+		Trace curTrace = context.currentRegion.trace;
+		
+		cl = removeLine(cl);
+		
+		/* C code ensures the following: */
+		/* r0 contains class pointer, already null-checked */
+		/* r1 contains ALLOC_DONT_TRACK (1) */
+		
+		
+		/* call dvmAllocObject */
+		
+		
+		
+		/* note this is a C function, so it will be do the callee-saved regs saving */
+		
+		int literalPoolLoc = 0;
+		cl = addLine(cl, "\t# load and call dvmAllocObject()");
+		literalPoolLoc = curTrace.meta
+				.addLiteralPoolType(LiteralPoolType.CALL_ALLOC_OBJECT);
+		cl = addLine(cl, String.format("\tadr\tr2, LiteralPool_T%d",
+				context.currentRegionIndex));
+		cl = addLine(cl,
+				String.format("\tldr\tr2, [r2, #%d]", literalPoolLoc * 4));
+		cl = addLine(cl, "\tblx\tr2");
+		
+		/* result will be returned in r0, C code expects this, so carry on! */
 		
 		return cl;
 	}

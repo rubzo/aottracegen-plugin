@@ -312,7 +312,21 @@ public class BytecodeToCConverter {
 			break;
 		}
 		// opcode: 21 array-length               
-		// opcode: 22 new-instance               
+		// opcode: 22 new-instance        
+		case NEW_INSTANCE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int classIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
+			
+			result  = "  {\n";
+			result += String.format("    v[%d] = new_instance_%#x(lit[%d], 1 /*ALLOC_DONT_TRACK*/);\n", vA, codeAddress, literalPoolLoc);
+			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vA, codeAddress);
+			result += "  }\n";
+			break;
+		}
+		
 		// opcode: 23 new-array                  
 		// opcode: 24 filled-new-array           
 		// opcode: 25 filled-new-array/range     
