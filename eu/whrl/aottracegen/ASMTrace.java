@@ -224,6 +224,8 @@ public class ASMTrace {
 				cl = handleInstanceof(context, cl);
 			} else if (line.contains("new_instance")) {
 				cl = handleNewInstance(context, cl);
+			} else if (line.contains("barrier")) {
+				cl = handleBarrier(context, cl);
 			}
 			
 		}
@@ -252,10 +254,9 @@ public class ASMTrace {
 		
 		
 		cl = addLine(cl, "\t# Single stepping...");
-		// preserve regs
-		cl = addLine(cl, "\tpush\t{r0-r3}");
 		
-		cl = enterThumb2Mode(context, cl, thisOffset);
+		cl = addLine(cl, "# Save \"callee\"-save regs");
+		cl = addLine(cl, "\tpush\t{r4-r11}");
 		
 		// restore interp regs
 		cl = addLine(cl, "\tmov\tr5, r1");
@@ -270,8 +271,8 @@ public class ASMTrace {
 		cl = addLine(cl, "\tblx\tr2");
 		cl = addLine(cl, "\t# ...should return here.");
 		
-		cl = enterArmMode(context, cl, thisOffset);
-		cl = addLine(cl, "\tpop\t{r0-r3}");
+		cl = addLine(cl, "# Restore \"callee\"-save regs");
+		cl = addLine(cl, "\tpop\t{r4-r11}");
 		
 		return cl;
 	}
@@ -363,6 +364,12 @@ public class ASMTrace {
 		return cl;
 	}
 	
+	private int handleBarrier(CodeGenContext context, int cl) {
+		cl = removeLine(cl);
+		cl = addLine(cl, "\tdmb");
+		return cl;
+	}
+	
 	private int handleNewInstance(CodeGenContext context, int cl) {
 		Trace curTrace = context.currentRegion.trace;
 		
@@ -372,11 +379,7 @@ public class ASMTrace {
 		/* r0 contains class pointer, already null-checked */
 		/* r1 contains ALLOC_DONT_TRACK (1) */
 		
-		
 		/* call dvmAllocObject */
-		
-		
-		
 		/* note this is a C function, so it will be do the callee-saved regs saving */
 		
 		int literalPoolLoc = 0;

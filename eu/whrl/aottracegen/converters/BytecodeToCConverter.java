@@ -1444,7 +1444,22 @@ public class BytecodeToCConverter {
 		
 		// opcode: ef +execute-inline/range      
 		// opcode: f0 +invoke-object-init/range  
-		// opcode: f1 +return-void-barrier       
+		case INVOKE_OBJECT_INIT_RANGE:
+		{
+			result = emitSingleStep(codeAddress, curTrace, instruction);
+			break;
+		}
+		
+		// opcode: f1 +return-void-barrier  
+		case RETURN_VOID_BARRIER:
+		{	
+			curTrace.meta.containsReturn = true;
+			
+			result = "  barrier();\n";
+			result += String.format("  TRACE_RETURN(%#x)", codeAddress);
+			break;
+		}
+		
 		// opcode: f2 +iget-quick       
 		case IGET_QUICK:
 		{
