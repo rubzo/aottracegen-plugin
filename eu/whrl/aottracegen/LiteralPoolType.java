@@ -3,6 +3,7 @@ package eu.whrl.aottracegen;
 public enum LiteralPoolType {
 	RETURN_HANDLER,
 	CLASS_POINTER,
+	STRING_POINTER,
 	STATIC_FIELD,
 	STATIC_METHOD,
 	DIRECT_METHOD,

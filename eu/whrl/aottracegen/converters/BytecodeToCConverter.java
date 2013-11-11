@@ -253,8 +253,28 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 1a const-string               
-		// opcode: 1b const-string/jumbo         
+		// opcode: 1a const-string     
+		case CONST_STRING:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int stringIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STRING_POINTER, stringIndex);
+
+			result = String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
+		}
+		
+		// opcode: 1b const-string/jumbo
+		case CONST_STRING_JUMBO:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int stringIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STRING_POINTER, stringIndex);
+
+			result = String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
+		}
+		
 		// opcode: 1c const-class                
 		// opcode: 1d monitor-enter              
 		// opcode: 1e monitor-exit               

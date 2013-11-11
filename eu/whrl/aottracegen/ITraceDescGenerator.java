@@ -16,6 +16,7 @@ public class ITraceDescGenerator {
 	static {
 		literalPoolTypeMap = new HashMap<LiteralPoolType,String>();
 		literalPoolTypeMap.put(LiteralPoolType.CLASS_POINTER, "class_pointer");
+		literalPoolTypeMap.put(LiteralPoolType.STRING_POINTER, "string_pointer");
 		literalPoolTypeMap.put(LiteralPoolType.STATIC_FIELD, "static_field");
 		literalPoolTypeMap.put(LiteralPoolType.STATIC_METHOD, "static_method");
 		literalPoolTypeMap.put(LiteralPoolType.DIRECT_METHOD, "direct_method");
