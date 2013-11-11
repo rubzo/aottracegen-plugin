@@ -212,6 +212,8 @@ public class ASMTrace {
 
 			if (line.contains("invoke_virtual_quick")) {
 				cl = handleInvokeVirtualQuick(context, cl);
+			} else if (line.contains("invoke_interface")) {
+				cl = handleInvokeInterface(context, cl);
 			} else if (line.contains("invoke_singleton")) {
 				cl = handleInvokeSingleton(context, cl);
 			} else if (line.contains("execute_inline")) {
@@ -355,6 +357,77 @@ public class ASMTrace {
 		
 		/* result will be returned in r0, C code expects this, so carry on! */
 		
+		
+		return cl;
+	}
+	
+	private int handleInvokeInterface(CodeGenContext context, int cl) {
+		Trace curTrace = context.currentRegion.trace;
+
+		String line = traceBody.get(cl);
+
+		int codeAddress = 0;
+		Pattern p = Pattern
+				.compile("bl\tinvoke_interface_0x(.*)\\(PLT\\)$");
+		Matcher m = p.matcher(line);
+		if (m.find()) {
+			codeAddress = Integer.parseInt(m.group(1), 16);
+		}
+		
+		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
+
+		// Remove the bl placeholder instruction
+		//
+		cl = removeLine(cl);
+
+		cl = addLine(cl, "### START INVOKE INTERFACE ###");
+		cl = addLine(cl, "# Save \"callee\"-save regs");
+		cl = addLine(cl, "\tpush\t{r4-r11}");
+		
+		cl = enterThumb2Mode(context, cl, codeAddress);
+
+		cl = handleArgumentLoading(context, cl, codeAddress, true, "r1");
+		
+		// move v
+		cl = addLine(cl, "\tmov\tr3, r1");
+		// move self
+		cl = addLine(cl, "\tmov\tr4, r2");
+		// load dPCoffset
+		cl = addLine(cl, String.format("\tmov\tr1, #%d", codeAddress));
+		// load vB (method reference)
+		cl = addLine(cl, String.format("\tmov\tr2, #%d", ((InstructionWithReference) instruction).getReferencedItem().getIndex()));
+		// load &predictedChainingCell
+		cl = addLine(cl, String.format(
+				"\tadr\tr5, ChainingCell_T%d_M%#x",
+				context.currentRegionIndex, codeAddress));
+
+		int literalPoolLoc = 0;
+		cl = addLine(cl, "\t# load and call aotInvokeInterface()");
+		literalPoolLoc = curTrace.meta
+				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_INTERFACE);
+
+		cl = addLine(cl, String.format("\tadr\tr6, LiteralPool_T%d",
+				context.currentRegionIndex));
+		cl = addLine(cl,
+				String.format("\tldr\tr6, [r6, #%d]", literalPoolLoc * 4));
+		cl = addLine(cl, "\tblx\tr6");
+
+		cl = addLine(cl, String.format("\tb\tJumpAfter_T%d_A%#x",
+				context.currentRegionIndex, codeAddress));
+
+		cl = addLine(cl, String.format("RaiseException_T%d_A%#x:",
+				context.currentRegionIndex, codeAddress));
+
+		cl = addLine(cl, "\tmov\tr0, #0");
+
+		cl = addLine(cl, String.format("JumpAfter_T%d_A%#x:",
+				context.currentRegionIndex, codeAddress));
+
+		cl = enterArmMode(context, cl, codeAddress);
+
+		cl = addLine(cl, "# Restore \"callee\"-save regs");
+		cl = addLine(cl, "\tpop\t{r4-r11}");
+		cl = addLine(cl, "### END INVOKE INTERFACE ###");
 		
 		return cl;
 	}

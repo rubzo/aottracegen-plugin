@@ -691,7 +691,13 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 72 invoke-interface           
+		// opcode: 72 invoke-interface    
+		case INVOKE_INTERFACE: 
+		{
+			result = String.format("  if (!invoke_interface_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			break;
+		}
+		
 		// opcode: 74 invoke-virtual/range       
 		// opcode: 75 invoke-super/range         
 		// opcode: 76 invoke-direct/range        
