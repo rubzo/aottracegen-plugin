@@ -212,28 +212,35 @@ public class ASMTrace {
 
 	private void emitHandlers(CodeGenContext context) {
 		// Replace all the bl's to exit/exception functions with b's to labels
-		// we'll generate
-		// in the injectable trace.
+		// we'll generate in the injectable trace.
 		//
 		for (int cl = 0; cl < traceBody.size(); cl++) {
 			String line = traceBody.get(cl);
 
 			if (line.contains("invoke_virtual_quick")) {
 				cl = handleInvokeVirtualQuick(context, cl);
+				cl--;
 			} else if (line.contains("invoke_interface")) {
 				cl = handleInvokeInterface(context, cl);
+				cl--;
 			} else if (line.contains("invoke_singleton")) {
 				cl = handleInvokeSingleton(context, cl);
+				cl--;
 			} else if (line.contains("execute_inline")) {
 				cl = handleExecuteInline(context, cl);
+				cl--;
 			} else if (line.contains("single_step")) {
 				cl = handleSingleStep(context, cl);
+				cl--;
 			} else if (line.contains("instanceof")) {
 				cl = handleInstanceof(context, cl);
+				cl--;
 			} else if (line.contains("new_instance")) {
 				cl = handleNewInstance(context, cl);
+				cl--;
 			} else if (line.contains("barrier")) {
 				cl = handleBarrier(context, cl);
+				cl--;
 			}
 			
 		}

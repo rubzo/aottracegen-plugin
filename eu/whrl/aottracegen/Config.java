@@ -78,6 +78,8 @@ public class Config {
 					currentRegion.merges.add(mergeOffset);
 				} else if (line.startsWith("entire")) {
 					currentRegion.entireMethod = true;
+				} else if (line.startsWith("disablefp")) {
+					currentRegion.disableFP = true;
 				} else if (line.startsWith("end_region")) {
 					currentRegion.completed = true;
 					currentRegion = null;

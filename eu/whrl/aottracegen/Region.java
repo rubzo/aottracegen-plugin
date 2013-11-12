@@ -21,6 +21,7 @@ public class Region {
 	
 	public boolean completed = false;
 	
+	public boolean disableFP = false;
 	public boolean entireMethod = false;
 	
 	public EncodedMethod encodedMethod;
