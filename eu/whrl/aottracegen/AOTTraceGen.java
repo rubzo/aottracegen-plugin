@@ -40,6 +40,8 @@ public class AOTTraceGen implements Plugin {
 		
 		MethodLookup lookup = MethodLookup.getMethodLookup();
 		
+		lookup.initClassPath(dexFile);
+		
 		// Add all the methods declared in our original dex file
 		for (ClassDefItem clazz : dexFile.ClassDefsSection.getItems()) {
 			if (clazz.getClassData() != null) {

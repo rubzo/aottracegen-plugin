@@ -195,7 +195,11 @@ public class ITraceGenerator {
 			
 			for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 				if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
-					writer.write(String.format("\t.word ChainingCellValue_T%d_M%#x\n", context.currentRegionIndex, cc.codeAddress));
+					String vtablePrefix = "";
+					if (cc.vtable) {
+						vtablePrefix = "V";
+					}
+					writer.write(String.format("\t.word ChainingCellValue_T%d_M%s%#x\n", context.currentRegionIndex, vtablePrefix, cc.codeAddress));
 				} else if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
 					writer.write(String.format("\t.word ChainingCellValue_T%d_A%#x\n", context.currentRegionIndex, cc.codeAddress));
 				}
@@ -387,7 +391,11 @@ public class ITraceGenerator {
 			} else {
 				String id = String.format("T%d_A%#x", context.currentRegionIndex, cc.codeAddress);
 				if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
-					id = String.format("T%d_M%#x", context.currentRegionIndex, cc.codeAddress);
+					if (cc.vtable) {
+						id = String.format("T%d_MV%#x", context.currentRegionIndex, cc.codeAddress);
+					} else {
+						id = String.format("T%d_M%#x", context.currentRegionIndex, cc.codeAddress);
+					}
 				}
 				writer.write("\t.align 4\n");
 				writer.write(String.format("ChainingCell_%s:\n", id));

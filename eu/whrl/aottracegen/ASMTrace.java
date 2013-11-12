@@ -5,10 +5,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.jf.dexlib.ClassDataItem.EncodedMethod;
+import org.jf.dexlib.MethodIdItem;
 import org.jf.dexlib.Code.FiveRegisterInstruction;
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.OdexedInvokeVirtual;
+import org.jf.dexlib.Code.Analysis.ClassPath;
+import org.jf.dexlib.Code.Analysis.DeodexUtil;
+import org.jf.dexlib.Code.Format.Format;
+import org.jf.dexlib.Code.Format.Instruction35ms;
+
+import eu.whrl.aottracegen.armgen.InstGen;
 
 public class ASMTrace {
 	enum ConditionCode {
@@ -41,6 +48,7 @@ public class ASMTrace {
 
 	public void setTraceBody(List<String> traceBody) {
 		this.traceBody = traceBody;
+		InstGen.setTraceBody(traceBody);
 	}
 
 	/*
@@ -245,36 +253,37 @@ public class ASMTrace {
 			nextOffset = Integer.parseInt(m.group(2), 16);
 		}
 		
-		cl = removeLine(cl);
-		
 		int thisOffsetLPL = curTrace.meta.addLiteralPoolTypeAndValue(
 				LiteralPoolType.DPC_OFFSET, thisOffset);
 		int nextOffsetLPL = curTrace.meta.addLiteralPoolTypeAndValue(
 				LiteralPoolType.DPC_OFFSET, nextOffset);
 		
+		InstGen.setLinePtr(cl);
 		
-		cl = addLine(cl, "\t# Single stepping...");
+		InstGen.removeCurrentLine();
 		
-		cl = addLine(cl, "# Save \"callee\"-save regs");
-		cl = addLine(cl, "\tpush\t{r4-r11}");
+		InstGen.insertComment("Single stepping...");
+		InstGen.insertComment("Save callee-save regs");
 		
-		// restore interp regs
-		cl = addLine(cl, "\tmov\tr5, r1");
-		cl = addLine(cl, "\tmov\tr6, r2");
+		InstGen.stackPush("{r4-r11}");
 		
-		cl = addLine(cl,
-				String.format("\tldr\tr1, [r0, #%d]", nextOffsetLPL * 4));
-		cl = addLine(cl,
-				String.format("\tldr\tr0, [r0, #%d]", thisOffsetLPL * 4));
+		InstGen.insertComment("Restore interpreter regs");
+		InstGen.copyRegister("r5", "r1");
+		InstGen.copyRegister("r6", "r2");
 		
-		cl = addLine(cl, "\tldr\tr2, [r6, #112]");
-		cl = addLine(cl, "\tblx\tr2");
-		cl = addLine(cl, "\t# ...should return here.");
+		InstGen.insertComment("Load dPC for this bytecode and the next");
+		InstGen.memoryRead("r1", "r0", nextOffsetLPL * 4);
+		InstGen.memoryRead("r0", "r0", thisOffsetLPL * 4);
 		
-		cl = addLine(cl, "# Restore \"callee\"-save regs");
-		cl = addLine(cl, "\tpop\t{r4-r11}");
+		InstGen.insertComment("Jump to dvmJitToInterpSingleStep");
+		InstGen.memoryRead("r2", "r6", 112 /* dvmJitToInterpSingleStep */);
+		InstGen.jumpToReg("r2");
+		InstGen.insertComment("...should return here.");
 		
-		return cl;
+		InstGen.insertComment("Restore callee-save regs");
+		InstGen.stackPop("{r4-r11}");
+
+		return InstGen.getLinePtr();
 	}
 	
 	private int handleExecuteInline(CodeGenContext context, int cl) {
@@ -290,52 +299,25 @@ public class ASMTrace {
 			inlineIndex = Integer.parseInt(m.group(1), 16);
 		}
 		
-		cl = removeLine(cl);
-		
 		int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(
 				LiteralPoolType.EXECUTE_INLINE, inlineIndex);
-		cl = addLine(cl, String.format("\tadr\tr2, LiteralPool_T%d",
-				context.currentRegionIndex));
-		cl = addLine(cl,
-				String.format("\tldr\tr2, [r2, #%d]", literalPoolLoc * 4));
-		cl = addLine(cl, "\tblx\tr2");
 		
-		return cl;
-	}
-	
-	private int enterThumb2Mode(CodeGenContext context, int cl, int codeAddress) {
-		if (context.config.armMode) {
-			cl = addLine(cl, "# Must enter Thumb2 execution mode!");
-			cl = addLine(cl, String.format(
-					"\tadr\tr7, Invoke_ThumbCode_T%d_A%#x",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\tadd\tr7, r7, #1");
-			cl = addLine(cl, "\tbx\tr7");
-			cl = addLine(cl, String.format("Invoke_ThumbCode_T%d_A%#x:",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\t.thumb");
-		}
-		return cl;
-	}
-	
-	private int enterArmMode(CodeGenContext context, int cl, int codeAddress) {
-		if (context.config.armMode) {
-			cl = addLine(cl, "# Must enter ARM execution mode!");
-			cl = addLine(cl, String.format(
-					"\tadr\tr7, Invoke_ARMCode_T%d_A%#x",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\tbx\tr7");
-			cl = addLine(cl, String.format("Invoke_ARMCode_T%d_A%#x:",
-					context.currentRegionIndex, codeAddress));
-			cl = addLine(cl, "\t.arm");
-		}
-		return cl;
+		InstGen.setLinePtr(cl);
+		
+		InstGen.removeCurrentLine();
+		
+		InstGen.insertComment("load and call execute-inline");
+		InstGen.loadLabel("r2", String.format("LiteralPool_T%d", context.currentRegionIndex));
+		InstGen.memoryRead("r2", "r2", literalPoolLoc * 4);
+		InstGen.jumpToReg("r2");
+
+		return InstGen.getLinePtr();
 	}
 	
 	private int handleInstanceof(CodeGenContext context, int cl) {
-		Trace curTrace = context.currentRegion.trace;
+		InstGen.setLinePtr(cl);
 		
-		cl = removeLine(cl);
+		InstGen.removeCurrentLine();
 		
 		/* C code ensures the following: */
 		/* r0 contains reference, already null-checked */
@@ -344,36 +326,26 @@ public class ASMTrace {
 		/* call dvmInstanceofNonTrivial */
 		
 		/* function expects r0 to actually be r0->clazz, so get it */
-		cl = addLine(cl, "\tldr\tr0, [r0]");
+		InstGen.memoryRead("r0", "r0", 0);
 		
 		/* note this is a C function, so it will be do the callee-saved regs saving */
-		
-		int literalPoolLoc = 0;
-		cl = addLine(cl, "\t# load and call dvmInstanceofNonTrivial()");
-		literalPoolLoc = curTrace.meta
-				.addLiteralPoolType(LiteralPoolType.CALL_INSTANCEOF_NON_TRIVIAL);
-		cl = addLine(cl, String.format("\tadr\tr2, LiteralPool_T%d",
-				context.currentRegionIndex));
-		cl = addLine(cl,
-				String.format("\tldr\tr2, [r2, #%d]", literalPoolLoc * 4));
-		cl = addLine(cl, "\tblx\tr2");
+		InstGen.jumpToFunction(context, "r2", LiteralPoolType.CALL_INSTANCEOF_NON_TRIVIAL, "dvmInstanceofNonTrivial");
 		
 		/* result will be returned in r0, C code expects this, so carry on! */
-		
-		
-		return cl;
+		return InstGen.getLinePtr();
 	}
 	
 	private int handleBarrier(CodeGenContext context, int cl) {
-		cl = removeLine(cl);
-		cl = addLine(cl, "\tdmb");
-		return cl;
+		InstGen.setLinePtr(cl);
+		InstGen.removeCurrentLine();
+		InstGen.addMemoryBarrier();
+		return InstGen.getLinePtr();
 	}
 	
 	private int handleNewInstance(CodeGenContext context, int cl) {
-		Trace curTrace = context.currentRegion.trace;
+		InstGen.setLinePtr(cl);
 		
-		cl = removeLine(cl);
+		InstGen.removeCurrentLine();
 		
 		/* C code ensures the following: */
 		/* r0 contains class pointer, already null-checked */
@@ -381,25 +353,13 @@ public class ASMTrace {
 		
 		/* call dvmAllocObject */
 		/* note this is a C function, so it will be do the callee-saved regs saving */
-		
-		int literalPoolLoc = 0;
-		cl = addLine(cl, "\t# load and call dvmAllocObject()");
-		literalPoolLoc = curTrace.meta
-				.addLiteralPoolType(LiteralPoolType.CALL_ALLOC_OBJECT);
-		cl = addLine(cl, String.format("\tadr\tr2, LiteralPool_T%d",
-				context.currentRegionIndex));
-		cl = addLine(cl,
-				String.format("\tldr\tr2, [r2, #%d]", literalPoolLoc * 4));
-		cl = addLine(cl, "\tblx\tr2");
+		InstGen.jumpToFunction(context, "r2", LiteralPoolType.CALL_ALLOC_OBJECT, "dvmAllocObject");
 		
 		/* result will be returned in r0, C code expects this, so carry on! */
-		
-		return cl;
+		return InstGen.getLinePtr();
 	}
 	
 	private int handleInvokeInterface(CodeGenContext context, int cl) {
-		Trace curTrace = context.currentRegion.trace;
-
 		String line = traceBody.get(cl);
 
 		int codeAddress = 0;
@@ -412,65 +372,47 @@ public class ASMTrace {
 		
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
 
+		InstGen.setLinePtr(cl);
+		
 		// Remove the bl placeholder instruction
 		//
-		cl = removeLine(cl);
+		InstGen.removeCurrentLine();
 
-		cl = addLine(cl, "### START INVOKE INTERFACE ###");
-		cl = addLine(cl, "# Save \"callee\"-save regs");
-		cl = addLine(cl, "\tpush\t{r4-r11}");
-		
-		cl = enterThumb2Mode(context, cl, codeAddress);
+		InstGen.insertComment("START INVOKE INTERFACE");
+		InstGen.insertComment("Save callee-save regs");
+		InstGen.stackPush("{r4-r11}");
 
-		cl = handleArgumentLoading(context, cl, codeAddress, true, "r1");
+		handleArgumentLoading(context, codeAddress, true, "r1");
 		
 		// move v
-		cl = addLine(cl, "\tmov\tr3, r1");
+		InstGen.copyRegister("r3", "r1");
 		// move self
-		cl = addLine(cl, "\tmov\tr4, r2");
+		InstGen.copyRegister("r4", "r2");
 		// load dPCoffset
-		cl = addLine(cl, String.format("\tmov\tr1, #%d", codeAddress));
+		InstGen.loadConstant("r1", codeAddress);
 		// load vB (method reference)
-		cl = addLine(cl, String.format("\tmov\tr2, #%d", ((InstructionWithReference) instruction).getReferencedItem().getIndex()));
+		InstGen.loadConstant("r2", ((InstructionWithReference) instruction).getReferencedItem().getIndex());
 		// load &predictedChainingCell
-		cl = addLine(cl, String.format(
-				"\tadr\tr5, ChainingCell_T%d_M%#x",
-				context.currentRegionIndex, codeAddress));
-
-		int literalPoolLoc = 0;
-		cl = addLine(cl, "\t# load and call aotInvokeInterface()");
-		literalPoolLoc = curTrace.meta
-				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_INTERFACE);
-
-		cl = addLine(cl, String.format("\tadr\tr6, LiteralPool_T%d",
-				context.currentRegionIndex));
-		cl = addLine(cl,
-				String.format("\tldr\tr6, [r6, #%d]", literalPoolLoc * 4));
-		cl = addLine(cl, "\tblx\tr6");
-
-		cl = addLine(cl, String.format("\tb\tJumpAfter_T%d_A%#x",
-				context.currentRegionIndex, codeAddress));
-
-		cl = addLine(cl, String.format("RaiseException_T%d_A%#x:",
-				context.currentRegionIndex, codeAddress));
-
-		cl = addLine(cl, "\tmov\tr0, #0");
-
-		cl = addLine(cl, String.format("JumpAfter_T%d_A%#x:",
-				context.currentRegionIndex, codeAddress));
-
-		cl = enterArmMode(context, cl, codeAddress);
-
-		cl = addLine(cl, "# Restore \"callee\"-save regs");
-		cl = addLine(cl, "\tpop\t{r4-r11}");
-		cl = addLine(cl, "### END INVOKE INTERFACE ###");
+		InstGen.loadLabel("r5", String.format("ChainingCell_T%d_M%#x", context.currentRegionIndex, codeAddress));
 		
-		return cl;
+		InstGen.jumpToFunction(context, "r6", LiteralPoolType.CALL_AOT_INVOKE_INTERFACE, "dvmCompiler_AOT_INVOKE_INTERFACE");
+		
+		InstGen.jumpToLabel(String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress));
+
+		InstGen.insertLabel(String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
+
+		InstGen.loadConstant("r0", 0);
+
+		InstGen.insertLabel(String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress));
+
+		InstGen.insertComment("Restore callee-save regs");
+		InstGen.stackPop("{r4-r11}");
+		InstGen.insertComment("END INVOKE INTERFACE");
+		
+		return InstGen.getLinePtr();
 	}
 	
 	private int handleInvokeVirtualQuick(CodeGenContext context, int cl) {
-		Trace curTrace = context.currentRegion.trace;
-
 		String line = traceBody.get(cl);
 
 		int codeAddress = 0;
@@ -483,63 +425,46 @@ public class ASMTrace {
 
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
 
+		InstGen.setLinePtr(cl);
+		
 		// Remove the bl placeholder instruction
 		//
-		cl = removeLine(cl);
+		InstGen.removeCurrentLine();
 
-		cl = addLine(cl, "### START INVOKE VIRTUAL QUICK ###");
-		cl = addLine(cl, "# Save \"callee\"-save regs");
-		cl = addLine(cl, "\tpush\t{r4-r11}");
+		InstGen.insertComment("START INVOKE VIRTUAL QUICK");
+		InstGen.insertComment("Save callee-save regs");
+		InstGen.stackPush("{r4-r11}");
+
+		handleArgumentLoading(context, codeAddress, true, "r1");
 		
-		cl = enterThumb2Mode(context, cl, codeAddress);
-
-		cl = handleArgumentLoading(context, cl, codeAddress, true, "r1");
-
 		// r5 now contains object, move it to r0
-		cl = addLine(cl, "\tmov\tr0, r5");
-		
+		InstGen.copyRegister("r0", "r5");
 		// move v
-		cl = addLine(cl, "\tmov\tr3, r1");
+		InstGen.copyRegister("r3", "r1");
 		// move self
-		cl = addLine(cl, "\tmov\tr4, r2");
+		InstGen.copyRegister("r4", "r2");
 		// load dPCoffset
-		cl = addLine(cl, String.format("\tmov\tr1, #%d", codeAddress));
+		InstGen.loadConstant("r1", codeAddress);
 		// load vtable offset
-		cl = addLine(cl, String.format("\tmov\tr2, #%d", ((OdexedInvokeVirtual) instruction).getVtableIndex()));
+		InstGen.loadConstant("r2", ((OdexedInvokeVirtual)instruction).getVtableIndex());
 		// load &predictedChainingCell
-		cl = addLine(cl, String.format(
-				"\tadr\tr5, ChainingCell_T%d_M%#x",
-				context.currentRegionIndex, codeAddress));
+		InstGen.loadLabel("r5", String.format("ChainingCell_T%d_M%#x", context.currentRegionIndex, codeAddress));
 		
-		int literalPoolLoc = 0;
-		cl = addLine(cl, "\t# load and call aotVirtualQuick()");
-		literalPoolLoc = curTrace.meta
-				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_VIRTUAL_QUICK);
+		InstGen.jumpToFunction(context, "r6", LiteralPoolType.CALL_AOT_INVOKE_VIRTUAL_QUICK, "dvmCompiler_AOT_INVOKE_VIRTUAL_QUICK");
+		
+		InstGen.jumpToLabel(String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress));
+		
+		InstGen.insertLabel(String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
 
-		cl = addLine(cl, String.format("\tadr\tr6, LiteralPool_T%d",
-				context.currentRegionIndex));
-		cl = addLine(cl,
-				String.format("\tldr\tr6, [r6, #%d]", literalPoolLoc * 4));
-		cl = addLine(cl, "\tblx\tr6");
-		
-		cl = addLine(cl, String.format("\tb\tJumpAfter_T%d_A%#x",
-				context.currentRegionIndex, codeAddress));
-		
-		cl = addLine(cl, String.format("RaiseException_T%d_A%#x:",
-				context.currentRegionIndex, codeAddress));
-		
-		cl = addLine(cl, "\tmov\tr0, #0");
-		
-		cl = addLine(cl, String.format("JumpAfter_T%d_A%#x:",
-				context.currentRegionIndex, codeAddress));
-		
-		cl = enterArmMode(context, cl, codeAddress);
+		InstGen.loadConstant("r0", 0);
 
-		cl = addLine(cl, "# Restore \"callee\"-save regs");
-		cl = addLine(cl, "\tpop\t{r4-r11}");
-		cl = addLine(cl, "### END INVOKE VIRTUAL QUICK ###");
+		InstGen.insertLabel(String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress));
 
-		return cl;
+		InstGen.insertComment("Restore callee-save regs");
+		InstGen.stackPop("{r4-r11}");
+		InstGen.insertComment("END INVOKE VIRTUAL QUICK");
+		
+		return InstGen.getLinePtr();
 	}
 	
 	private int handleInvokeSingleton(CodeGenContext context, int cl) {
@@ -559,8 +484,19 @@ public class ASMTrace {
 		}
 
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
-		EncodedMethod method = MethodLookup.getMethodLookup().getCalleeMethodFromInstruction(instruction,
-				context);
+		
+		boolean isInvokeSuperQuick = false;
+		EncodedMethod method = null;
+		if (instruction.getFormat() == Format.Format35ms) {
+			isInvokeSuperQuick = true;
+		}
+		
+		if (isInvokeSuperQuick) {
+			method = MethodLookup.getMethodLookup().getSuperQuickMethodFromInstruction(instruction, context); 
+		} else {
+			method = MethodLookup.getMethodLookup().getCalleeMethodFromInstruction(instruction,
+					context);
+		}
 		
 		if ((method.accessFlags & 0x100) != 0 /* native? */) {
 			return handleInvokeSingletonNative(context, cl, codeAddress, method, nullCheckArgs);
@@ -570,141 +506,104 @@ public class ASMTrace {
 	}
 
 	private int handleInvokeSingletonJava(CodeGenContext context, int cl, int codeAddress, EncodedMethod method, boolean nullCheckArgs) {
-		Trace curTrace = context.currentRegion.trace;
-
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
-		int methodIndex = ((InstructionWithReference) instruction)
-				.getReferencedItem().getIndex();
+		int methodIndex = 0;
+		String vtablePrefix = "";
+		if (instruction.getFormat() == Format.Format35ms) {
+			methodIndex = ((Instruction35ms) instruction).getVtableIndex();
+			vtablePrefix = "V";
+		} else {
+			methodIndex = ((InstructionWithReference) instruction)
+					.getReferencedItem().getIndex();
+		}
 
+		InstGen.setLinePtr(cl);
+		
 		// Remove the bl placeholder instruction
 		//
-		cl = removeLine(cl);
+		InstGen.removeCurrentLine();
 
-		cl = addLine(cl, "### START INVOKE SINGLETON (JAVA) ###");
-		cl = addLine(cl, "# Save \"callee\"-save regs");
-		cl = addLine(cl, "\tpush\t{r4-r11}");
-
-		cl = enterThumb2Mode(context, cl, codeAddress);
+		InstGen.insertComment("START INVOKE SINGLETON (JAVA)");
+		InstGen.insertComment("Save callee-save regs");
+		InstGen.stackPush("{r4-r11}");
 		
-		cl = handleArgumentLoading(context, cl, codeAddress, nullCheckArgs, "r2");
+		handleArgumentLoading(context, codeAddress, nullCheckArgs, "r2");
 
-		int literalPoolLoc = 0;
-		cl = addLine(cl, "\t# load and call aotInvokeSingleton()");
-		literalPoolLoc = curTrace.meta
-				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_JAVA);
-		cl = addLine(cl, String.format(
-				"\tadr\tr4, ChainingCell_T%d_M%#x",
-				context.currentRegionIndex, methodIndex));
-
-		cl = addLine(cl, String.format("\tadr\tr5, LiteralPool_T%d",
-				context.currentRegionIndex));
-		cl = addLine(cl,
-				String.format("\tldr\tr5, [r5, #%d]", literalPoolLoc * 4));
-		cl = addLine(cl, "\tblx\tr5");
+		InstGen.loadLabel("r4", String.format("ChainingCell_T%d_M%s%#x", context.currentRegionIndex, vtablePrefix, methodIndex));
 		
-		cl = enterArmMode(context, cl, codeAddress);
+		InstGen.jumpToFunction(context, "r5", LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_JAVA, "dvmCompiler_AOT_INVOKE_SINGLETON_JAVA");
 
-		cl = addLine(cl, "# Restore \"callee\"-save regs");
-		cl = addLine(cl, "\tpop\t{r4-r11}");
-		cl = addLine(cl, "### END INVOKE SINGLETON (JAVA) ###");
-		cl = addLine(cl, "# (success or EH check comes next...)");
-
-		return cl;
+		InstGen.insertComment("Restore callee-save regs");
+		InstGen.stackPop("{r4-r11}");
+		InstGen.insertComment("END INVOKE SINGLETON (JAVA)");
+		
+		return InstGen.getLinePtr();
 	}
 	
 	private int handleInvokeSingletonNative(CodeGenContext context, int cl, int codeAddress, EncodedMethod method, boolean nullCheckArgs) {
-		Trace curTrace = context.currentRegion.trace;
-
+		InstGen.setLinePtr(cl);
+		
 		// Remove the bl placeholder instruction
 		//
-		cl = removeLine(cl);
+		InstGen.removeCurrentLine();
 
-		cl = addLine(cl, "### START INVOKE SINGLETON (NATIVE) ###");
-		cl = addLine(cl, "# Save \"callee\"-save regs");
-		cl = addLine(cl, "\tpush\t{r4-r11}");
+		InstGen.insertComment("START INVOKE SINGLETON (NATIVE)");
+		InstGen.insertComment("Save callee-save regs");
+		InstGen.stackPush("{r4-r11}");
+	
+		handleArgumentLoading(context, codeAddress, nullCheckArgs, "r2");
+
+		InstGen.jumpToFunction(context, "r5", LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_NATIVE, "dvmCompiler_AOT_INVOKE_SINGLETON_NATIVE");
 		
-		cl = enterThumb2Mode(context, cl, codeAddress);
-
-		cl = handleArgumentLoading(context, cl, codeAddress, nullCheckArgs, "r2");
-
-		int literalPoolLoc = 0;
-		cl = addLine(cl, "# load and call aotInvokeSingletonNative()");
-		literalPoolLoc = curTrace.meta
-				.addLiteralPoolType(LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_NATIVE);
-
-		cl = addLine(cl, String.format("\tadr\tr5, LiteralPool_T%d",
-				context.currentRegionIndex));
-		cl = addLine(cl,
-				String.format("\tldr\tr5, [r5, #%d]", literalPoolLoc * 4));
-		cl = addLine(cl, "\tblx\tr5");
-
-		cl = enterArmMode(context, cl, codeAddress);
+		InstGen.insertComment("Restore callee-save regs");
+		InstGen.stackPop("{r4-r11}");
+		InstGen.insertComment("END INVOKE SINGLETON (NATIVE)");
 		
-		cl = addLine(cl, "# Restore \"callee\"-save regs");
-		cl = addLine(cl, "\tpop\t{r4-r11}");
-		cl = addLine(cl, "### END INVOKE SINGLETON (NATIVE) ###");
-		cl = addLine(cl, "# (success or EH check comes next...)");
-
-		return cl;
+		return InstGen.getLinePtr();
 	}
 
-	private int handleArgumentLoading(CodeGenContext context, int cl,
-			int codeAddress, boolean nullCheck, String fpReg) {
+	private void handleArgumentLoading(CodeGenContext context, int codeAddress, boolean nullCheck, String fpReg) {
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
 
-		cl = addLine(cl, "# begin arg loading");
+		InstGen.insertComment("Begin argument loading");
 		int regCount = ((FiveRegisterInstruction) instruction).getRegCount();
 
 		if (regCount > 0) {
-			cl = addLine(cl, String.format("\tldr\tr5, [%s, #%d]", fpReg,
-					((FiveRegisterInstruction) instruction).getRegisterD() * 4));
+			InstGen.memoryRead("r5", fpReg, ((FiveRegisterInstruction) instruction).getRegisterD() * 4);
 		}
 		if (regCount > 1) {
-			cl = addLine(cl, String.format("\tldr\tr6, [%s, #%d]", fpReg,
-					((FiveRegisterInstruction) instruction).getRegisterE() * 4));
+			InstGen.memoryRead("r6", fpReg, ((FiveRegisterInstruction) instruction).getRegisterE() * 4);
 		}
 		if (regCount > 2) {
-			cl = addLine(cl, String.format("\tldr\tr7, [%s, #%d]", fpReg,
-					((FiveRegisterInstruction) instruction).getRegisterF() * 4));
+			InstGen.memoryRead("r7", fpReg, ((FiveRegisterInstruction) instruction).getRegisterF() * 4);
 		}
 		if (regCount > 3) {
-			cl = addLine(cl, String.format("\tldr\tr8, [%s, #%d]", fpReg,
-					((FiveRegisterInstruction) instruction).getRegisterG() * 4));
+			InstGen.memoryRead("r8", fpReg, ((FiveRegisterInstruction) instruction).getRegisterG() * 4);
 		}
 		if (regCount > 4) {
-			cl = addLine(cl, String.format("\tldr\tr9, [%s, #%d]", fpReg,
-					((FiveRegisterInstruction) instruction).getRegisterA() * 4));
+			InstGen.memoryRead("r9", fpReg, ((FiveRegisterInstruction) instruction).getRegisterA() * 4);
 		}
 
-		cl = addLine(
-				cl,
-				String.format(
-						"\tsub\tr10, %s, #%d",
-						fpReg,
-						20 /* size of StackSaveArea */+ ((FiveRegisterInstruction) instruction)
-						.getRegCount() * 4));
+		InstGen.doMath("sub", "r10", fpReg, 20 /* size of StackSaveArea */+ ((FiveRegisterInstruction) instruction).getRegCount() * 4);
 
 		if (regCount > 0) {
 			if (nullCheck) {
-				cl = addLine(cl, "# null-check (method is not static)");
-				cl = addLine(cl, "\tcmp\tr5, #0");
-				cl = addLine(cl, String.format("\tbeq\tRaiseException_T%d_A%#x",
-						context.currentRegionIndex, codeAddress));
+				InstGen.insertComment("null-check (method is not static)");
+				InstGen.doComparisonAndJump("eq", "r5", 0, String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
 			}
 
-			String argsToPush = "";
+			String argsToPush = "{";
 			for (int i = 0; i < regCount; i++) {
 				argsToPush += String.format("r%d", i + 5);
 				if (i != (regCount - 1)) {
 					argsToPush += ",";
 				}
 			}
+			argsToPush += "}";
 
-			cl = addLine(cl, String.format("\tstmia\tr10, {%s}", argsToPush));
+			InstGen.memoryWriteMultiple("r10", argsToPush);
 		}
-		cl = addLine(cl, "  # end arg loading");
-
-		return cl;
+		InstGen.insertComment("Finish argument loading");
 	}
 
 	private int removeLine(int cl) {

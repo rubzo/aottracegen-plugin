@@ -289,7 +289,7 @@ public class BytecodeToCConverter {
 			
 			result  = "  {\n";
 			result += String.format("    if (!instanceof_%2$#x(v[%1$d], lit[%3$d])) TRACE_EXCEPTION(%2$#x);\n", vA, codeAddress, literalPoolLoc);
-			result += "  }\n";
+			result += "  }";
 
 			break;
 		}
@@ -307,7 +307,7 @@ public class BytecodeToCConverter {
 			result  = "  {\n";
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
 			result += String.format("    v[%d] = instanceof_%#x(v[%d], lit[%d]);\n", vA, codeAddress, vB, literalPoolLoc);
-			result += "  }\n";
+			result += "  }";
 
 			break;
 		}
@@ -323,7 +323,7 @@ public class BytecodeToCConverter {
 			result  = "  {\n";
 			result += String.format("    v[%d] = new_instance_%#x(lit[%d], 1 /*ALLOC_DONT_TRACK*/);\n", vA, codeAddress, literalPoolLoc);
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vA, codeAddress);
-			result += "  }\n";
+			result += "  }";
 			break;
 		}
 		
@@ -696,6 +696,12 @@ public class BytecodeToCConverter {
 		
 		// opcode: 69 sput-object                
 		// opcode: 6a sput-boolean               
+		case SPUT_BOOLEAN:
+		{
+			result = emitStaticPut(codeAddress, curTrace, instruction, "char");
+			break;
+		}
+		
 		// opcode: 6b sput-byte                  
 		// opcode: 6c sput-char                  
 		// opcode: 6d sput-short                 
@@ -1548,7 +1554,7 @@ public class BytecodeToCConverter {
 			int vtableIndex = ((OdexedInvokeVirtual) instruction).getVtableIndex();
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.SUPERQUICK_METHOD, vtableIndex);
 			if (!curTrace.meta.chainingCells.containsKey(vtableIndex)) {
-				curTrace.meta.chainingCells.put(vtableIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, vtableIndex)));
+				curTrace.meta.chainingCells.put(vtableIndex, new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, vtableIndex, true));
 			}
 			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
 			break;
@@ -1702,7 +1708,7 @@ public class BytecodeToCConverter {
 		if (type.equals("long long")) {
 			return String.format("  *((%s*) lit[%d]) = *((long long*) (v + %d));", type, literalPoolLoc, vA);
 		}
-		return String.format("  (int) *((%s*) lit[%d]) = v[%d];", type, literalPoolLoc, vA);
+		return String.format("  *((%1$s*) lit[%2$d]) = ((%1$s) v[%3$d]);", type, literalPoolLoc, vA);
 	}
 	
 	private String emitIntArith(int codeAddress, Trace curTrace, Instruction instruction, String op) {
