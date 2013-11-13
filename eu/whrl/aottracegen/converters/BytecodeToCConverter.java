@@ -262,6 +262,7 @@ public class BytecodeToCConverter {
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STRING_POINTER, stringIndex);
 
 			result = String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
+			break;
 		}
 		
 		// opcode: 1b const-string/jumbo
@@ -273,6 +274,7 @@ public class BytecodeToCConverter {
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STRING_POINTER, stringIndex);
 
 			result = String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
+			break;
 		}
 		
 		// opcode: 1c const-class                
