@@ -25,7 +25,7 @@ public class CTraceGenerator {
 	// Section where we define...
 	//
 	
-	private static Set<Opcode> opcodesThatCanReturn;
+	public static Set<Opcode> opcodesThatCanReturn;
 	static {
 		opcodesThatCanReturn = new TreeSet<Opcode>();
 		opcodesThatCanReturn.add(Opcode.RETURN);
@@ -71,6 +71,7 @@ public class CTraceGenerator {
 		opcodesThatThrowExceptions.add(Opcode.INSTANCE_OF);
 		opcodesThatThrowExceptions.add(Opcode.NEW_INSTANCE);
 		opcodesThatThrowExceptions.add(Opcode.CHECK_CAST);
+		opcodesThatThrowExceptions.add(Opcode.ARRAY_LENGTH);
 		
 		// ...
 	}

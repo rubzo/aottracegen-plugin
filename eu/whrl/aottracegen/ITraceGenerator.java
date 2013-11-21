@@ -195,11 +195,9 @@ public class ITraceGenerator {
 			
 			for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 				if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
-					String vtablePrefix = "";
-					if (cc.vtable) {
-						vtablePrefix = "V";
-					}
-					writer.write(String.format("\t.word ChainingCellValue_T%d_M%s%#x\n", context.currentRegionIndex, vtablePrefix, cc.codeAddress));
+					writer.write(String.format("\t.word ChainingCellValue_T%d_M%#x\n", context.currentRegionIndex, cc.codeAddress));
+				} else if (cc.type == ChainingCell.Type.INVOKE_SUPER_SINGLETON) {
+					writer.write(String.format("\t.word ChainingCellValue_T%d_MV%#x\n", context.currentRegionIndex, cc.codeAddress));
 				} else if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
 					writer.write(String.format("\t.word ChainingCellValue_T%d_A%#x\n", context.currentRegionIndex, cc.codeAddress));
 				}
@@ -269,7 +267,8 @@ public class ITraceGenerator {
 		int jumpsProduced = 0;
 		int previousCodeAddress = 0;
 		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
-			if (cc.type == ChainingCell.Type.INVOKE_SINGLETON || cc.type == ChainingCell.Type.INVOKE_PREDICTED) {
+			if (cc.type == ChainingCell.Type.INVOKE_SINGLETON || cc.type == ChainingCell.Type.INVOKE_SUPER_SINGLETON ||
+					cc.type == ChainingCell.Type.INVOKE_PREDICTED) {
 				continue;
 			}
 			
@@ -391,18 +390,17 @@ public class ITraceGenerator {
 			} else {
 				String id = String.format("T%d_A%#x", context.currentRegionIndex, cc.codeAddress);
 				if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
-					if (cc.vtable) {
-						id = String.format("T%d_MV%#x", context.currentRegionIndex, cc.codeAddress);
-					} else {
-						id = String.format("T%d_M%#x", context.currentRegionIndex, cc.codeAddress);
-					}
+					id = String.format("T%d_M%#x", context.currentRegionIndex, cc.codeAddress);
+				} else if (cc.type == ChainingCell.Type.INVOKE_SUPER_SINGLETON) {
+					id = String.format("T%d_MV%#x", context.currentRegionIndex, cc.codeAddress);
 				}
 				writer.write("\t.align 4\n");
 				writer.write(String.format("ChainingCell_%s:\n", id));
 				writer.write(String.format("\tb.n\tChainingCellNext_%s\n", id));
 				writer.write("\torrs\tr0, r0\n");
 				writer.write(String.format("ChainingCellNext_%s:\n", id));
-				if (cc.type == ChainingCell.Type.HOT || cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
+				if (cc.type == ChainingCell.Type.HOT || cc.type == ChainingCell.Type.INVOKE_SINGLETON || 
+						cc.type == ChainingCell.Type.INVOKE_SUPER_SINGLETON) {
 					writer.write("\tldr\tr0, [r6, #116]\n");
 				} else if (cc.type == ChainingCell.Type.BACKWARD_BRANCH) {
 					writer.write("\tldr\tr0, [r6, #100]\n"); // I thought this was 120, not 100?

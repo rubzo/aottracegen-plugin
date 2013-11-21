@@ -9,12 +9,14 @@ import org.jf.dexlib.Code.OdexedFieldAccess;
 import org.jf.dexlib.Code.OdexedInvokeInline;
 import org.jf.dexlib.Code.OdexedInvokeVirtual;
 import org.jf.dexlib.Code.OffsetInstruction;
+import org.jf.dexlib.Code.Opcode;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
 import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction;
 import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction.PackedSwitchTarget;
 
+import eu.whrl.aottracegen.CTraceGenerator;
 import eu.whrl.aottracegen.ChainingCell;
 import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.LiteralPoolType;
@@ -24,7 +26,9 @@ import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
 public class BytecodeToCConverter {
 	
 	private static final int offsetThreadReturn = 16; 
-	private static final int offsetThreadException = 68; 
+	private static final int offsetThreadException = 68;
+	
+	private static final int offsetArrayObjectLength = 8;
 	
 	private CodeGenContext context;
 	
@@ -43,6 +47,11 @@ public class BytecodeToCConverter {
 		String result = "";
 		
 		Trace curTrace = context.currentRegion.trace;
+		
+		// potentially override with single stepping
+		if (context.currentRegion.singleStepOnly && !CTraceGenerator.opcodesThatCanReturn.contains(instruction.opcode)) {
+			return emitSingleStep(codeAddress, curTrace, instruction);
+		}
 		
 		switch (instruction.opcode) {
 		
@@ -313,7 +322,19 @@ public class BytecodeToCConverter {
 
 			break;
 		}
-		// opcode: 21 array-length               
+		// opcode: 21 array-length     
+		case ARRAY_LENGTH:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			
+			result  = "  {\n";
+			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
+			result += String.format("    v[%d] = *((int*) ( ((char*) v[%d]) + %d ));", vA, vB, offsetArrayObjectLength);
+			result += "  }";
+			break;
+		}
+		
 		// opcode: 22 new-instance        
 		case NEW_INSTANCE:
 		{
@@ -423,7 +444,25 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 30 cmpg-double                
+		// opcode: 30 cmpg-double
+		case CMPG_DOUBLE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+			
+			result = String.format(
+			"  {\n" +
+			"    double value1 = *((double*) (v + %1$d));\n" +
+			"    double value2 = *((double*) (v + %2$d));\n" +
+			"    if (value1 == value2) { v[%3$d] = 0; }\n" +
+			"    else if (value1 < value2) { v[%3$d] = -1; }\n" +
+			"    else { v[%3$d] = 1; }\n" +
+			"  }", vB, vC, vA);
+					
+			break;
+		}
+		
 		// opcode: 31 cmp-long    
 		case CMP_LONG:
 		{
@@ -688,7 +727,13 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 67 sput                       
+		// opcode: 67 sput
+		case SPUT:
+		{
+			result = emitStaticPut(codeAddress, curTrace, instruction, "int");
+			break;
+		}
+		
 		// opcode: 68 sput-wide
 		case SPUT_WIDE:
 		{
@@ -696,7 +741,13 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 69 sput-object                
+		// opcode: 69 sput-object   
+		case SPUT_OBJECT:
+		{
+			result = emitStaticPut(codeAddress, curTrace, instruction, "int");
+			break;
+		}
+		
 		// opcode: 6a sput-boolean               
 		case SPUT_BOOLEAN:
 		{
@@ -1553,12 +1604,15 @@ public class BytecodeToCConverter {
 		// opcode: fa +invoke-super-quick  
 		case INVOKE_SUPER_QUICK: 
 		{
+			/*
 			int vtableIndex = ((OdexedInvokeVirtual) instruction).getVtableIndex();
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.SUPERQUICK_METHOD, vtableIndex);
 			if (!curTrace.meta.chainingCells.containsKey(vtableIndex)) {
-				curTrace.meta.chainingCells.put(vtableIndex, new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, vtableIndex, true));
+				curTrace.meta.chainingCells.put(vtableIndex, new ChainingCell(ChainingCell.Type.INVOKE_SUPER_SINGLETON, vtableIndex));
 			}
 			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			*/
+			result = emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		

@@ -128,12 +128,13 @@ public class ITraceDescGenerator {
 			if (cc.type == ChainingCell.Type.INVOKE_SINGLETON) {
 				writer.write(String.format("chaining_cell_singleton_method %d %#x\n", i, cc.codeAddress));
 				i++;
+			} else if (cc.type == ChainingCell.Type.INVOKE_SUPER_SINGLETON) {
+				writer.write(String.format("chaining_cell_super_singleton_method %d %#x\n", i, cc.codeAddress));
+				i++;
 			} else if (cc.type != ChainingCell.Type.INVOKE_PREDICTED) {
 				writer.write(String.format("chaining_cell %d %#x\n", i, cc.codeAddress));
 				i++;
 			}
-			
-			
 		}
 	}
 
