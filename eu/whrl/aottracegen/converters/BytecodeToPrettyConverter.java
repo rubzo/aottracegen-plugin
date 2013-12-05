@@ -46,9 +46,6 @@ public class BytecodeToPrettyConverter {
 		// opcode: 00 nop   
 		case NOP:
 		{
-			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
-			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
-			
 			result += "nop";
 			break;
 		}
@@ -297,9 +294,39 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 1a const-string               
+		// opcode: 1a const-string
+		case CONST_STRING:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int string = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.getLiteralPoolLocationForTypeAndValue(LiteralPoolType.STRING_POINTER, string);
+			if (literalPoolLoc == -1) {
+				literalPoolLoc = curTrace.meta.literalPoolSize;
+			}
+
+			result += String.format("const-string v%d, string@%#x (lit pool idx: %d)",
+					vA, string, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 1b const-string/jumbo         
-		// opcode: 1c const-class                
+		// opcode: 1c const-class         
+		case CONST_CLASS:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int clazz = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.getLiteralPoolLocationForTypeAndValue(LiteralPoolType.CLASS_POINTER, clazz);
+			if (literalPoolLoc == -1) {
+				literalPoolLoc = curTrace.meta.literalPoolSize;
+			}
+
+			result += String.format("const-class v%d, class@%#x (lit pool idx: %d)",
+					vA, clazz, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 1d monitor-enter              
 		// opcode: 1e monitor-exit               
 		// opcode: 1f check-cast
@@ -336,7 +363,22 @@ public class BytecodeToPrettyConverter {
 		}
 		
 		// opcode: 21 array-length               
-		// opcode: 22 new-instance  		
+		// opcode: 22 new-instance  
+		case NEW_INSTANCE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int clazz = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.getLiteralPoolLocationForTypeAndValue(LiteralPoolType.CLASS_POINTER, clazz);
+			if (literalPoolLoc == -1) {
+				literalPoolLoc = curTrace.meta.literalPoolSize;
+			}
+
+			result += String.format("new-instance v%d, class@%#x (lit pool idx: %d)",
+					vA, clazz, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 23 new-array                  
 		// opcode: 24 filled-new-array           
 		// opcode: 25 filled-new-array/range     
@@ -381,7 +423,15 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 2c sparse-switch              
+		// opcode: 2c sparse-switch  
+		case SPARSE_SWITCH:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			
+			result += String.format("sparse-switch v%d", vA);
+			break;
+		}
+		
 		// opcode: 2d cmpl-float 
 		case CMPL_FLOAT:
 		{
@@ -394,7 +444,18 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 2e cmpg-float                 
+		// opcode: 2e cmpg-float     
+		case CMPG_FLOAT:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("cmpg-float v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 2f cmpl-double  
 		case CMPL_DOUBLE:
 		{
@@ -407,7 +468,18 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 30 cmpg-double                
+		// opcode: 30 cmpg-double
+		case CMPG_DOUBLE:
+		{
+			int vA = ((ThreeRegisterInstruction)instruction).getRegisterA();
+			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
+			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
+
+			result += String.format("cmpg-double v%d, v%d, v%d",
+					vA, vB, vC);
+			break;
+		}
+		
 		// opcode: 31 cmp-long    
 		case CMP_LONG:
 		{
@@ -843,7 +915,19 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 67 sput                       
+		// opcode: 67 sput  
+		case SPUT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sput v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 68 sput-wide
 		case SPUT_WIDE:
 		{
@@ -857,11 +941,71 @@ public class BytecodeToPrettyConverter {
 			break;
 		}
 		
-		// opcode: 69 sput-object                
-		// opcode: 6a sput-boolean               
-		// opcode: 6b sput-byte                  
-		// opcode: 6c sput-char                  
-		// opcode: 6d sput-short                 
+		// opcode: 69 sput-object       
+		case SPUT_OBJECT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sput-object v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
+		// opcode: 6a sput-boolean
+		case SPUT_BOOLEAN:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sput-boolean v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
+		// opcode: 6b sput-byte
+		case SPUT_BYTE:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sput-byte v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
+		// opcode: 6c sput-char               
+		case SPUT_CHAR:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sput-char v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
+		// opcode: 6d sput-short
+		case SPUT_SHORT:
+		{
+			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
+			int field = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.literalPoolSize;
+			
+			result += String.format("sput-short v%d, field@%#x (lit pool idx: %d)",
+					 vA, field, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 6e invoke-virtual             
 		// opcode: 6f invoke-super               
 		// opcode: 70 invoke-direct    

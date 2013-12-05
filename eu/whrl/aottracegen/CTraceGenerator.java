@@ -227,10 +227,14 @@ public class CTraceGenerator {
 	 * Emit the comment, label and actual C for the given instruction.
 	 */
 	private void emitForCodeAddress(int codeAddress) throws IOException, UnimplementedInstructionException {
-		writer.write(stringConverter.convert(context, codeAddress));
-		writer.write(String.format("  __L%#x:\n", codeAddress));
-		writer.write(converter.convert(context, codeAddress));
-		writer.write("\n");
+		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
+		
+		if (instruction.opcode != Opcode.NOP) {
+			writer.write(stringConverter.convert(context, codeAddress));
+			writer.write(String.format("  __L%#x:\n", codeAddress));
+			writer.write(converter.convert(context, codeAddress));
+			writer.write("\n");
+		}
 	}
 	
 	/*
