@@ -9,9 +9,12 @@ public class ArmInstParser {
 	private static Pattern regexArmInstOpMultiple;
 	private static Pattern regexArmInstOpR;
 	private static Pattern regexArmInstOpRR;
+	private static Pattern regexArmInstOpRRI;
 	private static Pattern regexArmInstOpRI;
 	private static Pattern regexArmInstOpRM;
 	private static Pattern regexArmInstOpRMO;
+	private static Pattern regexArmInstOpRL;
+	private static Pattern regexArmInstOpL;
 
 	static {
 		regexArmInstPseudoLabel = Pattern.compile("^([^\\s]+?):$");
@@ -19,13 +22,20 @@ public class ArmInstParser {
 		regexArmInstOpMultiple = Pattern.compile("^([^\\s]+)[^\\{]+\\{([^\\}]+?)\\}$");
 		regexArmInstOpR = Pattern.compile("^([^\\s]+?) ([^\\s]+?)$");
 		regexArmInstOpRR = Pattern.compile("^([^\\s]+?) ([^\\s]+?), ([^\\s]+?)$");
+		regexArmInstOpRRI = Pattern.compile("^([^\\s]+?) ([^\\s]+?), ([^\\s]+?), #(-?\\d+?)$");
 		regexArmInstOpRI = Pattern.compile("^([^\\s]+?) ([^\\s]+?), #(-?\\d+?)$");
 		regexArmInstOpRM = Pattern.compile("^([^\\s]+?) ([^\\s]+?), \\[([^\\s]+?)\\]$");
 		regexArmInstOpRMO = Pattern.compile("^([^\\s]+?) ([^\\s]+?), \\[([^\\s]+?), #(-?\\d+?)\\]$");
+		regexArmInstOpL = Pattern.compile("^([^\\s]+?) ([^\\s]+?)$");
+		regexArmInstOpRL = Pattern.compile("^([^\\s]+?) ([^\\s]+?), ([^\\s]+?)$");
 	}
 
-	private static ArmRegister readReg(String reg) {
+	private static ArmRegister readReg(String reg) throws NotParsableException {
+		try {
 			return ArmRegister.valueOf(reg.trim());
+		} catch (IllegalArgumentException e) {
+			throw new NotParsableException();
+		}
 	}
 
 	private static int readImm(String imm) {
@@ -47,7 +57,13 @@ public class ArmInstParser {
 		catch (NotParsableException e) {}
 		try { return parseArmInstOpRMO(line); } 
 		catch (NotParsableException e) {}
+		try { return parseArmInstOpRRI(line); } 
+		catch (NotParsableException e) {}
 		try { return parseArmInstOpRR(line); } 
+		catch (NotParsableException e) {}
+		try { return parseArmInstOpL(line); } 
+		catch (NotParsableException e) {}
+		try { return parseArmInstOpRL(line); } 
 		catch (NotParsableException e) {}
 
 		throw new NotParsableException();
@@ -82,6 +98,16 @@ public class ArmInstParser {
 		System.out.println("PARSE: OpR: " + line);
 		return newInst;
 	}
+	
+	private static ArmInst parseArmInstOpL(String line) throws NotParsableException {
+		Matcher match = regexArmInstOpL.matcher(line);
+		if (!match.find()) {
+			throw new NotParsableException();
+		}
+		ArmInstOpL newInst = new ArmInstOpL(match.group(1), match.group(2));
+		System.out.println("PARSE: OpL: " + line);
+		return newInst;
+	}
 
 	private static ArmInst parseArmInstOpRR(String line) throws NotParsableException {
 		Matcher match = regexArmInstOpRR.matcher(line);
@@ -90,6 +116,26 @@ public class ArmInstParser {
 		}
 		ArmInstOpRR newInst = new ArmInstOpRR(match.group(1), readReg(match.group(2)), readReg(match.group(3)));
 		System.out.println("PARSE: OpRR: " + line);
+		return newInst;
+	}
+	
+	private static ArmInst parseArmInstOpRL(String line) throws NotParsableException {
+		Matcher match = regexArmInstOpRL.matcher(line);
+		if (!match.find()) {
+			throw new NotParsableException();
+		}
+		ArmInstOpRL newInst = new ArmInstOpRL(match.group(1), readReg(match.group(2)), match.group(3));
+		System.out.println("PARSE: OpRL: " + line);
+		return newInst;
+	}
+
+	private static ArmInst parseArmInstOpRRI(String line) throws NotParsableException {
+		Matcher match = regexArmInstOpRRI.matcher(line);
+		if (!match.find()) {
+			throw new NotParsableException();
+		}
+		ArmInstOpRRI newInst = new ArmInstOpRRI(match.group(1), readReg(match.group(2)), readReg(match.group(3)), readImm(match.group(4)));
+		System.out.println("PARSE: OpRRI: " + line);
 		return newInst;
 	}
 
