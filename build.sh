@@ -7,6 +7,6 @@ if [ ! -e "$BAKSMALI_JAR" ]; then
 	exit 1
 fi
 
-javac -cp $BAKSMALI_JAR eu/whrl/aottracegen/*.java eu/whrl/aottracegen/*/*.java
-jar -cf aottracegen-plugin.jar eu/whrl/aottracegen/*.class eu/whrl/aottracegen/*/*.class
+find . -iname "*.java" | xargs javac -cp $BAKSMALI_JAR 
+find . -iname "*.class" | xargs jar -cf aottracegen-plugin.jar 
 echo "Created aottracegen-plugin.jar"

@@ -66,7 +66,8 @@ public class ITraceGenerator {
 				}
 				
 				if (inTraceBody) {
-					traceBody.add(line);
+					String trimmedLine = line.trim().replaceAll("\\s+", " ");
+					traceBody.add(trimmedLine);
 				}
 				
 				if (line.equals(startMarker)) {

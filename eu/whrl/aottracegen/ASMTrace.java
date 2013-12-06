@@ -16,6 +16,7 @@ import org.jf.dexlib.Code.Format.Format;
 import org.jf.dexlib.Code.Format.Instruction35ms;
 
 import eu.whrl.aottracegen.armgen.InstGen;
+import eu.whrl.aottracegen.armgen.InstRead;
 
 public class ASMTrace {
 	enum ConditionCode {
@@ -49,6 +50,8 @@ public class ASMTrace {
 	public void setTraceBody(List<String> traceBody) {
 		this.traceBody = traceBody;
 		InstGen.setTraceBody(traceBody);
+		InstRead.parse(traceBody);
+		System.exit(1);
 	}
 
 	/*
