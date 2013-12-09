@@ -11,16 +11,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import eu.whrl.aottracegen.armgen.AssemblyBlob;
 import eu.whrl.aottracegen.exceptions.ITraceGeneratorFaultException;
 
 public class ITraceGenerator {
-	private List<ASMTrace> asmTraces;
+	private List<AssemblyBlob> assemblyBlobs;
 	
 	private boolean prepared;
 	private FileWriter writer;
 
 	public ITraceGenerator() {
-		asmTraces = new ArrayList<ASMTrace>();
+		assemblyBlobs = new ArrayList<AssemblyBlob>();
 	}
 	
 	public void loadAsmFiles(CodeGenContext context, String[] asmFileNames) throws ITraceGeneratorFaultException {
@@ -34,22 +35,20 @@ public class ITraceGenerator {
 	}
 
 	private void loadAsmFile(CodeGenContext context, String asmFileName) throws ITraceGeneratorFaultException {
-		ASMTrace asmTrace = new ASMTrace();
-	
-		asmTrace.setTraceBody(extractTraceBody(context, asmFileName));
-		asmTrace.cleanupTrace(context);
-		asmTraces.add(asmTrace);
+		AssemblyBlob assemblyBlob = new AssemblyBlob(extractInsts(context, asmFileName));
+		assemblyBlob.cleanup(context);
+		assemblyBlobs.add(assemblyBlob);
 	}
 
 	/*
 	 * Given a filename of a generated .S file, extracts solely the body of the 'trace' function,
 	 * and returns this body as an array of strings, one string for each line.
 	 */
-	private List<String> extractTraceBody(CodeGenContext context, String asmFileName) throws ITraceGeneratorFaultException {
+	private List<String> extractInsts(CodeGenContext context, String asmFileName) throws ITraceGeneratorFaultException {
 		final String startMarker = "trace:";
 		final String endMarker = "\t.size\ttrace, .-trace";
 		
-		List<String> traceBody = new ArrayList<String>();
+		List<String> instsList = new ArrayList<String>();
 		
 		try {
 			File file = new File(asmFileName);
@@ -67,14 +66,11 @@ public class ITraceGenerator {
 				
 				if (inTraceBody) {
 					String trimmedLine = line.trim().replaceAll("\\s+", " ");
-					traceBody.add(trimmedLine);
+					instsList.add(trimmedLine);
 				}
 				
 				if (line.equals(startMarker)) {
 					inTraceBody = true;
-					// Skip past the two @ lines...
-					buff.readLine();
-					buff.readLine();
 				}
 			}
 			
@@ -87,7 +83,7 @@ public class ITraceGenerator {
 			throw new ITraceGeneratorFaultException();
 		}
 		
-		return traceBody;
+		return instsList;
 	}
 
 	public void prepare(String name) throws ITraceGeneratorFaultException {
@@ -216,7 +212,7 @@ public class ITraceGenerator {
 	
 	private void emitTrace(CodeGenContext context) throws IOException {
 		Trace curTrace = context.currentRegion.trace;
-		ASMTrace curAsmTrace = asmTraces.get(context.currentRegionIndex);
+		AssemblyBlob assemblyBlob = assemblyBlobs.get(context.currentRegionIndex);
 		
 		// start of the trace
 		writer.write(".align 4\n");
@@ -237,7 +233,7 @@ public class ITraceGenerator {
 		
 		// and the actual trace body now...
 		writer.write("# Actual trace code begins now:\n");
-		writer.write(curAsmTrace.getFullStringTraceBody());
+		assemblyBlob.writeOut(writer);
 		writer.write("\n");
 		
 		// Exit code! r0 = {1 = exit, 2 = exception, 3 = return}, r1 = code address

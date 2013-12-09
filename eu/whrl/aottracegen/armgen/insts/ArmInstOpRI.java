@@ -11,6 +11,6 @@ public class ArmInstOpRI extends ArmInstOp implements ArmInstPrintable {
 	}
 
 	public String print() {
-		return String.format("%s %s, #%d", opcode, reg.toString(), imm);
+		return String.format("%s %s, #%d", getOpcodeAsString(), reg.toString(), imm);
 	}
 }

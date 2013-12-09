@@ -17,6 +17,10 @@ public class ArmInstOpMultiple extends ArmInstOp implements ArmInstPrintable {
 	public void addRegister(ArmRegister register) {
 		registers.add(register);
 	}
+	
+	public boolean usesRegister(ArmRegister register) {
+		return registers.contains(register);
+	}
 
 	public String print() {
 		String regsString = "";
@@ -26,6 +30,6 @@ public class ArmInstOpMultiple extends ArmInstOp implements ArmInstPrintable {
 				regsString += ", ";
 			}
 		}
-		return String.format("%s {%s}", this.opcode, regsString);
+		return String.format("%s {%s}", getOpcodeAsString(), regsString);
 	}
 }

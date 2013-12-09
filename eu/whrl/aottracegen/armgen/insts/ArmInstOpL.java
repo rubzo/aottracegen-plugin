@@ -9,6 +9,6 @@ public class ArmInstOpL extends ArmInstOp implements ArmInstPrintable {
 	}
 
 	public String print() {
-		return String.format("%s %s", opcode, label);
+		return String.format("%s %s", getOpcodeAsString(), label);
 	}
 }

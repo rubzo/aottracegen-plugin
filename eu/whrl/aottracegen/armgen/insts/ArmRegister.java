@@ -1,6 +1,7 @@
 package eu.whrl.aottracegen.armgen.insts;
 
 public enum ArmRegister {
+	INVALID,
 	r0,
 	r1,
 	r2,

@@ -13,6 +13,6 @@ public class ArmInstOpRRI extends ArmInstOp implements ArmInstPrintable {
 	}
 
 	public String print() {
-		return String.format("%s %s, %s, #%d", opcode, reg1.toString(), reg2.toString(), imm);
+		return String.format("%s %s, %s, #%d", getOpcodeAsString(), reg1.toString(), reg2.toString(), imm);
 	}
 }

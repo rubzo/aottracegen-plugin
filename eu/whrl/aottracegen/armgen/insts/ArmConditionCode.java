@@ -1,19 +1,20 @@
 package eu.whrl.aottracegen.armgen.insts;
 
 public enum ArmConditionCode {
-		EQ,
-		NE,
-		CS,
-		CC,
-		MI,
-		PL,
-		VS,
-		VC,
-		HI,
-		LS,
-		GE,
-		LT,
-		GT,
-		LE,
-		AL
+	INVALID,
+	eq,
+	ne,
+	cs,
+	cc,
+	mi,
+	pl,
+	vs,
+	vc,
+	hi,
+	ls,
+	ge,
+	lt,
+	gt,
+	le,
+	al
 }
