@@ -7,9 +7,7 @@ import org.jf.dexlib.Code.InstructionWithReference;
 import org.jf.dexlib.Code.LiteralInstruction;
 import org.jf.dexlib.Code.OdexedFieldAccess;
 import org.jf.dexlib.Code.OdexedInvokeInline;
-import org.jf.dexlib.Code.OdexedInvokeVirtual;
 import org.jf.dexlib.Code.OffsetInstruction;
-import org.jf.dexlib.Code.Opcode;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
@@ -29,14 +27,7 @@ public class BytecodeToCConverter {
 	
 	private static final int offsetThreadReturn = 16; 
 	private static final int offsetThreadException = 68;
-	
 	private static final int offsetArrayObjectLength = 8;
-	
-	private CodeGenContext context;
-	
-	public BytecodeToCConverter(CodeGenContext context) {
-		this.context = context;
-	}
 	
 	/*
 	 * Return a string representing the instruction at codeAddress,

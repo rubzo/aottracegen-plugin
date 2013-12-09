@@ -7,9 +7,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import eu.whrl.aottracegen.armgen.AssemblyBlob;
 import eu.whrl.aottracegen.exceptions.ITraceGeneratorFaultException;
@@ -157,8 +155,6 @@ public class ITraceGenerator {
 	
 	private void emitTables(CodeGenContext context) throws IOException {
 		int numTraces = context.regions.size();
-		int[] traceEntries = new int[numTraces];
-		
 		
 		writer.write("dvmIRegionsStartTable:\n");
 		for (int i = 0; i < numTraces; i++) {

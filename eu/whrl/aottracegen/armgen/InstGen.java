@@ -1,130 +1,149 @@
 package eu.whrl.aottracegen.armgen;
 
-import java.util.List;
-
 import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.LiteralPoolType;
 import eu.whrl.aottracegen.Trace;
+import eu.whrl.aottracegen.armgen.insts.ArmInst;
+import eu.whrl.aottracegen.armgen.insts.ArmInstComment;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOp;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpL;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpMultiple;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpR;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpRI;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpRL;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpRMO;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpRMultiple;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpRR;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpRRI;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpRRR;
+import eu.whrl.aottracegen.armgen.insts.ArmInstPseudoLabel;
+import eu.whrl.aottracegen.armgen.insts.ArmRegister;
 
 public class InstGen {
-	private static List<String> traceBody;
-	private static int linePtr;
+	private ArmInst first;
+	private ArmInst last;
 	
-	public static void setTraceBody(List<String> traceBody) {
-		InstGen.traceBody = traceBody;
-		InstGen.linePtr = 0;
-	}
-	
-	public static void setLinePtr(int linePtr) {
-		InstGen.linePtr = linePtr;
-	}
-	
-	public static int getLinePtr() {
-		return linePtr;
-	}
-	
-	private static void removeLine() {
-		traceBody.remove(linePtr);
-	}
-
-	private static void replaceLine(String line) {
-		traceBody.remove(linePtr);
-		traceBody.add(linePtr, line);
-	}
-
-	private static void addLine(String line) {
-		traceBody.add(linePtr, line);
-		linePtr++;
-	}
-
-	private static void addLineAfter(String line) {
-		traceBody.add(linePtr + 1, line);
-		linePtr += 2;
+	public InstGen() {
+		first = null;
+		last = null;
 	}
 		
-	private static void addArglessInstruction(String mnemonic) {
-		addLine(String.format("\t%s", mnemonic));
+	private void addInst(ArmInst inst) {
+		if (first == null) {
+			first = inst;
+			last = first;
+		} else {
+			last.linkToNext(inst);
+			last = inst;
+		}
 	}
 	
-	private static void addLabelInstruction(String mnemonic, String label) {
-		addLine(String.format("\t%s\t%s", mnemonic, label));
+	public ArmInst getFirst() {
+		return first;
 	}
 	
-	private static void addRegGroupInstruction(String mnemonic, String regGroup) {
-		addLine(String.format("\t%s\t%s", mnemonic, regGroup));
+	public ArmInst getLast() {
+		return last;
 	}
 	
-	private static void addRegRegGroupInstruction(String mnemonic, String reg1, String regGroup) {
-		addLine(String.format("\t%s\t%s, %s", mnemonic, reg1, regGroup));
+	private void addArglessInstruction(String mnemonic) {
+		ArmInstOp op = new ArmInstOp(mnemonic);
+		addInst(op);
 	}
 	
-	private static void addRegLabelInstruction(String mnemonic, String reg1, String label) {
-		addLine(String.format("\t%s\t%s, %s", mnemonic, reg1, label));
+	private void addLabelInstruction(String mnemonic, String label) {
+		ArmInstOpL op = new ArmInstOpL(mnemonic, label);
+		addInst(op);
 	}
 	
-	private static void addRegImmInstruction(String mnemonic, String reg1, int imm) {
-		addLine(String.format("\t%s\t%s, #%d", mnemonic, reg1, imm));
+	private void addRegGroupInstruction(String mnemonic, ArmRegister ... registers) {
+		ArmInstOpMultiple op = new ArmInstOpMultiple(mnemonic);
+		for (ArmRegister reg : registers) {
+			op.addRegister(reg);
+		}
+		addInst(op);
 	}
 	
-	private static void addRegInstruction(String mnemonic, String reg1) {
-		addLine(String.format("\t%s\t%s", mnemonic, reg1));
+	private void addRegRegGroupInstruction(String mnemonic, ArmRegister reg1, ArmRegister ... registers) {
+		ArmInstOpRMultiple op = new ArmInstOpRMultiple(mnemonic, reg1);
+		for (ArmRegister reg : registers) {
+			op.addRegister(reg);
+		}
+		addInst(op);
 	}
 	
-	private static void addRegRegOffsetInstruction(String mnemonic, String reg1, String reg2, int imm) {
-		addLine(String.format("\t%s\t%s, [%s, #%d]", mnemonic, reg1, reg2, imm));
+	private void addRegLabelInstruction(String mnemonic, ArmRegister reg1, String label) {
+		ArmInstOpRL op = new ArmInstOpRL(mnemonic, reg1, label);
+		addInst(op);
 	}
 	
-	private static void addRegRegImmInstruction(String mnemonic, String reg1, String reg2, int imm) {
-		addLine(String.format("\t%s\t%s, %s, #%d", mnemonic, reg1, reg2, imm));
+	private void addRegImmInstruction(String mnemonic, ArmRegister reg1, int imm) {
+		ArmInstOpRI op = new ArmInstOpRI(mnemonic, reg1, imm);
+		addInst(op);
 	}
 	
-	private static void addRegRegInstruction(String mnemonic, String reg1, String reg2) {
-		addLine(String.format("\t%s\t%s, %s", mnemonic, reg1, reg2));
+	private void addRegInstruction(String mnemonic, ArmRegister reg1) {
+		ArmInstOpR op = new ArmInstOpR(mnemonic, reg1);
+		addInst(op);
 	}
 	
-	private static void addRegRegRegInstruction(String mnemonic, String reg1, String reg2, String reg3) {
-		addLine(String.format("\t%s\t%s, %s", mnemonic, reg1, reg2));
+	private void addRegRegOffsetInstruction(String mnemonic, ArmRegister reg1, ArmRegister reg2, int imm) {
+		ArmInstOpRMO op = new ArmInstOpRMO(mnemonic, reg1, reg2, imm);
+		addInst(op);
 	}
 	
-	private static void addComment(String comment) {
-		addLine(String.format("\t# %s", comment));
+	private void addRegRegImmInstruction(String mnemonic, ArmRegister reg1, ArmRegister reg2, int imm) {
+		ArmInstOpRRI op = new ArmInstOpRRI(mnemonic, reg1, reg2, imm);
+		addInst(op);
 	}
 	
-	private static void addLabel(String label) {
-		addLine(String.format("%s:", label));
+	private void addRegRegInstruction(String mnemonic, ArmRegister reg1, ArmRegister reg2) {
+		ArmInstOpRR op = new ArmInstOpRR(mnemonic, reg1, reg2);
+		addInst(op);
+	}
+	
+	private void addRegRegRegInstruction(String mnemonic, ArmRegister reg1, ArmRegister reg2, ArmRegister reg3) {
+		ArmInstOpRRR op = new ArmInstOpRRR(mnemonic, reg1, reg2, reg3);
+		addInst(op);
+	}
+	
+	private void addComment(String comment) {
+		ArmInstComment commentInst = new ArmInstComment(comment);
+		addInst(commentInst);
+	}
+	
+	private void addLabel(String labelName) {
+		ArmInstPseudoLabel label = new ArmInstPseudoLabel(labelName);
+		addInst(label);
 	}
 	
 	/* should only use the methods below */
 	
-	public static void removeCurrentLine() {
-		removeLine();
-	}
-	
-	public static void insertComment(String comment) {
+	public void insertComment(String comment) {
 		addComment(comment);
 	}
 	
-	public static void stackPush(String regGroup) {
-		addRegGroupInstruction("push", regGroup);
+	public void stackPush(ArmRegister ... registers) {
+		addRegGroupInstruction("push", registers);
 	}
 	
-	public static void stackPop(String regGroup) {
-		addRegGroupInstruction("pop", regGroup);
+	public void stackPop(ArmRegister ... registers) {
+		addRegGroupInstruction("pop", registers);
 	}
 	
-	public static void memoryWrite(String src, String dest, int offset) {
+	public void memoryWrite(ArmRegister src, ArmRegister dest, int offset) {
 		addRegRegOffsetInstruction("str", src, dest, offset);
 	}
 	
-	public static void memoryRead(String dest, String src, int offset) {
+	public void memoryRead(ArmRegister dest, ArmRegister src, int offset) {
 		addRegRegOffsetInstruction("ldr", dest, src, offset);
 	}
 	
-	public static void memoryWriteMultiple(String dest, String regGroup) {
-		addRegRegGroupInstruction("stmia", dest, regGroup);
+	public void memoryWriteMultiple(ArmRegister dest, ArmRegister ... registers) {
+		addRegRegGroupInstruction("stmia", dest, registers);
 	}
 	
-	public static void loadConstant(String reg, long constant) {
+	public void loadConstant(ArmRegister reg, long constant) {
 		if (constant < 127 && constant > -128) {
 			/* encoding T1 */
 			addRegImmInstruction("mov", reg, (int) constant);
@@ -151,49 +170,61 @@ public class InstGen {
 		}
 	}
 	
-	public static void doMath(String op, String reg1, String reg2, int constant) {
+	public void doMath(String op, ArmRegister reg1, ArmRegister reg2, int constant) {
 		addRegRegImmInstruction(op, reg1, reg2, constant);
 	}
 	
-	public static void doMath(String op, String reg1, String reg2, String reg3) {
+	public void doMath(String op, ArmRegister reg1, ArmRegister reg2, ArmRegister reg3) {
 		addRegRegRegInstruction(op, reg1, reg2, reg3);
 	}
 	
-	public static void doComparisonAndJump(String op, String reg, int constant, String label) {
+	public void doComparisonAndJump(String op, ArmRegister reg, int constant, String label) {
 		addRegImmInstruction("cmp", reg, constant);
 		addLabelInstruction("b" + op, label);
 	}
 	
-	public static void copyRegister(String reg1, String reg2) {
+	public void copyRegister(ArmRegister reg1, ArmRegister reg2) {
 		addRegRegInstruction("mov", reg1, reg2);
 	}
 	
-	public static void loadLabel(String reg, String label) {
+	public void loadLabel(ArmRegister reg, String label) {
 		addRegLabelInstruction("adr", reg, label);
 	}
 	
-	public static void jumpToReg(String reg) {
+	public void jumpToReg(ArmRegister reg) {
 		addRegInstruction("blx", reg);
 	}
 	
-	public static void jumpToLabel(String label) {
+	public void jumpToLabel(String label) {
 		addLabelInstruction("b", label);
 	}
 	
-	public static void addMemoryBarrier() {
+	public void addMemoryBarrier() {
 		addArglessInstruction("dmb");
 	}
 	
-	public static void jumpToFunction(CodeGenContext context, String reg, LiteralPoolType function, String name) {
+	public void jumpToFunction(CodeGenContext context, ArmRegister reg, LiteralPoolType function, String name) {
 		Trace curTrace = context.currentRegion.trace;
 		int literalPoolLoc = curTrace.meta.addLiteralPoolType(function);
-		InstGen.insertComment(String.format("load and call %s()", name));
-		InstGen.loadLabel(reg, String.format("LiteralPool_T%d", context.currentRegionIndex));
-		InstGen.memoryRead(reg, reg, literalPoolLoc * 4);
-		InstGen.jumpToReg(reg);
+		insertComment(String.format("load and call %s()", name));
+		loadLabel(reg, String.format("LiteralPool_T%d", context.currentRegionIndex));
+		memoryRead(reg, reg, literalPoolLoc * 4);
+		jumpToReg(reg);
 	}
 	
-	public static void insertLabel(String label) {
+	public void insertLabel(String label) {
 		addLabel(label);
+	}
+	
+	public void calleeSavePush() {
+		stackPush(ArmRegister.r4, ArmRegister.r5, ArmRegister.r6, 
+				ArmRegister.r7, ArmRegister.r8, ArmRegister.r9, 
+				ArmRegister.r10, ArmRegister.r11);
+	}
+	
+	public void calleeSavePop() {
+		stackPop(ArmRegister.r4, ArmRegister.r5, ArmRegister.r6, 
+				ArmRegister.r7, ArmRegister.r8, ArmRegister.r9, 
+				ArmRegister.r10, ArmRegister.r11);
 	}
 }

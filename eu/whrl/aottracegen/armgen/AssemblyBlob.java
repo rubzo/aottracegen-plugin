@@ -48,6 +48,7 @@ public class AssemblyBlob {
 	public void cleanup(CodeGenContext context) {
 		processor.modifyPrologueEpilogueCode(context, insts);
 		processor.renameLabels(context, insts);
+		processor.emitFunctionCalls(context, insts);
 		if (!context.config.armMode && context.config.enableRemoveCBZs) {
 			processor.removeCBZ(context, insts);
 		}

@@ -3,11 +3,13 @@ package eu.whrl.aottracegen.armgen.insts;
 import java.util.List;
 import java.util.LinkedList;
 
-public class ArmInstOpMultiple extends ArmInstOp implements IArmInstPrintable {
+public class ArmInstOpRMultiple extends ArmInstOp implements IArmInstPrintable {
+	public ArmRegister reg1;
 	public List<ArmRegister> registers;
 
-	public ArmInstOpMultiple(String opcode) {
+	public ArmInstOpRMultiple(String opcode, ArmRegister reg1) {
 		super(opcode);
+		this.reg1 = reg1;
 		this.registers = new LinkedList<ArmRegister>();
 	}
 
@@ -27,6 +29,6 @@ public class ArmInstOpMultiple extends ArmInstOp implements IArmInstPrintable {
 				regsString += ", ";
 			}
 		}
-		return String.format("%s {%s}", getOpcodeAsString(), regsString);
+		return String.format("%s %s, {%s}", getOpcodeAsString(), reg1.toString(), regsString);
 	}
 }

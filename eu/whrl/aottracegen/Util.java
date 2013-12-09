@@ -2,13 +2,6 @@ package eu.whrl.aottracegen;
 
 import java.util.List;
 import java.util.Set;
-import java.util.TreeMap;
-
-import org.jf.dexlib.MethodIdItem;
-import org.jf.dexlib.ClassDataItem.EncodedMethod;
-import org.jf.dexlib.Code.Instruction;
-import org.jf.dexlib.Code.InstructionWithReference;
-import org.jf.dexlib.Code.InvokeInstruction;
 
 public class Util {
 	public static String toHexString(int[] array) {

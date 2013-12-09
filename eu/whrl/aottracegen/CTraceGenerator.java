@@ -83,7 +83,7 @@ public class CTraceGenerator {
 		this.context = context;
 		writer = null;
 		prepared = false;
-		converter = new BytecodeToCConverter(context);
+		converter = new BytecodeToCConverter();
 		stringConverter = new BytecodeToPrettyConverter(false /* not LLVM mode */);
 	}
 	
