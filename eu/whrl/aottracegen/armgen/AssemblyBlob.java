@@ -17,12 +17,23 @@ public class AssemblyBlob {
 		processor = new AssemblyProcessor();
 	}
 	
+	private boolean lineIsImportant(String line) {
+		if (line.startsWith("@")) {
+			return false;
+		}
+		if (line.startsWith("#APP")) {
+			return false;
+		}
+		return true;
+	}
+	
 	private void parse(List<String> instsList) {
 		ArmInst latestInst = new ArmInstComment("-- Begin parsed AssemblyBlob --");
+		
 		insts = latestInst;
 
 		for (String line : instsList) {
-			if (!line.startsWith("@")) {
+			if (lineIsImportant(line)) {
 				try {
 					ArmInst newInst = ArmInstParser.parse(line);
 					newInst.linkToPrevious(latestInst);
@@ -36,14 +47,18 @@ public class AssemblyBlob {
 	
 	public void cleanup(CodeGenContext context) {
 		processor.modifyPrologueEpilogueCode(context, insts);
+		processor.renameLabels(context, insts);
+		if (!context.config.armMode && context.config.enableRemoveCBZs) {
+			processor.removeCBZ(context, insts);
+		}
 	}
 	
 	public void writeOut(FileWriter writer) throws IOException {
 		for (ArmInst curInst : insts) {
 			if (curInst instanceof ArmInstPseudoLabel) {
-				writer.write( ((ArmInstPrintable)curInst).print() + "\n" );
+				writer.write( ((IArmInstPrintable)curInst).print() + "\n" );
 			} else {
-				writer.write( "\t" + ((ArmInstPrintable)curInst).print() + "\n" );
+				writer.write( "\t" + ((IArmInstPrintable)curInst).print() + "\n" );
 			}
 		}
 	}

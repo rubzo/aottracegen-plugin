@@ -1,5 +1,5 @@
 package eu.whrl.aottracegen.armgen.insts;
 
-public interface ArmInstPrintable {
+public interface IArmInstPrintable {
 	public String print();
 }

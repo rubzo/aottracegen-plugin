@@ -1,6 +1,6 @@
 package eu.whrl.aottracegen.armgen.insts;
 
-public class ArmInstComment extends ArmInst implements ArmInstPrintable {
+public class ArmInstComment extends ArmInst implements IArmInstPrintable {
 	public String comment;
 
 	public ArmInstComment(String comment) {

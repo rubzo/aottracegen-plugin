@@ -6,7 +6,7 @@ import java.util.LinkedList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class ArmInstOpMultiple extends ArmInstOp implements ArmInstPrintable {
+public class ArmInstOpMultiple extends ArmInstOp implements IArmInstPrintable {
 	public List<ArmRegister> registers;
 
 	public ArmInstOpMultiple(String opcode) {

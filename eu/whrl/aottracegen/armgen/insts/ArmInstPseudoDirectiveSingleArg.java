@@ -1,6 +1,6 @@
 package eu.whrl.aottracegen.armgen.insts;
 
-public class ArmInstPseudoDirectiveSingleArg extends ArmInstPseudoDirective implements ArmInstPrintable {
+public class ArmInstPseudoDirectiveSingleArg extends ArmInstPseudoDirective implements IArmInstPrintable {
 	public String arg;
 
 	public ArmInstPseudoDirectiveSingleArg(String name, String arg) {

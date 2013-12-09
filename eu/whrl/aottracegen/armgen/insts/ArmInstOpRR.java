@@ -1,6 +1,6 @@
 package eu.whrl.aottracegen.armgen.insts;
 
-public class ArmInstOpRR extends ArmInstOp implements ArmInstPrintable {
+public class ArmInstOpRR extends ArmInstOp implements IArmInstPrintable {
 	public ArmRegister reg1;
 	public ArmRegister reg2;
 

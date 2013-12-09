@@ -3,7 +3,7 @@ package eu.whrl.aottracegen.armgen.insts;
 import java.util.List;
 import java.util.LinkedList;
 
-public class ArmInstPseudoDirectiveList extends ArmInstPseudoDirective implements ArmInstPrintable {
+public class ArmInstPseudoDirectiveList extends ArmInstPseudoDirective implements IArmInstPrintable {
 	public List<String> argsList;
 
 	public ArmInstPseudoDirectiveList(String name) {

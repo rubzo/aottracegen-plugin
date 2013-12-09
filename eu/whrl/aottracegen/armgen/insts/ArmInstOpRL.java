@@ -1,16 +1,20 @@
 package eu.whrl.aottracegen.armgen.insts;
 
-public class ArmInstOpRL extends ArmInstOp implements ArmInstPrintable {
+public class ArmInstOpRL extends ArmInstOp implements IArmInstPrintable, IArmInstHasLabel {
 	public ArmRegister reg;
-	public String label;
+	public ArmLabelReference label;
 
 	public ArmInstOpRL(String opcode, ArmRegister reg, String label) {
 		super(opcode);
 		this.reg = reg;
-		this.label = label;
+		this.label = new ArmLabelReference(label);
 	}
 
 	public String print() {
-		return String.format("%s %s, %s", opcode, reg.toString(), label);
+		return String.format("%s %s, %s", getOpcodeAsString(), reg.toString(), label.getLabelAsString());
+	}
+	
+	public ArmLabelReference getLabel() {
+		return label;
 	}
 }

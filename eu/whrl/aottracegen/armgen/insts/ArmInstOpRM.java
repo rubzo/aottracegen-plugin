@@ -1,6 +1,6 @@
 package eu.whrl.aottracegen.armgen.insts;
 
-public class ArmInstOpRM extends ArmInstOp implements ArmInstPrintable {
+public class ArmInstOpRM extends ArmInstOp implements IArmInstPrintable {
 	public ArmRegister reg;
 	public ArmRegister memreg;
 
@@ -11,6 +11,6 @@ public class ArmInstOpRM extends ArmInstOp implements ArmInstPrintable {
 	}
 
 	public String print() {
-		return String.format("%s %s, [%s]", opcode, reg.toString(), memreg.toString());
+		return String.format("%s %s, [%s]", getOpcodeAsString(), reg.toString(), memreg.toString());
 	}
 }
