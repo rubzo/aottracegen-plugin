@@ -4,10 +4,12 @@ public class ArmInstOp extends ArmInst implements IArmInstPrintable {
 	public ArmOpcode opcode;
 	public ArmConditionCode cc;
 	public boolean setsFlags;
+	public String specifier;
 	
 	public ArmInstOp(String opcodeString) {
 		super();
 		setsFlags = false;
+		specifier = "";
 		parseOpcode(opcodeString);
 		if (isInvalid()) {
 			System.out.println("Couldn't read opcode: " + opcodeString);
@@ -24,6 +26,11 @@ public class ArmInstOp extends ArmInst implements IArmInstPrintable {
 	}
 	
 	private void parseOpcode(String opcodeString) {
+		if (opcodeString.contains(".")) {
+			String[] elems = opcodeString.split("\\.");
+			opcodeString = elems[0];
+			specifier = elems[1];
+		}
 		for (ArmConditionCode condition : ArmConditionCode.values()) {
 			if (opcodeString.endsWith(condition.toString())) {		
 				for (ArmOpcode legitOpcode : ArmOpcode.values()) {
@@ -66,6 +73,9 @@ public class ArmInstOp extends ArmInst implements IArmInstPrintable {
 		}
 		if (cc != ArmConditionCode.al) {
 			opcodeString += cc.toString();
+		}
+		if (!specifier.equals("")) {
+			opcodeString += "." + specifier;
 		}
 		return opcodeString;
 	}

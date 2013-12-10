@@ -63,8 +63,10 @@ public class ITraceGenerator {
 				}
 				
 				if (inTraceBody) {
-					String trimmedLine = line.trim().replaceAll("\\s+", " ");
-					instsList.add(trimmedLine);
+					String trimmedLine = line.replaceAll("@.*", "").trim().replaceAll("\\s+", " ");
+					if (!trimmedLine.equals("")) {
+						instsList.add(trimmedLine);
+					}
 				}
 				
 				if (line.equals(startMarker)) {
