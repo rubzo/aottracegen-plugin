@@ -34,4 +34,8 @@ public class ArmLabelReference {
 	public void setLocal(boolean local) {
 		localLabel = local;
 	}
+	
+	public boolean isLocal() {
+		return localLabel;
+	}
 }

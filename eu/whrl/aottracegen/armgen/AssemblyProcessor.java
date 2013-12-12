@@ -104,7 +104,9 @@ public class AssemblyProcessor {
 		for (ArmInst inst : insts) {
 			if (inst instanceof IArmInstHasLabel) {
 				ArmLabelReference label = ((IArmInstHasLabel)inst).getLabel();
-				label.rename(regionPrefix + label.getLabelNameOnly());
+				if (label.isLocal()) {
+					label.rename(regionPrefix + label.getLabelNameOnly());
+				}
 			}
 		}
 	}
@@ -152,7 +154,7 @@ public class AssemblyProcessor {
 					handleExecuteInline(context, branchInst);
 				} else if (dest.contains("single_step")) {
 					handleSingleStep(context, branchInst);
-				} else if (dest.contains("instance_of")) {
+				} else if (dest.contains("instanceof")) {
 					handleInstanceof(context, branchInst);
 				} else if (dest.contains("new_instance")) {
 					handleNewInstance(context, branchInst);
@@ -217,7 +219,7 @@ public class AssemblyProcessor {
 	private void handleNewInstance(CodeGenContext context, ArmInstOpL inst) {
 		InstGen gen = new InstGen();
 		gen.jumpToFunction(context, ArmRegister.r2, LiteralPoolType.CALL_ALLOC_OBJECT, "dvmAllocObject");
-		inst.replace(gen.getLast());
+		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
 	private void handleExecuteInline(CodeGenContext context, ArmInstOpL inst) {
@@ -254,7 +256,7 @@ public class AssemblyProcessor {
 	private void handleBarrier(CodeGenContext context, ArmInstOpL inst) {
 		InstGen gen = new InstGen();
 		gen.addMemoryBarrier();
-		inst.replace(gen.getLast());
+		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 
 	private void handleInvokeInterface(CodeGenContext context, ArmInstOpL inst) {
