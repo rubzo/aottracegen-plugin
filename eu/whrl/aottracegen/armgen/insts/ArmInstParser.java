@@ -7,14 +7,13 @@ public class ArmInstParser {
 	private static final String start = "^";
 	private static final String end = "$";
 	private static final String imm = "#?(-?0x[0-9a-fA-F]+?|-?[0-9]+?)";
-	private static final String reg = "(r\\d+|s\\d+|d\\d+|ip|sp|fp|lr|pc)";
+	private static final String reg = "((?:r\\d+|s\\d+|d\\d+|ip|sp|fp|lr|pc)!?)";
 	private static final String word = "([^\\s]+?)";
-	private static final String itOpcode = "(it|itt|ite|ittt|itte|itet|itee|itttt|ittte|ittet|ittee|itett|itete|iteet|iteee)";
+	private static final String itOpcode = "(it|itt|ite|ittt|itte|itet|itee|itttt|ittte|ittet|ittee|itett|itete|iteet|iteee)"; // yep
 	private static final String cc = "(eq|ne|cs|hs|cc|lo|mi|pl|vs|vc|hi|ls|ge|lt|gt|le|al)";
 	private static final String shiftOpcode = "(asr|lsr|lsl)";
 	private static final String groupInnards = "([^\\}]+?)";
 	private static final String space = " ";
-	private static final String comma = ",";
 	private static final String colon = ":";
 	private static final String commaSpace = ", ";
 	private static final String dot = "\\.";
@@ -40,6 +39,7 @@ public class ArmInstParser {
 	private static Pattern regexArmInstOpRI;
 	private static Pattern regexArmInstOpRM;
 	private static Pattern regexArmInstOpRMO;
+	private static Pattern regexArmInstOpRMR;
 	private static Pattern regexArmInstOpRL;
 	private static Pattern regexArmInstOpL;
 
@@ -55,17 +55,21 @@ public class ArmInstParser {
 		regexArmInstOpRR = Pattern.compile(start + word + space + reg + commaSpace + reg + end);
 		regexArmInstOpRRR = Pattern.compile(start + word + space + reg + commaSpace + reg + commaSpace + reg + end);
 		regexArmInstOpRRRR = Pattern.compile(start + word + space + reg + commaSpace + reg + commaSpace + reg + commaSpace + reg + end);
-		regexArmInstOpRRRS = Pattern.compile(start + word + space + reg + commaSpace + reg + commaSpace + reg + space + shiftOpcode + space + imm + end);
+		regexArmInstOpRRRS = Pattern.compile(start + word + space + reg + commaSpace + reg + commaSpace + reg + commaSpace + shiftOpcode + space + imm + end);
 		regexArmInstOpRRI = Pattern.compile(start + word + space + reg + commaSpace + reg + commaSpace + imm + end);
 		regexArmInstOpRI = Pattern.compile(start + word + space + reg + commaSpace + imm + end);
 		regexArmInstOpRM = Pattern.compile(start + word + space + reg + commaSpace + lbrace + reg + rbrace + end);
 		regexArmInstOpRMO = Pattern.compile(start + word + space + reg + commaSpace + lbrace + reg + commaSpace + imm + rbrace + end);
+		regexArmInstOpRMR = Pattern.compile(start + word + space + reg + commaSpace + lbrace + reg + commaSpace + reg + rbrace + end);
 		regexArmInstOpL = Pattern.compile(start + word + space + word + end);
 		regexArmInstOpRL = Pattern.compile(start + word + space + reg + commaSpace + word + end);
 	}
 
 	private static ArmRegister readReg(String reg) throws NotParsableException {
 		try {
+			if (reg.endsWith("!")) {
+				reg = reg.substring(0, reg.length() - 1);
+			}
 			return ArmRegister.valueOf(reg.trim());
 		} catch (IllegalArgumentException e) {
 			throw new NotParsableException();
@@ -113,6 +117,8 @@ public class ArmInstParser {
 		try { return parseArmInstOpRRI(line); } 
 		catch (NotParsableException e) {}
 		try { return parseArmInstOpRMO(line); } 
+		catch (NotParsableException e) {}
+		try { return parseArmInstOpRMR(line); } 
 		catch (NotParsableException e) {}
 		try { return parseArmInstOpRRRS(line); } 
 		catch (NotParsableException e) {}
@@ -289,6 +295,16 @@ public class ArmInstParser {
 		System.out.println("PARSE: OpRMO: " + line);
 		return newInst;
 	}
+	
+	private static ArmInst parseArmInstOpRMR(String line) throws NotParsableException {
+		Matcher match = regexArmInstOpRMR.matcher(line);
+		if (!match.find()) {
+			throw new NotParsableException();
+		}
+		ArmInstOpRMR newInst = new ArmInstOpRMR(match.group(1), readReg(match.group(2)), readReg(match.group(3)), readReg(match.group(4)));
+		System.out.println("PARSE: OpRMR: " + line);
+		return newInst;
+	}
 
 	private static ArmInst parseArmInstOpMultiple(String line) throws NotParsableException {
 		Matcher match = regexArmInstOpMultiple.matcher(line);
@@ -309,7 +325,12 @@ public class ArmInstParser {
 		if (!match.find()) {
 			throw new NotParsableException();
 		}
-		ArmInstOpRMultiple newInst = new ArmInstOpRMultiple(match.group(1), readReg(match.group(2)));
+		String baseRegString = match.group(2);
+		
+		ArmInstOpRMultiple newInst = new ArmInstOpRMultiple(match.group(1), readReg(baseRegString));
+		if (baseRegString.trim().endsWith("!")) {
+			newInst.autoIndex = true;
+		}
 		String regsString = match.group(3);
 		for (String reg : regsString.split(",")) {
 			newInst.addRegister(readReg(reg));

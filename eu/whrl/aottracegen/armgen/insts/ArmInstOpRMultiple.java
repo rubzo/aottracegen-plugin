@@ -6,11 +6,13 @@ import java.util.LinkedList;
 public class ArmInstOpRMultiple extends ArmInstOp implements IArmInstPrintable {
 	public ArmRegister reg1;
 	public List<ArmRegister> registers;
+	public boolean autoIndex;
 
 	public ArmInstOpRMultiple(String opcode, ArmRegister reg1) {
 		super(opcode);
 		this.reg1 = reg1;
 		this.registers = new LinkedList<ArmRegister>();
+		this.autoIndex = false;
 	}
 
 	public void addRegister(ArmRegister register) {
@@ -29,6 +31,10 @@ public class ArmInstOpRMultiple extends ArmInstOp implements IArmInstPrintable {
 				regsString += ", ";
 			}
 		}
-		return String.format("%s %s, {%s}", getOpcodeAsString(), reg1.toString(), regsString);
+		String autoIndexString = "";
+		if (autoIndex) {
+			autoIndexString = "!";
+		}
+		return String.format("%s %s, {%s}", getOpcodeAsString(), reg1.toString() + autoIndexString, regsString);
 	}
 }

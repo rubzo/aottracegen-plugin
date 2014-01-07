@@ -39,7 +39,8 @@ public class AssemblyBlob {
 					newInst.linkToPrevious(latestInst);
 					latestInst = newInst;
 				} catch (NotParsableException e) {
-					System.out.println("Unable to parse: " + line);
+					System.err.println("Unable to parse: '" + line + "'");
+					System.exit(1);
 				}
 			}
 		}
