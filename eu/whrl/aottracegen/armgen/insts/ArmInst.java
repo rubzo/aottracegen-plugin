@@ -2,12 +2,16 @@ package eu.whrl.aottracegen.armgen.insts;
 
 import java.util.Iterator;
 
+import eu.whrl.aottracegen.armgen.ArmConditionCode;
+import eu.whrl.aottracegen.armgen.ArmOpcode;
+
 public class ArmInst implements Iterable<ArmInst> {
+	public boolean valid;
 	public ArmInst prev;
 	public ArmInst next;
 
 	public ArmInst() {
-
+		valid = true;
 	}
 
 	public void linkToPrevious(ArmInst prev) {

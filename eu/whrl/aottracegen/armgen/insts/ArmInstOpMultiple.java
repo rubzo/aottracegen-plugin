@@ -2,8 +2,13 @@ package eu.whrl.aottracegen.armgen.insts;
 
 import java.util.List;
 import java.util.LinkedList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class ArmInstOpMultiple extends ArmInstOp implements IArmInstPrintable {
+import eu.whrl.aottracegen.armgen.ArmRegister;
+import eu.whrl.aottracegen.armgen.RegexHelper;
+
+public class ArmInstOpMultiple extends ArmInstOp implements IArmInstPrintable, IArmInstParsable {
 	public List<ArmRegister> registers;
 
 	public ArmInstOpMultiple(String opcode) {
@@ -19,6 +24,7 @@ public class ArmInstOpMultiple extends ArmInstOp implements IArmInstPrintable {
 		return registers.contains(register);
 	}
 
+	@Override
 	public String print() {
 		String regsString = "";
 		for (int i = 0; i < registers.size(); i++) {
@@ -28,5 +34,40 @@ public class ArmInstOpMultiple extends ArmInstOp implements IArmInstPrintable {
 			}
 		}
 		return String.format("%s {%s}", getOpcodeAsString(), regsString);
+	}
+	
+	private Pattern regex;
+	
+	public ArmInstOpMultiple() {
+		valid = false;
+	}
+	
+	@Override 
+	public void setupRegex(RegexHelper h) {
+		regex = Pattern.compile(h.start + h.word + h.space + h.lcurly + h.groupInnards + h.rcurly + h.end);
+	}
+	
+	@Override
+	public Pattern getRegex() {
+		return regex;
+	}
+	
+	@Override
+	public ArmInst getInst(Matcher match, RegexHelper h) {
+		ArmInstOpMultiple newInst = new ArmInstOpMultiple(match.group(1));
+		String regsString = match.group(2);
+		try {
+			for (String reg : regsString.split(",")) {
+				newInst.addRegister(h.readReg(reg));
+			}
+		} catch (NotParsableException e) {
+			return null;
+		}
+		return newInst;
+	}
+	
+	@Override
+	public String getName() {
+		return "OpMultiple";
 	}
 }

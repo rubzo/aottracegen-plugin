@@ -1,4 +1,4 @@
-package eu.whrl.aottracegen.armgen.insts;
+package eu.whrl.aottracegen.armgen;
 
 public enum ArmConditionCode {
 	INVALID,

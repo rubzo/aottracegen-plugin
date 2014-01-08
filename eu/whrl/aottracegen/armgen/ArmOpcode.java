@@ -1,4 +1,4 @@
-package eu.whrl.aottracegen.armgen.insts;
+package eu.whrl.aottracegen.armgen;
 
 public enum ArmOpcode {
 	INVALID,
@@ -33,15 +33,21 @@ public enum ArmOpcode {
 	enterx,
 	eor,
 	faddd,
+	fcmpd,
+	fcmped,
+	fcmpezd,
+	fcmpzd,
 	fconstd,
 	fcvtds,
 	fcpyd,
 	fdivd,
 	fldd,
 	fldmfdd,
+	fldmiad,
 	fmdrr,
 	fmrrd,
 	fmsr,
+	fmstat,
 	fmuld,
 	fnegd,
 	fsitod,

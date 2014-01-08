@@ -6,30 +6,32 @@ import java.util.regex.Pattern;
 import eu.whrl.aottracegen.armgen.ArmRegister;
 import eu.whrl.aottracegen.armgen.RegexHelper;
 
-public class ArmInstOpRI extends ArmInstOp implements IArmInstPrintable, IArmInstParsable {
+public class ArmInstOpRMI extends ArmInstOp implements IArmInstPrintable, IArmInstParsable {
 	public ArmRegister reg;
+	public ArmRegister memreg;
 	public int imm;
 
-	public ArmInstOpRI(String opcode, ArmRegister reg, int imm) {
+	public ArmInstOpRMI(String opcode, ArmRegister reg, ArmRegister memreg, int imm) {
 		super(opcode);
 		this.reg = reg;
+		this.memreg = memreg;
 		this.imm = imm;
 	}
 
 	@Override
 	public String print() {
-		return String.format("%s %s, #%d", getOpcodeAsString(), reg.toString(), imm);
+		return String.format("%s %s, [%s], #%d", getOpcodeAsString(), reg.toString(), memreg.toString(), imm);
 	}
 	
 	private Pattern regex;
 	
-	public ArmInstOpRI() {
+	public ArmInstOpRMI() {
 		valid = false;
 	}
 	
 	@Override 
 	public void setupRegex(RegexHelper h) {
-		regex = Pattern.compile(h.start + h.word + h.space + h.reg + h.commaSpace + h.imm + h.end);
+		regex = Pattern.compile(h.start + h.word + h.space + h.reg + h.commaSpace + h.lbrace + h.reg + h.rbrace + h.commaSpace + h.imm + h.end);
 	}
 	
 	@Override
@@ -40,7 +42,7 @@ public class ArmInstOpRI extends ArmInstOp implements IArmInstPrintable, IArmIns
 	@Override
 	public ArmInst getInst(Matcher match, RegexHelper h) {
 		try {
-			return new ArmInstOpRI(match.group(1), h.readReg(match.group(2)), h.readImm(match.group(3)));
+			return new ArmInstOpRMI(match.group(1), h.readReg(match.group(2)), h.readReg(match.group(3)), h.readImm(match.group(4)));
 		} catch (NotParsableException e) {
 			return null;
 		}
@@ -48,6 +50,6 @@ public class ArmInstOpRI extends ArmInstOp implements IArmInstPrintable, IArmIns
 	
 	@Override
 	public String getName() {
-		return "OpRI";
+		return "OpRMI";
 	}
 }

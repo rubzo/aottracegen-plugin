@@ -1,6 +1,13 @@
 package eu.whrl.aottracegen.armgen.insts;
 
-public class ArmInstOp extends ArmInst implements IArmInstPrintable {
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import eu.whrl.aottracegen.armgen.ArmConditionCode;
+import eu.whrl.aottracegen.armgen.ArmOpcode;
+import eu.whrl.aottracegen.armgen.RegexHelper;
+
+public class ArmInstOp extends ArmInst implements IArmInstPrintable, IArmInstParsable {
 	public ArmOpcode opcode;
 	public ArmConditionCode cc;
 	public boolean setsFlags;
@@ -19,10 +26,6 @@ public class ArmInstOp extends ArmInst implements IArmInstPrintable {
 	
 	public boolean isInvalid() {
 		return (opcode == ArmOpcode.INVALID || cc == ArmConditionCode.INVALID);
-	}
-
-	public String print() {
-		return getOpcodeAsString();
 	}
 	
 	private void parseOpcode(String opcodeString) {
@@ -78,5 +81,36 @@ public class ArmInstOp extends ArmInst implements IArmInstPrintable {
 			opcodeString += "." + specifier;
 		}
 		return opcodeString;
+	}
+	
+	@Override
+	public String print() {
+		return getOpcodeAsString();
+	}
+	
+	private Pattern regex;
+	
+	public ArmInstOp() {
+		valid = false;
+	}
+	
+	@Override 
+	public void setupRegex(RegexHelper h) {
+		regex = Pattern.compile(h.start + h.word + h.end);
+	}
+	
+	@Override
+	public Pattern getRegex() {
+		return regex;
+	}
+	
+	@Override
+	public ArmInst getInst(Matcher match, RegexHelper h) {
+		return new ArmInstOp(match.group(1));
+	}
+	
+	@Override
+	public String getName() {
+		return "Op";
 	}
 }

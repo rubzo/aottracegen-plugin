@@ -28,6 +28,8 @@ public class AssemblyBlob {
 	}
 	
 	private void parse(List<String> instsList) {
+		ArmInstParser parser = new ArmInstParser();
+		
 		ArmInst latestInst = new ArmInstComment("-- Begin parsed AssemblyBlob --");
 		
 		insts = latestInst;
@@ -35,7 +37,7 @@ public class AssemblyBlob {
 		for (String line : instsList) {
 			if (lineIsImportant(line)) {
 				try {
-					ArmInst newInst = ArmInstParser.parse(line);
+					ArmInst newInst = parser.parse(line);
 					newInst.linkToPrevious(latestInst);
 					latestInst = newInst;
 				} catch (NotParsableException e) {

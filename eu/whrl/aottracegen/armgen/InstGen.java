@@ -17,7 +17,6 @@ import eu.whrl.aottracegen.armgen.insts.ArmInstOpRR;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRRI;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRRR;
 import eu.whrl.aottracegen.armgen.insts.ArmInstPseudoLabel;
-import eu.whrl.aottracegen.armgen.insts.ArmRegister;
 
 public class InstGen {
 	private ArmInst first;

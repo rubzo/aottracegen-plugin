@@ -15,16 +15,12 @@ import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.LiteralPoolType;
 import eu.whrl.aottracegen.MethodLookup;
 import eu.whrl.aottracegen.Trace;
-import eu.whrl.aottracegen.armgen.insts.ArmConditionCode;
 import eu.whrl.aottracegen.armgen.insts.ArmInst;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpL;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpMultiple;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRI;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRL;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRMultiple;
-import eu.whrl.aottracegen.armgen.insts.ArmLabelReference;
-import eu.whrl.aottracegen.armgen.insts.ArmOpcode;
-import eu.whrl.aottracegen.armgen.insts.ArmRegister;
 import eu.whrl.aottracegen.armgen.insts.IArmInstHasLabel;
 
 public class AssemblyProcessor {
