@@ -18,6 +18,7 @@ import eu.whrl.aottracegen.Trace;
 import eu.whrl.aottracegen.armgen.insts.ArmInst;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpL;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpMultiple;
+import eu.whrl.aottracegen.armgen.insts.ArmInstOpR;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRI;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRL;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRMultiple;
@@ -53,16 +54,17 @@ public class AssemblyProcessor {
 		return null;
 	}
 	
-	public void modifyPrologueEpilogueCode(CodeGenContext context, ArmInst insts) {
+	public ArmInst fixupEntryAndExits(CodeGenContext context, ArmInst insts) {
+		boolean foundAnExit = false;
+		
 		/* deal with the potentially multiple pop instructions */
 		ArmInstOpMultiple popInst = findPopInstruction(insts);
 		while (popInst != null) {
 			
 			/* remove the following bx lr instruction, if it exists */
 			if (!popInst.usesRegister(ArmRegister.pc)) {
-				if (popInst.next != null && popInst.next.getOpcode().equals("bx")) {
-					popInst.next = popInst.next.next;
-					popInst.next.prev = popInst;
+				if (popInst.next != null && popInst.next.getOpcode() == ArmOpcode.bx) {
+					popInst.removeNext();
 				}
 			}
 			
@@ -79,9 +81,40 @@ public class AssemblyProcessor {
 				popInst.cc = ArmConditionCode.al;
 			}
 			popInst.insertAfter(leaveInst);
+			
+			foundAnExit = true;
 
 			/* there might be another pop instruction, look for it */
 			popInst = findPopInstruction(insts);
+		}
+		
+		if (!foundAnExit) {
+			for (ArmInst inst : insts) {
+				ArmOpcode opcode = inst.getOpcode();
+				if (opcode == ArmOpcode.bx) {
+					ArmInstOpR exitInst = (ArmInstOpR) inst;
+					if (exitInst.reg == ArmRegister.lr) {
+						ArmInstOpMultiple newInstStart = new ArmInstOpMultiple("pop");
+						newInstStart.addRegister(ArmRegister.r5);
+						newInstStart.addRegister(ArmRegister.r6);
+						
+						ArmInstOpL newInstEnd = new ArmInstOpL("b", "Leave_T" + context.currentRegionIndex);
+						
+						newInstStart.linkToNext(newInstEnd);
+						
+						inst.replaceChain(newInstStart, newInstEnd);
+						foundAnExit = true;
+					} else {
+						System.err.println("Found a bx instruction that doesn't use lr?");
+						System.exit(1);
+					}
+				}
+			}
+		}
+		
+		if (!foundAnExit) {
+			System.err.println("Failed to find any exits from Region " + context.currentRegionIndex);
+			System.exit(1);
 		}
 
 		/* deal with the single push instruction at the entry */
@@ -91,10 +124,19 @@ public class AssemblyProcessor {
 			pushInst.registers.clear();
 			pushInst.addRegister(ArmRegister.r5);
 			pushInst.addRegister(ArmRegister.r6);
+		} else {
+			/* there were no push insts at the start of the trace, so put our one for r5+r6 in */
+			ArmInstOpMultiple newPushInst = new ArmInstOpMultiple("push");
+			newPushInst.addRegister(ArmRegister.r5);
+			newPushInst.addRegister(ArmRegister.r6);
+			insts.insertBefore(newPushInst);
+			insts = newPushInst;
 		}
+		
+		return insts;
 	}
 	
-	public void renameLabels(CodeGenContext context, ArmInst insts) {
+	public ArmInst renameLabels(CodeGenContext context, ArmInst insts) {
 		/* put T<region index> on the front of all labels, so they don't clash if we output multiple regions */
 		String regionPrefix = "T" + context.currentRegionIndex + "_";
 		for (ArmInst inst : insts) {
@@ -105,9 +147,11 @@ public class AssemblyProcessor {
 				}
 			}
 		}
+		
+		return insts;
 	}
 	
-	public void removeCBZ(CodeGenContext context, ArmInst insts) {
+	public ArmInst removeCBZ(CodeGenContext context, ArmInst insts) {
 		/* find cbz and cbnzs, and replace whem with a cmp and b */
 		for (ArmInst inst : insts) {
 			ArmOpcode opcode = inst.getOpcode();
@@ -132,9 +176,11 @@ public class AssemblyProcessor {
 				inst.replaceChain(compareInst, branchInst);
 			}
 		}
+		
+		return insts;
 	}
 	
-	public void emitFunctionCalls(CodeGenContext context, ArmInst insts) {
+	public ArmInst emitFunctionCalls(CodeGenContext context, ArmInst insts) {
 		for (ArmInst inst : insts) {
 			ArmOpcode opcode = inst.getOpcode();
 			if (opcode == ArmOpcode.bl) {
@@ -162,6 +208,8 @@ public class AssemblyProcessor {
 				
 			}
 		}
+		
+		return insts;
 	}
 	
 	private void handleSingleStep(CodeGenContext context, ArmInstOpL inst) {

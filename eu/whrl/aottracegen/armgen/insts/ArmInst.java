@@ -14,6 +14,24 @@ public class ArmInst implements Iterable<ArmInst> {
 		valid = true;
 	}
 
+	public void removePrevious() {
+		if (prev != null) {
+			if (prev.prev != null) {
+				prev.prev.next = this;
+			}
+			prev = prev.prev;
+		}
+	}
+	
+	public void removeNext() {
+		if (next != null) {
+			if (next.next != null) {
+				next.next.prev = this;
+			}
+			next = next.next;
+		}
+	}
+	
 	public void linkToPrevious(ArmInst prev) {
 		prev.next = this;
 		this.prev = prev;
@@ -49,8 +67,12 @@ public class ArmInst implements Iterable<ArmInst> {
 	}
 	
 	public void replaceChain(ArmInst groupStart, ArmInst groupEnd) {
-		groupStart.linkToPrevious(this.prev);
-		groupEnd.linkToNext(this.next);
+		if (this.prev != null) {
+			groupStart.linkToPrevious(this.prev);
+		}
+		if (this.next != null) {
+			groupEnd.linkToNext(this.next);
+		}
 	}
 	
 	public Iterator<ArmInst> iterator() {
