@@ -36,6 +36,7 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.CALL_AOT_INVOKE_INTERFACE, "call_aot_invoke_interface");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_INSTANCEOF_NON_TRIVIAL, "call_instanceof_non_trivial");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_ALLOC_OBJECT, "call_alloc_object");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_ALLOC_ARRAY_BY_CLASS, "call_alloc_array_by_class");
 		literalPoolTypeMap.put(LiteralPoolType.EXECUTE_INLINE, "execute_inline");
 	}
 

@@ -138,8 +138,46 @@ public class InstGen {
 		addRegRegOffsetInstruction("ldr", dest, src, offset);
 	}
 	
+	public void memoryReadMultiple(ArmRegister src, ArmRegister ... registers) {
+		addRegRegGroupInstruction("ldmia", src, registers);
+	}
+	
 	public void memoryWriteMultiple(ArmRegister dest, ArmRegister ... registers) {
 		addRegRegGroupInstruction("stmia", dest, registers);
+	}
+	
+	public void doReadWriteMultipleWithRegMask(ArmRegister baseReg, boolean isStore, int regMask) {
+		if (isStore) {
+			switch (regMask) {
+			case 1:
+				memoryWriteMultiple(baseReg, ArmRegister.r0);
+				break;
+			case 2:
+				memoryWriteMultiple(baseReg, ArmRegister.r0, ArmRegister.r1);
+				break;
+			case 3:
+				memoryWriteMultiple(baseReg, ArmRegister.r0, ArmRegister.r1, ArmRegister.r2);
+				break;
+			case 4:
+				memoryWriteMultiple(baseReg, ArmRegister.r0, ArmRegister.r1, ArmRegister.r2, ArmRegister.r3);
+				break;
+			}
+		} else {
+			switch (regMask) {
+			case 1:
+				memoryReadMultiple(baseReg, ArmRegister.r0);
+				break;
+			case 2:
+				memoryReadMultiple(baseReg, ArmRegister.r0, ArmRegister.r1);
+				break;
+			case 3:
+				memoryReadMultiple(baseReg, ArmRegister.r0, ArmRegister.r1, ArmRegister.r2);
+				break;
+			case 4:
+				memoryReadMultiple(baseReg, ArmRegister.r0, ArmRegister.r1, ArmRegister.r2, ArmRegister.r3);
+				break;
+			}
+		}
 	}
 	
 	public void loadConstant(ArmRegister reg, long constant) {

@@ -72,11 +72,13 @@ public class CodeGenerator {
 		}catch (UnimplementedInstructionException e) {
 			System.err.println(String.format("Unimplemented instruction: '%s' at %#x. Cannot generate code.", 
 					e.getUnimplementedInstructionName(), e.getUnimplementedInstructionCodeAddress()));
+			System.exit(1);
 		} catch (CompilationException e) {
 			System.err.println("Couldn't compile generated C. Cannot continue.");
-
+			System.exit(1);
 		} catch (CGeneratorFaultException e) {
 			System.err.println("Fault in the C generator. Cannot continue.");
+			System.exit(1);
 		}
 
 		return asmTraceFileNames;

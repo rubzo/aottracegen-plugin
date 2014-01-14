@@ -354,7 +354,23 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 23 new-array                  
+		// opcode: 23 new-array        
+		case NEW_ARRAY:
+		{
+			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
+			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
+			int classIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
+			
+			result  = "  {\n";
+			result += String.format("    if (v[%d] < 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
+			result += String.format("    v[%d] = new_array_%#x(lit[%d], v[%d], 1 /*ALLOC_DONT_TRACK*/);\n", vA, codeAddress, literalPoolLoc, vB);
+			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vA, codeAddress);
+			result += "  }";
+			break;
+		}
+		
 		// opcode: 24 filled-new-array           
 		// opcode: 25 filled-new-array/range     
 		// opcode: 26 fill-array-data            
@@ -860,7 +876,18 @@ public class BytecodeToCConverter {
 		
 		// opcode: 74 invoke-virtual/range       
 		// opcode: 75 invoke-super/range         
-		// opcode: 76 invoke-direct/range        
+		// opcode: 76 invoke-direct/range   
+		case INVOKE_DIRECT_RANGE: 
+		{
+			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.DIRECT_METHOD, methodIndex);
+			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
+				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
+			}
+			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			break;
+		}
+		
 		// opcode: 77 invoke-static/range        
 		// opcode: 78 invoke-interface/range     
 		// opcode: 7b neg-int  

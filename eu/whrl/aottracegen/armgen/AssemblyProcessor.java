@@ -7,7 +7,9 @@ import org.jf.dexlib.ClassDataItem.EncodedMethod;
 import org.jf.dexlib.Code.FiveRegisterInstruction;
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
+import org.jf.dexlib.Code.InvokeInstruction;
 import org.jf.dexlib.Code.OdexedInvokeVirtual;
+import org.jf.dexlib.Code.RegisterRangeInstruction;
 import org.jf.dexlib.Code.Format.Format;
 import org.jf.dexlib.Code.Format.Instruction35ms;
 
@@ -200,6 +202,8 @@ public class AssemblyProcessor {
 					handleInstanceof(context, branchInst);
 				} else if (dest.contains("new_instance")) {
 					handleNewInstance(context, branchInst);
+				} else if (dest.contains("new_array")) {
+					handleNewArray(context, branchInst);
 				} else if (dest.contains("barrier")) {
 					handleBarrier(context, branchInst);
 				} else {
@@ -263,6 +267,12 @@ public class AssemblyProcessor {
 	private void handleNewInstance(CodeGenContext context, ArmInstOpL inst) {
 		InstGen gen = new InstGen();
 		gen.jumpToFunction(context, ArmRegister.r2, LiteralPoolType.CALL_ALLOC_OBJECT, "dvmAllocObject");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handleNewArray(CodeGenContext context, ArmInstOpL inst) {
+		InstGen gen = new InstGen();
+		gen.jumpToFunction(context, ArmRegister.r3, LiteralPoolType.CALL_ALLOC_ARRAY_BY_CLASS, "dvmAllocArrayByClass");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
@@ -491,8 +501,83 @@ public class AssemblyProcessor {
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
+	private void handleArgumentRangeLoading(InstGen gen, CodeGenContext context, int codeAddress, boolean nullCheck, ArmRegister fpReg) {
+		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
+		
+		gen.insertComment("Begin range argument loading");
+		if (fpReg != ArmRegister.r5) {
+			gen.copyRegister(fpReg, ArmRegister.r5);
+		}
+		int regCount = ((InvokeInstruction) instruction).getRegCount();
+		int startReg = ((RegisterRangeInstruction) instruction).getStartRegister();
+		
+		gen.doMath("add", ArmRegister.r4, ArmRegister.r5, startReg * 4);
+		
+		int regMask = regCount;
+		if (regCount >= 4) {
+			regMask = 4;
+		}
+		
+		gen.doReadWriteMultipleWithRegMask(ArmRegister.r4, false, regMask);
+		
+		gen.doMath("sub", ArmRegister.r7, ArmRegister.r5, regCount * 4 + 20 /* size of StackSaveArea */);
+		
+		if (regCount > 0 && nullCheck) {
+			gen.insertComment("null-check (method is not static)");
+			gen.doComparisonAndJump("eq", ArmRegister.r0, 0, String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
+		}
+		
+		if (regCount >= 8) {
+			gen.stackPush(ArmRegister.r0, ArmRegister.r5);
+			
+			String loopHeaderLabel = String.format("ArgRangeLoopHeader_T%d_A%#x", context.currentRegionIndex, codeAddress);
+			
+			if (regCount > 11) {
+				gen.loadConstant(ArmRegister.r5, (((regCount - 4) >> 2) << 2));
+				gen.insertLabel(loopHeaderLabel);
+			}
+			
+			gen.doReadWriteMultipleWithRegMask(ArmRegister.r7, true, regMask);
+			
+			gen.doReadWriteMultipleWithRegMask(ArmRegister.r4, false, regMask);
+			
+			if (regCount > 11) {
+				gen.doMath("sub", ArmRegister.r5, ArmRegister.r5, 4);
+				gen.doComparisonAndJump("ne", ArmRegister.r5, 0, loopHeaderLabel);
+			}
+		}
+		
+		if (regCount != 0) {
+			gen.doReadWriteMultipleWithRegMask(ArmRegister.r7, true, regMask);
+		}
+		
+		if (regCount > 4 && (regCount % 4 != 0)) {
+			regMask = ((1 << (regCount & 0x3)) - 1) << 1;
+			gen.doReadWriteMultipleWithRegMask(ArmRegister.r4, false, regMask);
+		}
+		
+		if (regCount >= 8) {
+			gen.stackPop(ArmRegister.r0, ArmRegister.r5);
+		}
+		
+		if (regCount > 4 && (regCount % 4 != 0)) {
+			regMask = ((1 << (regCount & 0x3)) - 1) << 1;
+			gen.doReadWriteMultipleWithRegMask(ArmRegister.r7, true, regMask);
+		}
+		
+		if (fpReg != ArmRegister.r5) {
+			gen.copyRegister(ArmRegister.r5, fpReg);
+		}
+		gen.insertComment("End range argument loading");
+	}
+	
 	private void handleArgumentLoading(InstGen gen, CodeGenContext context, int codeAddress, boolean nullCheck, ArmRegister fpReg) {
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
+		
+		if (instruction instanceof RegisterRangeInstruction) {
+			handleArgumentRangeLoading(gen, context, codeAddress, nullCheck, fpReg);
+			return;
+		}
 
 		gen.insertComment("Begin argument loading");
 		int regCount = ((FiveRegisterInstruction) instruction).getRegCount();
