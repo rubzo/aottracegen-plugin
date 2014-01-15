@@ -106,6 +106,7 @@ public enum ArmOpcode {
 	ftoshs,
 	ftosid,
 	ftosis,
+	ftosizd,
 	ftosizs,
 	ftosl,
 	ftouh,
