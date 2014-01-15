@@ -225,7 +225,7 @@ public class ITraceGenerator {
 			writer.write("\t.arm\n");
 			writer.write("# Load inputs to the trace code.\n");
 		}
-		writer.write(String.format("\tadr\tr0, LiteralPool_T%d\n", context.currentRegionIndex));
+		writer.write(String.format("\tadr.w\tr0, LiteralPool_T%d\n", context.currentRegionIndex));
 		writer.write("\tmov\tr1, r5\n");
 		writer.write("\tmov\tr2, r6\n");
 		

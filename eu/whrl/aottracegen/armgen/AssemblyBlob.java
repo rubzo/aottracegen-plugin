@@ -55,6 +55,8 @@ public class AssemblyBlob {
 		if (!context.config.armMode && context.config.enableRemoveCBZs) {
 			insts = processor.removeCBZ(context, insts);
 		}
+		insts = processor.fixupTableBranchLabels(context, insts);
+		insts = processor.findAndFixConstantPools(context, insts);
 	}
 	
 	public void writeOut(FileWriter writer) throws IOException {

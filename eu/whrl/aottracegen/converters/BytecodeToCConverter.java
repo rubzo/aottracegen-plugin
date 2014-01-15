@@ -291,8 +291,20 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 1d monitor-enter              
-		// opcode: 1e monitor-exit               
+		// opcode: 1d monitor-enter         
+		case MONITOR_ENTER:
+		{
+			result = emitSingleStep(codeAddress, curTrace, instruction);
+			break;
+		}
+		
+		// opcode: 1e monitor-exit
+		case MONITOR_EXIT:
+		{
+			result = emitSingleStep(codeAddress, curTrace, instruction);
+			break;
+		}
+		
 		// opcode: 1f check-cast   
 		case CHECK_CAST:
 		{
@@ -371,10 +383,28 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 24 filled-new-array           
-		// opcode: 25 filled-new-array/range     
+		// opcode: 24 filled-new-array   
+		case FILLED_NEW_ARRAY:
+		{
+			result = emitSingleStep(codeAddress, curTrace, instruction);
+			break;
+		}
+		
+		// opcode: 25 filled-new-array/range
+		case FILLED_NEW_ARRAY_RANGE:
+		{
+			result = emitSingleStep(codeAddress, curTrace, instruction);
+			break;
+		}
+		
 		// opcode: 26 fill-array-data            
-		// opcode: 27 throw                      
+		// opcode: 27 throw    
+		case THROW:
+		{
+			result = emitSingleStep(codeAddress, curTrace, instruction);
+			break;
+		}
+		
 		// opcode: 28 goto     
 		case GOTO:
 		{
@@ -888,8 +918,25 @@ public class BytecodeToCConverter {
 			break;
 		}
 		
-		// opcode: 77 invoke-static/range        
-		// opcode: 78 invoke-interface/range     
+		// opcode: 77 invoke-static/range     
+		case INVOKE_STATIC_RANGE: 
+		{
+			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_METHOD, methodIndex);
+			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
+				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
+			}
+			result = String.format("  if (!invoke_singleton_nonullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			break;
+		}
+		
+		// opcode: 78 invoke-interface/range   
+		case INVOKE_INTERFACE_RANGE: 
+		{
+			result = String.format("  if (!invoke_interface_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			break;
+		}
+		
 		// opcode: 7b neg-int  
 		case NEG_INT:
 		{
@@ -1773,6 +1820,12 @@ public class BytecodeToCConverter {
 		}
 		
 		// opcode: f9 +invoke-virtual-quick/range
+		case INVOKE_VIRTUAL_QUICK_RANGE: 
+		{
+			result = String.format("  if (!invoke_virtual_quick_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			break;
+		}
+		
 		// opcode: fa +invoke-super-quick  
 		case INVOKE_SUPER_QUICK: 
 		{
@@ -1789,6 +1842,20 @@ public class BytecodeToCConverter {
 		}
 		
 		// opcode: fb +invoke-super-quick/range  
+		case INVOKE_SUPER_QUICK_RANGE: 
+		{
+			/*
+			int vtableIndex = ((OdexedInvokeVirtual) instruction).getVtableIndex();
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.SUPERQUICK_METHOD, vtableIndex);
+			if (!curTrace.meta.chainingCells.containsKey(vtableIndex)) {
+				curTrace.meta.chainingCells.put(vtableIndex, new ChainingCell(ChainingCell.Type.INVOKE_SUPER_SINGLETON, vtableIndex));
+			}
+			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			*/
+			result = emitSingleStep(codeAddress, curTrace, instruction);
+			break;
+		}
+		
 		// opcode: fc +iput-object-volatile      
 		// opcode: fd +sget-object-volatile      
 		// opcode: fe +sput-object-volatile 

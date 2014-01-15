@@ -17,14 +17,7 @@ import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.LiteralPoolType;
 import eu.whrl.aottracegen.MethodLookup;
 import eu.whrl.aottracegen.Trace;
-import eu.whrl.aottracegen.armgen.insts.ArmInst;
-import eu.whrl.aottracegen.armgen.insts.ArmInstOpL;
-import eu.whrl.aottracegen.armgen.insts.ArmInstOpMultiple;
-import eu.whrl.aottracegen.armgen.insts.ArmInstOpR;
-import eu.whrl.aottracegen.armgen.insts.ArmInstOpRI;
-import eu.whrl.aottracegen.armgen.insts.ArmInstOpRL;
-import eu.whrl.aottracegen.armgen.insts.ArmInstOpRMultiple;
-import eu.whrl.aottracegen.armgen.insts.IArmInstHasLabel;
+import eu.whrl.aottracegen.armgen.insts.*;
 
 public class AssemblyProcessor {
 	
@@ -54,6 +47,133 @@ public class AssemblyProcessor {
 			}
 		}
 		return null;
+	}
+	
+	/*
+	 * Returns a pointer to the first ArmInst that makes up the constant pool, if it finds one.
+	 */
+	public ArmInst containsConstantPool(CodeGenContext context, ArmInst insts) {
+		ArmInst constantPoolStart = null;
+		
+		boolean investigating = false;
+		int currentSize = 0;
+		
+		final int minimumConstantPoolSize = 16;
+		
+		for (ArmInst inst : insts) {
+			if (inst instanceof ArmInstPseudoDirectiveSingleArg && !investigating) {
+				ArmInstPseudoDirectiveSingleArg directive = (ArmInstPseudoDirectiveSingleArg) inst;
+				
+				if (directive.name.equals("word")) {
+					investigating = true;
+					currentSize = 1;
+					constantPoolStart = inst;
+				}
+			} else if (inst instanceof ArmInstPseudoDirectiveSingleArg && investigating) {
+				ArmInstPseudoDirectiveSingleArg directive = (ArmInstPseudoDirectiveSingleArg) inst;
+				
+				if (directive.name.equals("word")) {
+					currentSize++;
+				} else {
+					if (currentSize >= minimumConstantPoolSize) {
+						return constantPoolStart;
+					} else {
+						investigating = false;
+						currentSize = 0;
+					}
+				}
+			} else if (investigating) {
+				if (currentSize >= minimumConstantPoolSize) {
+					return constantPoolStart;
+				} else {
+					investigating = false;
+					currentSize = 0;
+				}
+			}
+		}
+		
+		if (investigating && currentSize >= minimumConstantPoolSize) {
+			return constantPoolStart;
+		}
+		
+		return null;
+	}
+	
+	public ArmInst getEndOfConstantPool(ArmInst constantPoolStart) {
+		for (ArmInst inst : constantPoolStart) {
+			if (inst instanceof ArmInstPseudoDirectiveSingleArg) {
+				ArmInstPseudoDirectiveSingleArg directive = (ArmInstPseudoDirectiveSingleArg) inst;
+				
+				if (!directive.name.equals("word")) {
+					return inst;
+				}
+			} else {
+				return inst;
+			}
+		}
+		
+		return null;
+	}
+	
+	public ArmInst findAndFixConstantPools(CodeGenContext context, ArmInst insts) {
+		
+		boolean searching = true;
+		
+		ArmInst currentHead = insts;
+		
+		while (searching) {
+			ArmInst potentialConstantPool = containsConstantPool(context, currentHead);
+		
+			if (potentialConstantPool != null) {
+				ArmInstComment comment = new ArmInstComment("A constant pool");
+				potentialConstantPool.insertBefore(comment);
+				currentHead = getEndOfConstantPool(potentialConstantPool);
+				if (currentHead == null) {
+					searching = false;
+				}
+			} else {
+				searching = false;
+			}
+		}
+		
+		return insts;
+	}
+	
+	public ArmInst fixupTableBranchLabels(CodeGenContext context, ArmInst insts) {
+		
+		boolean doFixup = false;
+		boolean foundTable = false;
+		
+		String regionPrefix = "T" + context.currentRegionIndex + "_";
+		
+		for (ArmInst inst : insts) {
+			ArmOpcode opcode = inst.getOpcode();
+			if ((opcode == ArmOpcode.tbb || opcode == ArmOpcode.tbh) && !doFixup) {
+				doFixup = true;
+			} else if (doFixup && !foundTable) {
+				if (inst instanceof ArmInstPseudoDirectiveSingleArg) {
+					ArmInstPseudoDirectiveSingleArg directive = (ArmInstPseudoDirectiveSingleArg) inst;
+					if (directive.name.equals("byte") || directive.name.equals("2byte")) {
+						foundTable = true;
+					}
+				}
+			} 
+			
+			if (foundTable) {
+				if (inst instanceof ArmInstPseudoDirectiveSingleArg) {
+					ArmInstPseudoDirectiveSingleArg directive = (ArmInstPseudoDirectiveSingleArg) inst;
+					if (directive.name.equals("byte") || directive.name.equals("2byte")) {
+						directive.arg = directive.arg.replaceAll("L", regionPrefix + "L");
+					} else {
+						doFixup = false;
+						foundTable = false;
+					}
+				}
+			}
+			
+		}
+		
+		return insts;
 	}
 	
 	public ArmInst fixupEntryAndExits(CodeGenContext context, ArmInst insts) {
