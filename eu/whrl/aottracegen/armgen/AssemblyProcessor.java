@@ -26,8 +26,9 @@ public class AssemblyProcessor {
 			ArmOpcode opcode = inst.getOpcode();
 			if (opcode == ArmOpcode.ldm || opcode == ArmOpcode.pop) {
 				ArmInstOpMultiple op = (ArmInstOpMultiple) inst;
-				if (op.registers.size() != 2 || op.registers.get(0) != ArmRegister.r5 || 
-						op.registers.get(1) != ArmRegister.r6) {
+				if (op.registers.size() != 3 || op.registers.get(0) != ArmRegister.r2 || 
+						op.registers.get(1) != ArmRegister.r5 || 
+						op.registers.get(2) != ArmRegister.r6) {
 					return op;
 				}
 			}
@@ -40,8 +41,9 @@ public class AssemblyProcessor {
 			ArmOpcode opcode = inst.getOpcode();
 			if (opcode == ArmOpcode.stm || opcode == ArmOpcode.push) {
 				ArmInstOpMultiple op = (ArmInstOpMultiple) inst;
-				if (op.registers.size() != 2 || op.registers.get(0) != ArmRegister.r5 || 
-						op.registers.get(1) != ArmRegister.r6) {
+				if (op.registers.size() != 3 || op.registers.get(0) != ArmRegister.r0 ||
+						op.registers.get(1) != ArmRegister.r1 ||
+						op.registers.get(2) != ArmRegister.r2) {
 					return op;
 				}
 			}
@@ -125,6 +127,7 @@ public class AssemblyProcessor {
 			ArmInst potentialConstantPool = containsConstantPool(context, currentHead);
 		
 			if (potentialConstantPool != null) {
+				/* for now, just label the constant pools */
 				ArmInstComment comment = new ArmInstComment("A constant pool");
 				potentialConstantPool.insertBefore(comment);
 				currentHead = getEndOfConstantPool(potentialConstantPool);
@@ -192,6 +195,7 @@ public class AssemblyProcessor {
 			
 			/* pop only r5, r6 */
 			popInst.registers.clear();
+			popInst.addRegister(ArmRegister.r2);
 			popInst.addRegister(ArmRegister.r5);
 			popInst.addRegister(ArmRegister.r6);
 			
@@ -217,6 +221,7 @@ public class AssemblyProcessor {
 					ArmInstOpR exitInst = (ArmInstOpR) inst;
 					if (exitInst.reg == ArmRegister.lr) {
 						ArmInstOpMultiple newInstStart = new ArmInstOpMultiple("pop");
+						newInstStart.addRegister(ArmRegister.r2);
 						newInstStart.addRegister(ArmRegister.r5);
 						newInstStart.addRegister(ArmRegister.r6);
 						
@@ -244,13 +249,15 @@ public class AssemblyProcessor {
 		
 		if (pushInst != null) {
 			pushInst.registers.clear();
-			pushInst.addRegister(ArmRegister.r5);
-			pushInst.addRegister(ArmRegister.r6);
+			pushInst.addRegister(ArmRegister.r0);
+			pushInst.addRegister(ArmRegister.r1);
+			pushInst.addRegister(ArmRegister.r2);
 		} else {
 			/* there were no push insts at the start of the trace, so put our one for r5+r6 in */
 			ArmInstOpMultiple newPushInst = new ArmInstOpMultiple("push");
-			newPushInst.addRegister(ArmRegister.r5);
-			newPushInst.addRegister(ArmRegister.r6);
+			newPushInst.addRegister(ArmRegister.r0);
+			newPushInst.addRegister(ArmRegister.r1);
+			newPushInst.addRegister(ArmRegister.r2);
 			insts.insertBefore(newPushInst);
 			insts = newPushInst;
 		}

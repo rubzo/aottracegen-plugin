@@ -192,13 +192,13 @@ public class CTraceGenerator {
 	 * Emit the function signature, basically.
 	 */
 	private void emitFunctionStart() throws IOException {
-		writer.write("#define TRACE_EXIT(a) { unsigned long long r = (((unsigned long long) a) << 32) | 1; return r; }\n");
-		writer.write("#define TRACE_EXCEPTION(a) { unsigned long long r = (((unsigned long long) a) << 32) | 2; return r; }\n");
-		writer.write("#define TRACE_RETURN(a) { unsigned long long r = (((unsigned long long) a) << 32) | 3; return r; }\n");
-		writer.write("#define TRACE_DEPARTURE_INFO long long\n");
+		writer.write("#define TRACE_EXIT(a) { return a+1; }\n");
+		writer.write("#define TRACE_EXCEPTION(a) { return -1-a; }\n");
+		writer.write("#define TRACE_RETURN(a) { return 0; }\n");
+		writer.write("#define TRACE_DEPARTURE_INFO int\n");
 		writer.write("\n");
 		
-		writer.write(String.format("// --- TRACE %2d START ---\n", context.currentRegionIndex));
+		writer.write(String.format("// --- TRACE %2d START (%s;%s;%s) ---\n", context.currentRegionIndex, context.currentRegion.clazz, context.currentRegion.method, context.currentRegion.signature));
 		writer.write("TRACE_DEPARTURE_INFO trace(int *lit, int *v, char *self) {\n");
 	}
 	

@@ -247,18 +247,14 @@ public class ITraceGenerator {
 			writer.write(".thumb\n");
 		}
 		
-		writer.write("\tcmp\tr0, #1\n");
-		writer.write(String.format("\tbeq\tExits_T%d\n", context.currentRegionIndex));
-		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
-			writer.write("\tcmp\tr0, #2\n");
-			writer.write(String.format("\tbeq\tExceptions_T%d\n", context.currentRegionIndex));
-		}
-		if (curTrace.meta.containsReturn) {
-			writer.write("\tcmp\tr0, #3\n");
-			writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentRegionIndex));
-		}
+		writer.write("\tcmp\tr0, #0\n");
+		writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentRegionIndex));
+		writer.write(String.format("\tblt\tExceptions_T%d\n", context.currentRegionIndex));
+		writer.write(String.format("\tbgt\tExits_T%d\n", context.currentRegionIndex));
 		
 		writer.write(String.format("Exits_T%d:\n", context.currentRegionIndex));
+		writer.write("\tsub\tr1, r0, #1\n");
+		
 		int jumpsProduced = 0;
 		int previousCodeAddress = 0;
 		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
@@ -284,6 +280,7 @@ public class ITraceGenerator {
 		
 		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
 			writer.write(String.format("Exceptions_T%d:\n", context.currentRegionIndex));
+			writer.write("\tmvn\tr1, r0\n");
 			if (context.config.emitEHCounter) {
 				writer.write("# Calling the AOTDebugCounter...\n");
 				writer.write("\tmov\tr0, r1\n");
@@ -307,16 +304,14 @@ public class ITraceGenerator {
 			 */
 		}
 		
-		if (curTrace.meta.containsReturn) {
-			writer.write(String.format("Returns_T%d:\n", context.currentRegionIndex));
+		writer.write(String.format("Returns_T%d:\n", context.currentRegionIndex));
 			
-			int literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.RETURN_HANDLER);
+		int literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.RETURN_HANDLER);
 
-			// Create the jump to the return handler
-			writer.write(String.format("\tadr.w\tr2, LiteralPool_T%d\n", context.currentRegionIndex));
-			writer.write(String.format("\tldr\tr0, [r2, #%d]\n", literalPoolLoc*4));
-			writer.write("\tblx\tr0\n");
-		}
+		// Create the jump to the return handler
+		writer.write("\t# Literal pool is in r2.\n");
+		writer.write(String.format("\tldr\tr0, [r2, #%d]\n", literalPoolLoc*4));
+		writer.write("\tblx\tr0\n");
 		
 		writer.write(".align 4\n");
 		
