@@ -165,7 +165,8 @@ public class CTraceGenerator {
 	}
 
 	private void updateChainingCells(Trace curTrace, Instruction instruction, int codeAddress, int nextAddress) {
-		if (instruction.opcode == Opcode.INVOKE_VIRTUAL_QUICK || instruction.opcode == Opcode.INVOKE_INTERFACE) {
+		if (instruction.opcode == Opcode.INVOKE_VIRTUAL_QUICK || instruction.opcode == Opcode.INVOKE_INTERFACE ||
+				instruction.opcode == Opcode.INVOKE_VIRTUAL_QUICK_RANGE || instruction.opcode == Opcode.INVOKE_INTERFACE_RANGE) {
 			curTrace.meta.chainingCells.put(codeAddress, (new ChainingCell(ChainingCell.Type.INVOKE_PREDICTED, codeAddress)));
 		} else if (opcodesWithHotChainingCells.contains(instruction.opcode) && !curTrace.containsCodeAddress(nextAddress)) {
 			curTrace.meta.chainingCells.get(nextAddress).type = ChainingCell.Type.HOT;
