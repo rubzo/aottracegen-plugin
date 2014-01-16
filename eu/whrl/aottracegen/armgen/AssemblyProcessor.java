@@ -153,6 +153,12 @@ public class AssemblyProcessor {
 		for (ArmInst inst : insts) {
 			ArmOpcode opcode = inst.getOpcode();
 			if ((opcode == ArmOpcode.tbb || opcode == ArmOpcode.tbh) && !doFixup) {
+				if (opcode == ArmOpcode.tbb) {
+					ArmInstOp tableBranchInst = (ArmInstOp) inst;
+					tableBranchInst.opcode = ArmOpcode.tbh;
+					ArmInstComment comment = new ArmInstComment("Was promoted from tbb to tbh");
+					inst.insertBefore(comment);
+				}
 				doFixup = true;
 			} else if (doFixup && !foundTable) {
 				if (inst instanceof ArmInstPseudoDirectiveSingleArg) {
@@ -168,6 +174,9 @@ public class AssemblyProcessor {
 					ArmInstPseudoDirectiveSingleArg directive = (ArmInstPseudoDirectiveSingleArg) inst;
 					if (directive.name.equals("byte") || directive.name.equals("2byte")) {
 						directive.arg = directive.arg.replaceAll("L", regionPrefix + "L");
+						if (directive.name.equals("byte")) {
+							directive.name = "2byte";
+						}
 					} else {
 						doFixup = false;
 						foundTable = false;
