@@ -29,6 +29,36 @@ public class BytecodeToCConverter {
 	private static final int offsetThreadException = 68;
 	private static final int offsetArrayObjectLength = 8;
 	
+	private static final int INLINE_EMPTYINLINEMETHOD = 0;
+	private static final int INLINE_STRING_CHARAT = 1;
+	private static final int INLINE_STRING_COMPARETO = 2;
+	private static final int INLINE_STRING_EQUALS = 3;
+	private static final int INLINE_STRING_FASTINDEXOF_II = 4;
+	private static final int INLINE_STRING_IS_EMPTY = 5;
+	private static final int INLINE_STRING_LENGTH = 6;
+	private static final int INLINE_MATH_ABS_INT = 7;
+	private static final int INLINE_MATH_ABS_LONG = 8;
+	private static final int INLINE_MATH_ABS_FLOAT = 9;
+	private static final int INLINE_MATH_ABS_DOUBLE = 10;
+	private static final int INLINE_MATH_MIN_INT = 11;
+	private static final int INLINE_MATH_MAX_INT = 12;
+	private static final int INLINE_MATH_SQRT = 13;
+	private static final int INLINE_MATH_COS = 14;
+	private static final int INLINE_MATH_SIN = 15;
+	private static final int INLINE_FLOAT_TO_INT_BITS = 16;
+	private static final int INLINE_FLOAT_TO_RAW_INT_BITS = 17;
+	private static final int INLINE_INT_BITS_TO_FLOAT = 18;
+	private static final int INLINE_DOUBLE_TO_LONG_BITS = 19;
+	private static final int INLINE_DOUBLE_TO_RAW_LONG_BITS = 20;
+	private static final int INLINE_LONG_BITS_TO_DOUBLE = 21;
+	private static final int INLINE_STRICT_MATH_ABS_INT = 22;
+	private static final int INLINE_STRICT_MATH_ABS_LONG = 23;
+	private static final int INLINE_STRICT_MATH_ABS_FLOAT = 24;
+	private static final int INLINE_STRICT_MATH_ABS_DOUBLE = 25;
+	private static final int INLINE_STRICT_MATH_MIN_INT = 26;
+	private static final int INLINE_STRICT_MATH_MAX_INT = 27;
+	private static final int INLINE_STRICT_MATH_SQRT = 28;
+	
 	/*
 	 * Return a string representing the instruction at codeAddress,
 	 * as a C implementation. ALSO HAS SIDE EFFECTS OF UPDATING
@@ -315,7 +345,7 @@ public class BytecodeToCConverter {
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
 			
 			result  = "  {\n";
-			result += String.format("    if (!instanceof_%2$#x(v[%1$d], lit[%3$d])) TRACE_EXCEPTION(%2$#x);\n", vA, codeAddress, literalPoolLoc);
+			result += String.format("    if (!instanceof_%2$#x(v[%1$d], lit[%3$d], lit)) TRACE_EXCEPTION(%2$#x);\n", vA, codeAddress, literalPoolLoc);
 			result += "  }";
 
 			break;
@@ -333,7 +363,7 @@ public class BytecodeToCConverter {
 			
 			result  = "  {\n";
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
-			result += String.format("    v[%d] = instanceof_%#x(v[%d], lit[%d]);\n", vA, codeAddress, vB, literalPoolLoc);
+			result += String.format("    v[%d] = instanceof_%#x(v[%d], lit[%d], lit);\n", vA, codeAddress, vB, literalPoolLoc);
 			result += "  }";
 
 			break;
@@ -360,7 +390,7 @@ public class BytecodeToCConverter {
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
 			
 			result  = "  {\n";
-			result += String.format("    v[%d] = new_instance_%#x(lit[%d], 1 /*ALLOC_DONT_TRACK*/);\n", vA, codeAddress, literalPoolLoc);
+			result += String.format("    v[%d] = new_instance_%#x(lit[%d], 1 /*ALLOC_DONT_TRACK*/, lit);\n", vA, codeAddress, literalPoolLoc);
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vA, codeAddress);
 			result += "  }";
 			break;
@@ -377,7 +407,7 @@ public class BytecodeToCConverter {
 			
 			result  = "  {\n";
 			result += String.format("    if (v[%d] < 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
-			result += String.format("    v[%d] = new_array_%#x(lit[%d], v[%d], 1 /*ALLOC_DONT_TRACK*/);\n", vA, codeAddress, literalPoolLoc, vB);
+			result += String.format("    v[%d] = new_array_%#x(lit[%d], v[%d], 1 /*ALLOC_DONT_TRACK*/, lit);\n", vA, codeAddress, literalPoolLoc, vB);
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vA, codeAddress);
 			result += "  }";
 			break;
@@ -876,31 +906,21 @@ public class BytecodeToCConverter {
 		// opcode: 70 invoke-direct
 		case INVOKE_DIRECT: 
 		{
-			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
-			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.DIRECT_METHOD, methodIndex);
-			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
-				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
-			}
-			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			result = emitInvokeSingleton(codeAddress, true);
 			break;
 		}
 		
 		// opcode: 71 invoke-static              
 		case INVOKE_STATIC: 
 		{
-			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
-			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_METHOD, methodIndex);
-			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
-				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
-			}
-			result = String.format("  if (!invoke_singleton_nonullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			result = emitInvokeSingleton(codeAddress, false);
 			break;
 		}
 		
 		// opcode: 72 invoke-interface    
 		case INVOKE_INTERFACE: 
 		{
-			result = String.format("  if (!invoke_interface_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			result = emitInvokeInterface(codeAddress);
 			break;
 		}
 		
@@ -909,31 +929,21 @@ public class BytecodeToCConverter {
 		// opcode: 76 invoke-direct/range   
 		case INVOKE_DIRECT_RANGE: 
 		{
-			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
-			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.DIRECT_METHOD, methodIndex);
-			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
-				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
-			}
-			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			result = emitInvokeSingleton(codeAddress, true);
 			break;
 		}
 		
 		// opcode: 77 invoke-static/range     
 		case INVOKE_STATIC_RANGE: 
 		{
-			int methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
-			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_METHOD, methodIndex);
-			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
-				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
-			}
-			result = String.format("  if (!invoke_singleton_nonullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
+			result = emitInvokeSingleton(codeAddress, false);
 			break;
 		}
 		
 		// opcode: 78 invoke-interface/range   
 		case INVOKE_INTERFACE_RANGE: 
 		{
-			result = String.format("  if (!invoke_interface_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			result = emitInvokeInterface(codeAddress);
 			break;
 		}
 		
@@ -1715,7 +1725,71 @@ public class BytecodeToCConverter {
 		{
 			int inlineIndex = ((OdexedInvokeInline)instruction).getInlineIndex();
 			
-			result = String.format("  *((double*) (self+16)) = execute_inline_%#x(*((double*) (v + %d)));\n", inlineIndex, 1);
+			switch (inlineIndex) {
+			case INLINE_EMPTYINLINEMETHOD:
+				
+				break;
+			case INLINE_STRING_CHARAT:
+				break;
+			case INLINE_STRING_COMPARETO:
+				break;
+			case INLINE_STRING_EQUALS:
+				break;
+			case INLINE_STRING_FASTINDEXOF_II:
+				break;
+			case INLINE_STRING_IS_EMPTY:
+				break;
+			case INLINE_STRING_LENGTH:
+				break;
+			case INLINE_MATH_ABS_INT:
+				break;
+			case INLINE_MATH_ABS_LONG:
+				break;
+			case INLINE_MATH_ABS_FLOAT:
+				break;
+			case INLINE_MATH_ABS_DOUBLE:
+				break;
+			case INLINE_MATH_MIN_INT:
+				break;
+			case INLINE_MATH_MAX_INT:
+				break;
+			case INLINE_MATH_SQRT:
+				break;
+			case INLINE_MATH_COS:
+				break;
+			case INLINE_MATH_SIN:
+				break;
+			case INLINE_FLOAT_TO_INT_BITS:
+				break;
+			case INLINE_FLOAT_TO_RAW_INT_BITS:
+				break;
+			case INLINE_INT_BITS_TO_FLOAT:
+				break;
+			case INLINE_DOUBLE_TO_LONG_BITS:
+				break;
+			case INLINE_DOUBLE_TO_RAW_LONG_BITS:
+				break;
+			case INLINE_LONG_BITS_TO_DOUBLE:
+				break;
+			case INLINE_STRICT_MATH_ABS_INT:
+				break;
+			case INLINE_STRICT_MATH_ABS_LONG:
+				break;
+			case INLINE_STRICT_MATH_ABS_FLOAT:
+				break;
+			case INLINE_STRICT_MATH_ABS_DOUBLE:
+				break;
+			case INLINE_STRICT_MATH_MIN_INT:
+				break;
+			case INLINE_STRICT_MATH_MAX_INT:
+				break;
+			case INLINE_STRICT_MATH_SQRT:
+				break;
+			}
+			
+			//result = String.format("  *((double*) (self+%d)) = execute_inline_%#x(*((double*) (v + %d)));\n", offsetThreadReturn, inlineIndex, 1);
+			
+			result = "BROKEN!!!";
 			
 			break;
 		}
@@ -1815,28 +1889,20 @@ public class BytecodeToCConverter {
 		// opcode: f8 +invoke-virtual-quick     
 		case INVOKE_VIRTUAL_QUICK: 
 		{
-			result = String.format("  if (!invoke_virtual_quick_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			result = emitInvokeVirtualQuick(codeAddress);
 			break;
 		}
 		
 		// opcode: f9 +invoke-virtual-quick/range
 		case INVOKE_VIRTUAL_QUICK_RANGE: 
 		{
-			result = String.format("  if (!invoke_virtual_quick_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+			result = emitInvokeVirtualQuick(codeAddress);
 			break;
 		}
 		
 		// opcode: fa +invoke-super-quick  
 		case INVOKE_SUPER_QUICK: 
 		{
-			/*
-			int vtableIndex = ((OdexedInvokeVirtual) instruction).getVtableIndex();
-			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.SUPERQUICK_METHOD, vtableIndex);
-			if (!curTrace.meta.chainingCells.containsKey(vtableIndex)) {
-				curTrace.meta.chainingCells.put(vtableIndex, new ChainingCell(ChainingCell.Type.INVOKE_SUPER_SINGLETON, vtableIndex));
-			}
-			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
-			*/
 			result = emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
@@ -1844,14 +1910,6 @@ public class BytecodeToCConverter {
 		// opcode: fb +invoke-super-quick/range  
 		case INVOKE_SUPER_QUICK_RANGE: 
 		{
-			/*
-			int vtableIndex = ((OdexedInvokeVirtual) instruction).getVtableIndex();
-			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.SUPERQUICK_METHOD, vtableIndex);
-			if (!curTrace.meta.chainingCells.containsKey(vtableIndex)) {
-				curTrace.meta.chainingCells.put(vtableIndex, new ChainingCell(ChainingCell.Type.INVOKE_SUPER_SINGLETON, vtableIndex));
-			}
-			result = String.format("  if (!invoke_singleton_nullcheck_%1$#x(%1$#x, lit[%2$d], v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress, literalPoolLoc);
-			*/
 			result = emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
@@ -2206,6 +2264,22 @@ public class BytecodeToCConverter {
 				String.format("    %3$s value = *((%3$s*) (v + %2$d));\n" +
 		                      "    *(((%4$s*) (v + %1$d))) = (%4$s) value;\n", vA, vB, from, to)
 		         + "  }";
+	}
+	
+	private String emitInvokeSingleton(int codeAddress, boolean nullCheck) {
+		String nullCheckString = "nonullcheck";
+		if (nullCheck) {
+			nullCheckString = "nullcheck";
+		}
+		return String.format("  if (!invoke_singleton_%1$s_%2$#x(%2$#x, lit, v, self)) TRACE_EXCEPTION(%2$#x)", nullCheckString, codeAddress);
+	}
+	
+	private String emitInvokeInterface(int codeAddress) {
+		return String.format("  if (!invoke_interface_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
+	}
+	
+	private String emitInvokeVirtualQuick(int codeAddress) {
+		return String.format("  if (!invoke_virtual_quick_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)", codeAddress);
 	}
 	
 	public String getGotoLabel(Trace trace, int codeAddress) {

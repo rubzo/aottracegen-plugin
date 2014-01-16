@@ -151,7 +151,7 @@ public class ITraceGenerator {
 		writer.write("\t.syntax unified\n");
 		writer.write("\t.thumb\n");
 		writer.write("\t# Magic number used to make sure the loader has loaded the right code:\n");
-		writer.write("\t.word 0xDEADBEEF\n");
+		writer.write("\t.word 0x12E91077\n");
 		
 	}
 	
@@ -212,8 +212,31 @@ public class ITraceGenerator {
 		Trace curTrace = context.currentRegion.trace;
 		AssemblyBlob assemblyBlob = assemblyBlobs.get(context.currentRegionIndex);
 		
+		// Add an entry to the literal pool for our AOTDebug function, if we ever need to use it
+		if (context.config.emitDebugFunctions) {
+			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION);
+			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION);
+		}
+
+		// The literal pool is now at the start.
+		writer.write("\t.align 4\n");
+		writer.write(String.format("LiteralPool_T%d:\n", context.currentRegionIndex));
+		for (int litPoolIdx = 0; litPoolIdx < curTrace.meta.literalPoolSize; litPoolIdx++) {
+			
+			writer.write(String.format("\t# %d LiteralPool[%d] - %s (value: %#x)\n", litPoolIdx, litPoolIdx * 4, 
+					curTrace.meta.literalPoolTypes.get(litPoolIdx).toString(), curTrace.meta.literalPoolIndices.get(litPoolIdx)) );
+			
+			if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION) {
+				writer.write(String.format("AOTDebugCounter_T%d:\n", context.currentRegionIndex));
+			} else if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION) {
+				writer.write(String.format("AOTDebugLogMessage_T%d:\n", context.currentRegionIndex));
+			}
+			writer.write("\t.word 0x00000000\n");
+		}
+		writer.write("\n");
+		
 		// start of the trace
-		writer.write(".align 4\n");
+		writer.write("\t.align 4\n");
 		writer.write(String.format("Start_T%d:\n", context.currentRegionIndex));
 		
 		if (context.config.armMode) {
@@ -230,7 +253,7 @@ public class ITraceGenerator {
 		writer.write("\tmov\tr2, r6\n");
 		
 		// and the actual trace body now...
-		writer.write("# Actual trace code begins now:\n");
+		writer.write("\t# Actual trace code begins now:\n");
 		assemblyBlob.writeOut(writer);
 		writer.write("\n");
 		
@@ -312,34 +335,13 @@ public class ITraceGenerator {
 		writer.write("\t# Literal pool is in r2.\n");
 		writer.write(String.format("\tldr\tr0, [r2, #%d]\n", literalPoolLoc*4));
 		writer.write("\tblx\tr0\n");
-		
-		writer.write(".align 4\n");
-		
-		writer.write("\t.word 0x00000000\n");
-		writer.write("\t.word 0x00000000\n");
-		writer.write("\t.word 0x00000000\n");
+
 		// base pc location
-		// NB: this MUST come just before the literal pool!
+		// NB: may need to come before the literal pool??
+		writer.write(".align 4\n");
 		writer.write(String.format("BasePC_T%d:\n", context.currentRegionIndex));
 		writer.write("\t.word 0x00000000\n");
-		writer.write("\n");
-		
-		// Add an entry to the literal pool for our AOTDebug function, if we ever need to use it
-		if (context.config.emitDebugFunctions) {
-			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION);
-			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION);
-		}
-		
-		// its literal pool
-		writer.write(String.format("LiteralPool_T%d:\n", context.currentRegionIndex));
-		for (int litPoolIdx = 0; litPoolIdx < curTrace.meta.literalPoolSize; litPoolIdx++) {
-			if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION) {
-				writer.write(String.format("AOTDebugCounter_T%d:\n", context.currentRegionIndex));
-			} else if (context.config.emitDebugFunctions && curTrace.meta.literalPoolTypes.get(litPoolIdx) == LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION) {
-				writer.write(String.format("AOTDebugLogMessage_T%d:\n", context.currentRegionIndex));
-			}
-			writer.write("\t.word 0x00000000\n");
-		}
+		writer.write(".align 4\n");
 		writer.write("\n");
 		
 		// exception handlers

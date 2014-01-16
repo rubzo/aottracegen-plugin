@@ -240,12 +240,11 @@ public class InstGen {
 		addArglessInstruction("dmb");
 	}
 	
-	public void jumpToFunction(CodeGenContext context, ArmRegister reg, LiteralPoolType function, String name) {
+	public void jumpToFunction(CodeGenContext context, ArmRegister reg, ArmRegister literalPoolReg, LiteralPoolType function, String name) {
 		Trace curTrace = context.currentRegion.trace;
 		int literalPoolLoc = curTrace.meta.addLiteralPoolType(function);
 		insertComment(String.format("load and call %s()", name));
-		loadLabel(reg, String.format("LiteralPool_T%d", context.currentRegionIndex));
-		memoryRead(reg, reg, literalPoolLoc * 4);
+		memoryRead(reg, literalPoolReg, literalPoolLoc * 4);
 		jumpToReg(reg);
 	}
 	

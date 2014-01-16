@@ -13,6 +13,7 @@ import org.jf.dexlib.Code.RegisterRangeInstruction;
 import org.jf.dexlib.Code.Format.Format;
 import org.jf.dexlib.Code.Format.Instruction35ms;
 
+import eu.whrl.aottracegen.ChainingCell;
 import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.LiteralPoolType;
 import eu.whrl.aottracegen.MethodLookup;
@@ -392,14 +393,16 @@ public class AssemblyProcessor {
 	}
 	
 	private void handleNewInstance(CodeGenContext context, ArmInstOpL inst) {
+		/* literal pool pointer is in r2 */
 		InstGen gen = new InstGen();
-		gen.jumpToFunction(context, ArmRegister.r2, LiteralPoolType.CALL_ALLOC_OBJECT, "dvmAllocObject");
+		gen.jumpToFunction(context, ArmRegister.r2, ArmRegister.r2, LiteralPoolType.CALL_ALLOC_OBJECT, "dvmAllocObject");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
 	private void handleNewArray(CodeGenContext context, ArmInstOpL inst) {
+		/* literal pool pointer is in r3 */
 		InstGen gen = new InstGen();
-		gen.jumpToFunction(context, ArmRegister.r3, LiteralPoolType.CALL_ALLOC_ARRAY_BY_CLASS, "dvmAllocArrayByClass");
+		gen.jumpToFunction(context, ArmRegister.r3, ArmRegister.r3, LiteralPoolType.CALL_ALLOC_ARRAY_BY_CLASS, "dvmAllocArrayByClass");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
@@ -428,9 +431,10 @@ public class AssemblyProcessor {
 	}
 	
 	private void handleInstanceof(CodeGenContext context, ArmInstOpL inst) {
+		/* literal pool pointer is in r2 */
 		InstGen gen = new InstGen();
 		gen.memoryRead(ArmRegister.r0, ArmRegister.r0, 0);
-		gen.jumpToFunction(context, ArmRegister.r2, LiteralPoolType.CALL_INSTANCEOF_NON_TRIVIAL, "dvmInstanceofNonTrivial");
+		gen.jumpToFunction(context, ArmRegister.r2, ArmRegister.r2, LiteralPoolType.CALL_INSTANCEOF_NON_TRIVIAL, "dvmInstanceofNonTrivial");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
@@ -441,6 +445,7 @@ public class AssemblyProcessor {
 	}
 
 	private void handleInvokeInterface(CodeGenContext context, ArmInstOpL inst) {
+		/* literal pool pointer is in r0 */
 		String label = inst.label.getLabelAsString();
 
 		int codeAddress = 0;
@@ -472,7 +477,7 @@ public class AssemblyProcessor {
 		// load &predictedChainingCell
 		gen.loadLabel(ArmRegister.r5, String.format("ChainingCell_T%d_M%#x", context.currentRegionIndex, codeAddress));
 
-		gen.jumpToFunction(context, ArmRegister.r6, LiteralPoolType.CALL_AOT_INVOKE_INTERFACE, "dvmCompiler_AOT_INVOKE_INTERFACE");
+		gen.jumpToFunction(context, ArmRegister.r6, ArmRegister.r0, LiteralPoolType.CALL_AOT_INVOKE_INTERFACE, "dvmCompiler_AOT_INVOKE_INTERFACE");
 
 		gen.jumpToLabel(String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress));
 
@@ -490,6 +495,7 @@ public class AssemblyProcessor {
 	}
 
 	private void handleInvokeVirtualQuick(CodeGenContext context, ArmInstOpL inst) {
+		/* literal pool pointer is now in r6 */
 		String label = inst.label.getLabelAsString();
 
 		int codeAddress = 0;
@@ -510,6 +516,9 @@ public class AssemblyProcessor {
 
 		handleArgumentLoading(gen, context, codeAddress, true, ArmRegister.r1);
 	
+		// save the literal pool pointer in r6... 
+		gen.copyRegister(ArmRegister.r6, ArmRegister.r0);
+		
 		// r5 now contains object, move it to r0
 		gen.copyRegister(ArmRegister.r0, ArmRegister.r5);
 		// move v
@@ -523,7 +532,7 @@ public class AssemblyProcessor {
 		// load &predictedChainingCell
 		gen.loadLabel(ArmRegister.r5, String.format("ChainingCell_T%d_M%#x", context.currentRegionIndex, codeAddress));
 
-		gen.jumpToFunction(context, ArmRegister.r6, LiteralPoolType.CALL_AOT_INVOKE_VIRTUAL_QUICK, "dvmCompiler_AOT_INVOKE_VIRTUAL_QUICK");
+		gen.jumpToFunction(context, ArmRegister.r6, ArmRegister.r6, LiteralPoolType.CALL_AOT_INVOKE_VIRTUAL_QUICK, "dvmCompiler_AOT_INVOKE_VIRTUAL_QUICK");
 
 		String jumpAfterLabel = String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress);
 		gen.jumpToLabel(jumpAfterLabel);
@@ -558,50 +567,60 @@ public class AssemblyProcessor {
 		}
 
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
+		
+		Trace curTrace = context.currentRegion.trace;
 	
-		boolean isInvokeSuperQuick = false;
-		EncodedMethod method = null;
-		if (instruction.getFormat() == Format.Format35ms) {
-			isInvokeSuperQuick = true;
-		}
-
-		if (isInvokeSuperQuick) {
-			method = MethodLookup.getMethodLookup().getSuperQuickMethodFromInstruction(instruction, context); 
+		/* literal pool pointer is in r1 */
+		/* need to load the right method pointer into r1, and move the literal pool pointer to r4 */
+		/* we'll do this later on, though... */
+		int methodIndex = 0;
+		int literalPoolLoc = 0;
+		if (nullCheckArgs) {
+			/* load DIRECT METHOD */
+			methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.DIRECT_METHOD, methodIndex);
+			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
+				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
+			}
 		} else {
-			method = MethodLookup.getMethodLookup().getCalleeMethodFromInstruction(instruction,
-					context);
+			/* load STATIC METHOD */
+			methodIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STATIC_METHOD, methodIndex);
+			if (!curTrace.meta.chainingCells.containsKey(methodIndex)) {
+				curTrace.meta.chainingCells.put(methodIndex, (new ChainingCell(ChainingCell.Type.INVOKE_SINGLETON, methodIndex)));
+			}
 		}
+		
+		EncodedMethod method = MethodLookup.getMethodLookup().getCalleeMethodFromInstruction(instruction,
+				context);
 
 		if ((method.accessFlags & 0x100) != 0 /* native? */) {
-			handleInvokeSingletonNative(context, inst, codeAddress, method, nullCheckArgs);
+			handleInvokeSingletonNative(context, inst, codeAddress, method, nullCheckArgs, methodIndex, literalPoolLoc);
 		} else {
-			handleInvokeSingletonJava(context, inst, codeAddress, method, nullCheckArgs);
+			handleInvokeSingletonJava(context, inst, codeAddress, method, nullCheckArgs, methodIndex, literalPoolLoc);
 		}
 	}
 	
-	private void handleInvokeSingletonJava(CodeGenContext context, ArmInstOpL inst, int codeAddress, EncodedMethod method, boolean nullCheckArgs) {
+	private void handleInvokeSingletonJava(CodeGenContext context, ArmInstOpL inst, int codeAddress, EncodedMethod method, boolean nullCheckArgs, int methodIndex, int literalPoolLoc) {
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
-		int methodIndex = 0;
 		String vtablePrefix = "";
-		if (instruction.getFormat() == Format.Format35ms) {
-			methodIndex = ((Instruction35ms) instruction).getVtableIndex();
-			vtablePrefix = "V";
-		} else {
-			methodIndex = ((InstructionWithReference) instruction)
-					.getReferencedItem().getIndex();
-		}
 
 		InstGen gen = new InstGen();
 
 		gen.insertComment("START INVOKE SINGLETON (JAVA)");
 		gen.insertComment("Save callee-save regs");
 		gen.calleeSavePush();
+		
+		/* move literal pool from r1 to r5 */
+		gen.copyRegister(ArmRegister.r5, ArmRegister.r1);
+		/* read method pointer out of r5[literalpoolloc] into r1 */ 
+		gen.memoryRead(ArmRegister.r1, ArmRegister.r5, 4 * literalPoolLoc);
 
 		handleArgumentLoading(gen, context, codeAddress, nullCheckArgs, ArmRegister.r2);
 
 		gen.loadLabel(ArmRegister.r4, String.format("ChainingCell_T%d_M%s%#x", context.currentRegionIndex, vtablePrefix, methodIndex));
 
-		gen.jumpToFunction(context, ArmRegister.r5, LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_JAVA, "dvmCompiler_AOT_INVOKE_SINGLETON_JAVA");
+		gen.jumpToFunction(context, ArmRegister.r5, ArmRegister.r5, LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_JAVA, "dvmCompiler_AOT_INVOKE_SINGLETON_JAVA");
 
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
@@ -610,16 +629,21 @@ public class AssemblyProcessor {
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
-	private void handleInvokeSingletonNative(CodeGenContext context, ArmInstOpL inst, int codeAddress, EncodedMethod method, boolean nullCheckArgs) {
+	private void handleInvokeSingletonNative(CodeGenContext context, ArmInstOpL inst, int codeAddress, EncodedMethod method, boolean nullCheckArgs, int methodIndex, int literalPoolLoc) {
 		InstGen gen = new InstGen();
 
 		gen.insertComment("START INVOKE SINGLETON (NATIVE)");
 		gen.insertComment("Save callee-save regs");
 		gen.calleeSavePush();
 
+		/* move literal pool from r1 to r5 */
+		gen.copyRegister(ArmRegister.r5, ArmRegister.r1);
+		/* read method pointer out of r5[literalpoolloc] into r1 */ 
+		gen.memoryRead(ArmRegister.r1, ArmRegister.r5, 4 * literalPoolLoc);
+		
 		handleArgumentLoading(gen, context, codeAddress, nullCheckArgs, ArmRegister.r2);
 
-		gen.jumpToFunction(context, ArmRegister.r5, LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_NATIVE, "dvmCompiler_AOT_INVOKE_SINGLETON_NATIVE");
+		gen.jumpToFunction(context, ArmRegister.r5, ArmRegister.r5, LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_NATIVE, "dvmCompiler_AOT_INVOKE_SINGLETON_NATIVE");
 
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
