@@ -40,6 +40,7 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.CALL___AEABI_L2D, "call___aeabi_l2d");
 		literalPoolTypeMap.put(LiteralPoolType.CALL___AEABI_L2F, "call___aeabi_l2f");
 		literalPoolTypeMap.put(LiteralPoolType.CALL___AEABI_IDIVMOD, "call___aeabi_idivmod");
+		literalPoolTypeMap.put(LiteralPoolType.CALL___AEABI_IDIV, "call___aeabi_idiv");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_COS, "call_cos");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_SIN, "call_sin");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_DVMANNOUNCE, "call_dvmannounce");

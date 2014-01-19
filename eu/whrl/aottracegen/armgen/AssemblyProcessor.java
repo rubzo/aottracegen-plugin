@@ -351,6 +351,8 @@ public class AssemblyProcessor {
 					handleAeabiL2F(context, branchInst);
 				} else if (dest.contains("__aeabi_idivmod")) {
 					handleAeabiIDivMod(context, branchInst);
+				} else if (dest.contains("__aeabi_idiv")) {
+					handleAeabiIDiv(context, branchInst);
 				} else if (dest.contains("__hiya_cos")) {
 					handleCos(context, branchInst);
 				} else if (dest.contains("__hiya_sin")) {
@@ -527,6 +529,14 @@ public class AssemblyProcessor {
 		gen.insertComment("--- AEABI_IDIVMOD START");
 		gen.jumpToFunctionHardcodedLiteralPool(context, ArmRegister.r2, LiteralPoolType.CALL___AEABI_IDIVMOD, "__aeabi_idivmod", inst);
 		gen.insertComment("--- AEABI_IDIVMOD END");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handleAeabiIDiv(CodeGenContext context, ArmInstOpL inst) {
+		InstGen gen = new InstGen();
+		gen.insertComment("--- AEABI_IDIV START");
+		gen.jumpToFunctionHardcodedLiteralPool(context, ArmRegister.r2, LiteralPoolType.CALL___AEABI_IDIVMOD, "__aeabi_idiv", inst);
+		gen.insertComment("--- AEABI_IDIV END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
