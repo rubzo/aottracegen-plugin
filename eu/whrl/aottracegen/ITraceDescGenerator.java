@@ -37,6 +37,14 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.CALL_INSTANCEOF_NON_TRIVIAL, "call_instanceof_non_trivial");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_ALLOC_OBJECT, "call_alloc_object");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_ALLOC_ARRAY_BY_CLASS, "call_alloc_array_by_class");
+		literalPoolTypeMap.put(LiteralPoolType.CALL___AEABI_L2D, "call___aeabi_l2d");
+		literalPoolTypeMap.put(LiteralPoolType.CALL___AEABI_L2F, "call___aeabi_l2f");
+		literalPoolTypeMap.put(LiteralPoolType.CALL___AEABI_IDIVMOD, "call___aeabi_idivmod");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_COS, "call_cos");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_SIN, "call_sin");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_DVMANNOUNCE, "call_dvmannounce");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_DVMANNOUNCEINT, "call_dvmannounceint");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_DVMBLOCKREGION, "call_dvmblockregion");
 		literalPoolTypeMap.put(LiteralPoolType.EXECUTE_INLINE, "execute_inline");
 	}
 

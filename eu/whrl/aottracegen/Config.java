@@ -21,6 +21,10 @@ public class Config {
 	
 	public boolean emitDebugFunctions = false;
 	public boolean emitEHCounter = false;
+	
+	public boolean announceMode = false;
+	public boolean blockingMode = false;
+	
 	public boolean armMode = false;
 	public List<String> extraLibs = new LinkedList<String>();
 	
@@ -91,6 +95,10 @@ public class Config {
 					emitEHCounter = true;
 					// Emitting the counter at every exception handler exit point requires the debug function to be emitted.
 					emitDebugFunctions = true;
+				} else if (line.startsWith("announce")) {
+					announceMode = true;
+				} else if (line.startsWith("blocking")) {
+					blockingMode = true;
 				} else if (line.startsWith("arm")) {
 					armMode = true;
 				} else if (line.startsWith("no-remove-cbz")) {

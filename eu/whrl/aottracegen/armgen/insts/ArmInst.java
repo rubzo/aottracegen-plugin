@@ -13,9 +13,40 @@ public class ArmInst implements Iterable<ArmInst> {
 	public ArmInst() {
 		valid = true;
 	}
-
+	
+	public int getSize() {
+		if (this instanceof ArmInstComment || this instanceof ArmInstPseudoLabel) {
+			return 0;
+		}
+		return 1;
+	}
+	
+	public int getDistanceToStart() {
+		int size = 0;
+		ArmInst inst = prev;
+		while (inst != null) {
+			size += inst.getSize();
+			inst = inst.prev;
+		}
+		return size;
+	}
+	
+	public int getDistanceToEnd() {
+		int size = getSize();
+		ArmInst inst = next;
+		while (inst != null) {
+			size += inst.getSize();
+			inst = inst.next;
+		}
+		return size;
+	}
+	
+	/*
+	 * Before: (prev2 -> ) prev1 -> this -> next
+	 * After:  (prev2 -> )          this -> next
+	 */
 	public void removePrevious() {
-		if (prev != null) {
+		if (prev != null) {	
 			if (prev.prev != null) {
 				prev.prev.next = this;
 			}
@@ -23,6 +54,10 @@ public class ArmInst implements Iterable<ArmInst> {
 		}
 	}
 	
+	/*
+	 * Before: prev -> this -> next1 (-> next2)
+	 * After:  prev -> this          (-> next2)
+	 */
 	public void removeNext() {
 		if (next != null) {
 			if (next.next != null) {
@@ -32,16 +67,28 @@ public class ArmInst implements Iterable<ArmInst> {
 		}
 	}
 	
+	/*
+	 * Before: this
+	 * After:  *prev* -> this
+	 */
 	public void linkToPrevious(ArmInst prev) {
 		prev.next = this;
 		this.prev = prev;
 	}
 
+	/*
+	 * Before: this
+	 * After:  this -> *next*
+	 */
 	public void linkToNext(ArmInst next) {
 		this.next = next;
 		next.prev = this;
 	}
 	
+	/*
+	 * Before: this (-> something)
+	 * After:  this -> *next* (-> something)
+	 */
 	public void insertAfter(ArmInst inst) {
 		if (this.next != null) {
 			inst.next = this.next;
@@ -52,6 +99,10 @@ public class ArmInst implements Iterable<ArmInst> {
 		inst.prev = this;
 	}
 	
+	/*
+	 * Before: (something ->) this
+	 * After:  (something ->) *prev* -> this
+	 */
 	public void insertBefore(ArmInst inst) {
 		if (this.prev != null) {
 			inst.prev = this.prev;

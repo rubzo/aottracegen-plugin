@@ -217,6 +217,16 @@ public class ITraceGenerator {
 			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_COUNTER_FUNCTION);
 			curTrace.meta.addLiteralPoolType(LiteralPoolType.AOT_DEBUG_LOG_MESSAGE_FUNCTION);
 		}
+		if (context.config.announceMode) {
+			curTrace.meta.addLiteralPoolType(LiteralPoolType.CALL_DVMANNOUNCE);
+			curTrace.meta.addLiteralPoolType(LiteralPoolType.CALL_DVMANNOUNCEINT);
+		}
+		if (context.config.blockingMode) {
+			curTrace.meta.addLiteralPoolType(LiteralPoolType.CALL_DVMBLOCKREGION);
+		}
+		if (curTrace.meta.containsReturn) {
+			curTrace.meta.addLiteralPoolType(LiteralPoolType.RETURN_HANDLER);
+		}
 
 		// The literal pool is now at the start.
 		writer.write("\t.align 4\n");
@@ -235,9 +245,33 @@ public class ITraceGenerator {
 		}
 		writer.write("\n");
 		
+		if (context.config.announceMode) {
+			writer.write("\t.align\n");
+			writer.write(String.format("EntryMessage_T%d:\n", context.currentRegionIndex));
+			writer.write(String.format("\t.asciz \"Entering %s;%s;%s\"\n", context.currentRegion.clazz, context.currentRegion.method, context.currentRegion.signature));
+		}
+		
 		// start of the trace
 		writer.write("\t.align 4\n");
 		writer.write(String.format("Start_T%d:\n", context.currentRegionIndex));
+		
+		if (context.config.announceMode) {
+			writer.write("\t# ENTER ANNOUNCE MODE - print region name in logcat\n");
+			writer.write(String.format("\tadr.w\tr0, EntryMessage_T%d\n", context.currentRegionIndex));
+			writer.write(String.format("\tadr.w\tr1, LiteralPool_T%d\n", context.currentRegionIndex));
+			writer.write("\t# Load &dvmAnnounce\n");
+			writer.write(String.format("\tldr\tr1, [r1, #%d]\n", 4 * curTrace.meta.getLiteralPoolLocationForType(LiteralPoolType.CALL_DVMANNOUNCE)));
+			writer.write("\tblx\tr1\n");
+			writer.write("\t# LEAVE ANNOUNCE MODE\n");
+		}
+		
+		if (context.config.blockingMode) {
+			writer.write("\t# ENTER BLOCK REGION\n");
+			writer.write(String.format("\tadr.w\tr0, LiteralPool_T%d\n", context.currentRegionIndex));
+			writer.write("\t# Load &dvmBlockRegion\n");
+			writer.write(String.format("\tldr\tr0, [r0, #%d]\n", 4 * curTrace.meta.getLiteralPoolLocationForType(LiteralPoolType.CALL_DVMBLOCKREGION)));
+			writer.write("\t# LEAVE BLOCK REGION\n");
+		}
 		
 		if (context.config.armMode) {
 			// Code that enters ARM execution mode
@@ -248,6 +282,11 @@ public class ITraceGenerator {
 			writer.write("\t.arm\n");
 			writer.write("# Load inputs to the trace code.\n");
 		}
+		
+		writer.write("\t# Put a vulture on the stack\n");
+		writer.write("\tmovw\tr0, #0xF00D\n");
+		writer.write("\tpush\t{r0}\n");
+		
 		writer.write(String.format("\tadr.w\tr0, LiteralPool_T%d\n", context.currentRegionIndex));
 		writer.write("\tmov\tr1, r5\n");
 		writer.write("\tmov\tr2, r6\n");
@@ -270,10 +309,31 @@ public class ITraceGenerator {
 			writer.write(".thumb\n");
 		}
 		
+		
+		writer.write("\t# Remove the vulture from the stack\n");
+		writer.write("\tmovw\tr3, #0xF00D\n");
+		writer.write("\tpop\t{r4}\n");
+		writer.write("\tcmp\tr3, r4\n");
+		writer.write(String.format("\tbne\tAlertStackImbalance_T%d\n", context.currentRegionIndex));
+		
 		writer.write("\tcmp\tr0, #0\n");
 		writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentRegionIndex));
 		writer.write(String.format("\tblt\tExceptions_T%d\n", context.currentRegionIndex));
 		writer.write(String.format("\tbgt\tExits_T%d\n", context.currentRegionIndex));
+		
+		
+		// Alert about stack imbalance
+		writer.write(String.format("AlertStackImbalance_T%d:\n", context.currentRegionIndex));
+		writer.write("\tmovw\tr0, #0xDEAD\n");
+		writer.write("\tmovw\tr1, #0xBEEF\n");
+		writer.write("\tmovw\tr2, #0xCAFE\n");
+		writer.write("\tmovw\tr3, #0xBABE\n");
+		writer.write("\tmov\tr4, #0\n");
+		writer.write("\tmov\tr5, #0\n");
+		writer.write("\tmov\tr6, #0\n");
+		writer.write("\tmov\tr7, #0\n");
+		writer.write("\tldr\tr7, [r7, #0]\n");
+		writer.write("\n");
 		
 		writer.write(String.format("Exits_T%d:\n", context.currentRegionIndex));
 		writer.write("\tsub\tr1, r0, #1\n");
@@ -302,22 +362,31 @@ public class ITraceGenerator {
 		}
 		
 		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
+			if (context.config.announceMode) {
+				writer.write("\t.align\n");
+				writer.write(String.format("ExceptionMessage_T%d:\n", context.currentRegionIndex));
+				writer.write(String.format("\t.asciz \"Raising exception in %s;%s;%s at\"\n", context.currentRegion.clazz, context.currentRegion.method, context.currentRegion.signature));
+				writer.write("\t.align\n");
+			}
 			writer.write(String.format("Exceptions_T%d:\n", context.currentRegionIndex));
 			writer.write("\tmvn\tr1, r0\n");
-			if (context.config.emitEHCounter) {
-				writer.write("# Calling the AOTDebugCounter...\n");
-				writer.write("\tmov\tr0, r1\n");
-				writer.write("\tmov\tr4, r1\n");
-				writer.write(String.format("\tadr.w\tr2, AOTDebugCounter_T%d\n", context.currentRegionIndex));
-				writer.write("\tldr\tr2, [r2]\n");
+			if (context.config.announceMode) {
+				writer.write("# ENTER ANNOUNCE MODE - print region name in logcat\n");
+				writer.write("\t# Literal pool is in r2.\n");
+				writer.write("\tpush\t{r1}\n");
+				writer.write(String.format("\tadr.w\tr0, ExceptionMessage_T%d\n", context.currentRegionIndex));
+				writer.write("\t# Load &dvmAnnounceInt\n");
+				writer.write(String.format("\tldr\tr2, [r2, #%d]\n", 4 * curTrace.meta.getLiteralPoolLocationForType(LiteralPoolType.CALL_DVMANNOUNCEINT)));
 				writer.write("\tblx\tr2\n");
-				writer.write("\tmov\tr1, r4\n");
-				writer.write("# ...done.\n");
+				writer.write("\tpop\t{r1}\n");
+				writer.write("# LEAVE ANNOUNCE MODE\n");
 			}
 			writer.write(String.format("\tldr\tr0, BasePC_T%d\n", context.currentRegionIndex));
 			writer.write("\tlsl\tr1, r1, #1\n");
 			writer.write("\tadd\tr0, r0, r1\n");
-			writer.write(String.format("\tb\tMainExceptionHandler_T%d\n", context.currentRegionIndex));
+			writer.write("\tldr\tr1, [r6, #108]\n");
+			writer.write("\tblx\tr1\n");
+			writer.write("\n");
 			
 			/*
 			for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
@@ -327,14 +396,34 @@ public class ITraceGenerator {
 			 */
 		}
 		
+		if (context.config.announceMode) {
+			writer.write("\t.align\n");
+			writer.write(String.format("ReturnMessage_T%d:\n", context.currentRegionIndex));
+			writer.write(String.format("\t.asciz \"Returning from %s;%s;%s\"\n", context.currentRegion.clazz, context.currentRegion.method, context.currentRegion.signature));
+			writer.write("\t.align\n");
+		}
+		
 		writer.write(String.format("Returns_T%d:\n", context.currentRegionIndex));
 			
-		int literalPoolLoc = curTrace.meta.addLiteralPoolType(LiteralPoolType.RETURN_HANDLER);
+		if (curTrace.meta.containsReturn) {
+			int literalPoolLoc = curTrace.meta.getLiteralPoolLocationForType(LiteralPoolType.RETURN_HANDLER);
+			
+			if (context.config.announceMode) {
+				writer.write("\t# ENTER ANNOUNCE MODE - print region name in logcat\n");
+				writer.write("\tpush\t{r2}\n");
+				writer.write(String.format("\tadr.w\tr0, ReturnMessage_T%d\n", context.currentRegionIndex));
+				writer.write("\t# Load &dvmAnnounce\n");
+				writer.write(String.format("\tldr\tr1, [r2, #%d]\n", 4 * curTrace.meta.getLiteralPoolLocationForType(LiteralPoolType.CALL_DVMANNOUNCE)));
+				writer.write("\tblx\tr1\n");
+				writer.write("\tpop\t{r2}\n");
+				writer.write("\t# LEAVE ANNOUNCE MODE\n");
+			}
 
-		// Create the jump to the return handler
-		writer.write("\t# Literal pool is in r2.\n");
-		writer.write(String.format("\tldr\tr0, [r2, #%d]\n", literalPoolLoc*4));
-		writer.write("\tblx\tr0\n");
+			// Create the jump to the return handler
+			writer.write("\t# Literal pool is in r2.\n");
+			writer.write(String.format("\tldr\tr0, [r2, #%d]\n", literalPoolLoc*4));
+			writer.write("\tblx\tr0\n");
+		}
 
 		// base pc location
 		// NB: may need to come before the literal pool??
@@ -343,32 +432,6 @@ public class ITraceGenerator {
 		writer.write("\t.word 0x00000000\n");
 		writer.write(".align 4\n");
 		writer.write("\n");
-		
-		// exception handlers
-		if (curTrace.meta.codeAddressesThatThrowExceptions.size() > 0) {
-			/*
-			for (int exceptionCodeAddress : curTrace.meta.codeAddressesThatThrowExceptions) {
-				writer.write(String.format("ExceptionHandler_T%d_A%#x:\n", context.currentRegionIndex, exceptionCodeAddress));
-				
-				if (context.config.emitEHCounter) {
-					writer.write(String.format("\tadr.w\tr1, AOTDebugCounter_T%d\n", context.currentRegionIndex));
-					writer.write("\tldr\tr1, [r1]\n");
-					writer.write(String.format("\tmovw\tr0, #%d\n", exceptionCodeAddress));
-					writer.write("\tblx\tr1\n");
-				}
-				writer.write(String.format("\tldr\tr0, BasePC_T%d\n", context.currentRegionIndex));
-				writer.write(String.format("\tadd\tr0, r0, #%d\n", exceptionCodeAddress*2));
-				writer.write(String.format("\tb\tMainExceptionHandler_T%d\n", context.currentRegionIndex));
-				
-				
-			}
-			*/
-			writer.write(String.format("MainExceptionHandler_T%d:\n", context.currentRegionIndex));
-			writer.write("\tldr\tr1, [r6, #108]\n");
-			writer.write("\tblx\tr1\n");
-			writer.write("\n");
-		}
-	
 		
 		for (ChainingCell cc : curTrace.meta.chainingCells.values()) {
 

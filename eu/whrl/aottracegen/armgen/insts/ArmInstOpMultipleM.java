@@ -58,10 +58,8 @@ public class ArmInstOpMultipleM extends ArmInstOp implements IArmInstPrintable, 
 	public ArmInst getInst(Matcher match, RegexHelper h) {
 		try {
 			ArmInstOpMultipleM newInst = new ArmInstOpMultipleM(match.group(1), h.readReg(match.group(3)));
-			String regsString = match.group(2);
-
-			for (String reg : regsString.split(",")) {
-				newInst.addRegister(h.readReg(reg));
+			for (ArmRegister reg : h.readRegisterGroup(match.group(2))) {
+				newInst.addRegister(reg);
 			}
 			return newInst;
 		} catch (NotParsableException e) {

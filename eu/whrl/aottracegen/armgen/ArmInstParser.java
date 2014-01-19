@@ -31,6 +31,8 @@ public class ArmInstParser {
 		parsers.add(new ArmInstOpMR());
 		parsers.add(new ArmInstOpRRII());
 		parsers.add(new ArmInstOpRRI());
+		parsers.add(new ArmInstOpRRMO());
+		parsers.add(new ArmInstOpRRM());
 		parsers.add(new ArmInstOpRMO());
 		parsers.add(new ArmInstOpRMI());
 		parsers.add(new ArmInstOpRMR());

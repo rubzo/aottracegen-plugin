@@ -68,10 +68,8 @@ public class ArmInstOpRMultiple extends ArmInstOp implements IArmInstPrintable, 
 			if (baseRegString.trim().endsWith("!")) {
 				newInst.autoIndex = true;
 			}
-			String regsString = match.group(3);
-
-			for (String reg : regsString.split(",")) {
-				newInst.addRegister(h.readReg(reg));
+			for (ArmRegister reg : h.readRegisterGroup(match.group(3))) {
+				newInst.addRegister(reg);
 			}
 			return newInst;
 		} catch (NotParsableException e) {

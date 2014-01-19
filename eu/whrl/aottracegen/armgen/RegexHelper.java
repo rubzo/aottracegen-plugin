@@ -1,5 +1,8 @@
 package eu.whrl.aottracegen.armgen;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import eu.whrl.aottracegen.armgen.insts.NotParsableException;
 
 public class RegexHelper {
@@ -57,5 +60,23 @@ public class RegexHelper {
 		} catch (NumberFormatException e) {
 			throw new NotParsableException();
 		}
+	}
+	
+	public List<ArmRegister> readRegisterGroup(String regGroupStr) throws NotParsableException {
+		List<ArmRegister> regsList = new LinkedList<ArmRegister>();
+		if (regGroupStr.contains("-")) {
+			String[] twoRegs = regGroupStr.split("-");
+			ArmRegister first = readReg(twoRegs[0]);
+			ArmRegister second = readReg(twoRegs[1]);
+			// HERE COMES A MASSIVE HACK!!!!!!!!
+			for (int i = first.ordinal(); i <= second.ordinal(); i++) {
+				regsList.add(ArmRegister.values()[i]);
+			}
+		} else {
+			for (String reg : regGroupStr.split(",")) {
+				regsList.add(readReg(reg));
+			}
+		}
+		return regsList;
 	}
 }

@@ -343,8 +343,21 @@ public class AssemblyProcessor {
 					handleNewArray(context, branchInst);
 				} else if (dest.contains("barrier")) {
 					handleBarrier(context, branchInst);
+				} else if (dest.contains("sqrt")) {
+					handleSqrt(context, branchInst);
+				} else if (dest.contains("__aeabi_l2d")) {
+					handleAeabiL2D(context, branchInst);
+				} else if (dest.contains("__aeabi_l2f")) {
+					handleAeabiL2F(context, branchInst);
+				} else if (dest.contains("__aeabi_idivmod")) {
+					handleAeabiIDivMod(context, branchInst);
+				} else if (dest.contains("__hiya_cos")) {
+					handleCos(context, branchInst);
+				} else if (dest.contains("__hiya_sin")) {
+					handleSin(context, branchInst);
 				} else {
 					System.out.println("Unhandled bl label: " + dest);
+					System.exit(1);
 				}
 				
 			}
@@ -373,7 +386,7 @@ public class AssemblyProcessor {
 
 		InstGen gen = new InstGen();
 
-		gen.insertComment("Single stepping...");
+		gen.insertComment("--- SINGLE STEP START");
 		gen.insertComment("Save callee-save regs");
 
 		gen.stackPush(ArmRegister.r4, ArmRegister.r5, ArmRegister.r6, 
@@ -397,6 +410,8 @@ public class AssemblyProcessor {
 		gen.stackPop(ArmRegister.r4, ArmRegister.r5, ArmRegister.r6, 
 				ArmRegister.r7, ArmRegister.r8, ArmRegister.r9, 
 				ArmRegister.r10, ArmRegister.r11);
+		
+		gen.insertComment("--- SINGLE STEP END");
 
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
@@ -404,14 +419,18 @@ public class AssemblyProcessor {
 	private void handleNewInstance(CodeGenContext context, ArmInstOpL inst) {
 		/* literal pool pointer is in r2 */
 		InstGen gen = new InstGen();
+		gen.insertComment("--- NEW INSTANCE START");
 		gen.jumpToFunction(context, ArmRegister.r2, ArmRegister.r2, LiteralPoolType.CALL_ALLOC_OBJECT, "dvmAllocObject");
+		gen.insertComment("--- NEW INSTANCE END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
 	private void handleNewArray(CodeGenContext context, ArmInstOpL inst) {
 		/* literal pool pointer is in r3 */
 		InstGen gen = new InstGen();
+		gen.insertComment("--- NEW ARRAY START");
 		gen.jumpToFunction(context, ArmRegister.r3, ArmRegister.r3, LiteralPoolType.CALL_ALLOC_ARRAY_BY_CLASS, "dvmAllocArrayByClass");
+		gen.insertComment("--- NEW ARRAY END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
@@ -420,21 +439,43 @@ public class AssemblyProcessor {
 		Trace curTrace = context.currentRegion.trace;
 		
 		int inlineIndex = 0;
+		int numArgs = 0;
 		Pattern p = Pattern
-				.compile("execute_inline_0x(.*)\\(PLT\\)$");
+				.compile("execute_inline_args_(\\d+)_index_(\\d+)");
 		Matcher m = p.matcher(label);
 		if (m.find()) {
-			inlineIndex = Integer.parseInt(m.group(1), 16);
+			numArgs = Integer.parseInt(m.group(1));
+			inlineIndex = Integer.parseInt(m.group(2));
 		}
 		
 		int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(
 				LiteralPoolType.EXECUTE_INLINE, inlineIndex);
 		
 		InstGen gen = new InstGen();
-		gen.insertComment("load and call execute-inline");
-		gen.loadLabel(ArmRegister.r2, String.format("LiteralPool_T%d", context.currentRegionIndex));
-		gen.memoryRead(ArmRegister.r2, ArmRegister.r2, literalPoolLoc * 4);
-		gen.jumpToReg(ArmRegister.r2);
+		gen.insertComment("--- EXECUTE INLINE START");
+		gen.stackPush(ArmRegister.r4);
+		/* copy the literal pool */
+		gen.copyRegister(ArmRegister.r4, ArmRegister.r0);
+		
+		/* shift the args down */
+		if (numArgs > 0) {
+			gen.copyRegister(ArmRegister.r0, ArmRegister.r1);
+		}
+		if (numArgs > 1) {
+			gen.copyRegister(ArmRegister.r1, ArmRegister.r2);
+		}
+		if (numArgs > 2) {
+			gen.copyRegister(ArmRegister.r2, ArmRegister.r3);
+		}
+		
+		/* load the execute inline function, and jump to it */
+		gen.memoryRead(ArmRegister.r4, ArmRegister.r4, literalPoolLoc * 4);
+		gen.jumpToReg(ArmRegister.r4);
+		
+		gen.stackPop(ArmRegister.r4);
+		
+		/* r0 is where the C expects the result to be */
+		gen.insertComment("--- EXECUTE INLINE END");
 		
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
@@ -442,14 +483,68 @@ public class AssemblyProcessor {
 	private void handleInstanceof(CodeGenContext context, ArmInstOpL inst) {
 		/* literal pool pointer is in r2 */
 		InstGen gen = new InstGen();
+		gen.insertComment("--- INSTANCE OF START");
 		gen.memoryRead(ArmRegister.r0, ArmRegister.r0, 0);
 		gen.jumpToFunction(context, ArmRegister.r2, ArmRegister.r2, LiteralPoolType.CALL_INSTANCEOF_NON_TRIVIAL, "dvmInstanceofNonTrivial");
+		gen.insertComment("--- INSTANCE OF END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
 	private void handleBarrier(CodeGenContext context, ArmInstOpL inst) {
 		InstGen gen = new InstGen();
+		gen.insertComment("--- BARRIER START");
 		gen.addMemoryBarrier();
+		gen.insertComment("--- BARRIER END");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handleSqrt(CodeGenContext context, ArmInstOpL inst) {
+		InstGen gen = new InstGen();
+		gen.insertComment("--- BOMB START");
+		gen.addBomb();
+		gen.insertComment("--- END START");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handleAeabiL2D(CodeGenContext context, ArmInstOpL inst) {
+		InstGen gen = new InstGen();
+		gen.insertComment("--- AEABI_L2D START");
+		gen.jumpToFunctionHardcodedLiteralPool(context, ArmRegister.r2, LiteralPoolType.CALL___AEABI_L2D, "__aeabi_l2d", inst);
+		gen.insertComment("--- AEABI_L2D END");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handleAeabiL2F(CodeGenContext context, ArmInstOpL inst) {
+		InstGen gen = new InstGen();
+		gen.insertComment("--- AEABI_L2F START");
+		gen.jumpToFunctionHardcodedLiteralPool(context, ArmRegister.r2, LiteralPoolType.CALL___AEABI_L2F, "__aeabi_l2f", inst);
+		gen.insertComment("--- AEABI_L2F END");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handleAeabiIDivMod(CodeGenContext context, ArmInstOpL inst) {
+		InstGen gen = new InstGen();
+		gen.insertComment("--- AEABI_IDIVMOD START");
+		gen.jumpToFunctionHardcodedLiteralPool(context, ArmRegister.r2, LiteralPoolType.CALL___AEABI_IDIVMOD, "__aeabi_idivmod", inst);
+		gen.insertComment("--- AEABI_IDIVMOD END");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handleCos(CodeGenContext context, ArmInstOpL inst) {
+		InstGen gen = new InstGen();
+		gen.insertComment("--- COS START");
+		// double will be in d0, lit will be in r0, see pg19 of Arm Procedure Call Standard
+		gen.jumpToFunction(context, ArmRegister.r0, ArmRegister.r0, LiteralPoolType.CALL_COS, "cos");
+		gen.insertComment("--- COS END");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handleSin(CodeGenContext context, ArmInstOpL inst) {
+		InstGen gen = new InstGen();
+		gen.insertComment("--- SIN START");
+		// double will be in d0, lit will be in r0, see pg19 of Arm Procedure Call Standard
+		gen.jumpToFunction(context, ArmRegister.r0, ArmRegister.r0, LiteralPoolType.CALL_SIN, "sin");
+		gen.insertComment("--- SIN END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 
@@ -469,7 +564,7 @@ public class AssemblyProcessor {
 
 		InstGen gen = new InstGen();
 
-		gen.insertComment("START INVOKE INTERFACE");
+		gen.insertComment("--- INVOKE INTERFACE START");
 		gen.insertComment("Save callee-save regs");
 		gen.calleeSavePush();
 
@@ -484,7 +579,7 @@ public class AssemblyProcessor {
 		// load vB (method reference)
 		gen.loadConstant(ArmRegister.r2, ((InstructionWithReference) instruction).getReferencedItem().getIndex());
 		// load &predictedChainingCell
-		gen.loadLabel(ArmRegister.r5, String.format("ChainingCell_T%d_M%#x", context.currentRegionIndex, codeAddress));
+		gen.loadLabel(ArmRegister.r5, String.format("ChainingCell_T%d_M%#x", context.currentRegionIndex, codeAddress), inst, true);
 
 		gen.jumpToFunction(context, ArmRegister.r6, ArmRegister.r0, LiteralPoolType.CALL_AOT_INVOKE_INTERFACE, "dvmCompiler_AOT_INVOKE_INTERFACE");
 
@@ -498,7 +593,7 @@ public class AssemblyProcessor {
 
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
-		gen.insertComment("END INVOKE INTERFACE");
+		gen.insertComment("--- INVOKE INTERFACE END");
 
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
@@ -519,7 +614,7 @@ public class AssemblyProcessor {
 
 		InstGen gen = new InstGen();
 
-		gen.insertComment("START INVOKE VIRTUAL QUICK");
+		gen.insertComment("--- INVOKE VIRTUAL QUICK START");
 		gen.insertComment("Save callee-save regs");
 		gen.calleeSavePush();
 
@@ -539,7 +634,7 @@ public class AssemblyProcessor {
 		// load vtable offset
 		gen.loadConstant(ArmRegister.r2, ((OdexedInvokeVirtual)instruction).getVtableIndex());
 		// load &predictedChainingCell
-		gen.loadLabel(ArmRegister.r5, String.format("ChainingCell_T%d_M%#x", context.currentRegionIndex, codeAddress));
+		gen.loadLabel(ArmRegister.r5, String.format("ChainingCell_T%d_M%#x", context.currentRegionIndex, codeAddress), inst, true);
 
 		gen.jumpToFunction(context, ArmRegister.r6, ArmRegister.r6, LiteralPoolType.CALL_AOT_INVOKE_VIRTUAL_QUICK, "dvmCompiler_AOT_INVOKE_VIRTUAL_QUICK");
 
@@ -554,7 +649,7 @@ public class AssemblyProcessor {
 
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
-		gen.insertComment("END INVOKE VIRTUAL QUICK");
+		gen.insertComment("--- INVOKE VIRTUAL QUICK END");
 	
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
@@ -616,24 +711,24 @@ public class AssemblyProcessor {
 
 		InstGen gen = new InstGen();
 
-		gen.insertComment("START INVOKE SINGLETON (JAVA)");
+		gen.insertComment("--- INVOKE SINGLETON (JAVA) START");
 		gen.insertComment("Save callee-save regs");
 		gen.calleeSavePush();
 		
-		/* move literal pool from r1 to r5 */
-		gen.copyRegister(ArmRegister.r5, ArmRegister.r1);
-		/* read method pointer out of r5[literalpoolloc] into r1 */ 
-		gen.memoryRead(ArmRegister.r1, ArmRegister.r5, 4 * literalPoolLoc);
+		/* move literal pool from r1 to r11 */
+		gen.copyRegister(ArmRegister.r11, ArmRegister.r1);
+		/* read method pointer out of r11[literalpoolloc] into r1 */ 
+		gen.memoryRead(ArmRegister.r1, ArmRegister.r11, 4 * literalPoolLoc);
 
 		handleArgumentLoading(gen, context, codeAddress, nullCheckArgs, ArmRegister.r2);
 
-		gen.loadLabel(ArmRegister.r4, String.format("ChainingCell_T%d_M%s%#x", context.currentRegionIndex, vtablePrefix, methodIndex));
+		gen.loadLabel(ArmRegister.r4, String.format("ChainingCell_T%d_M%s%#x", context.currentRegionIndex, vtablePrefix, methodIndex), inst, true);
 
-		gen.jumpToFunction(context, ArmRegister.r5, ArmRegister.r5, LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_JAVA, "dvmCompiler_AOT_INVOKE_SINGLETON_JAVA");
+		gen.jumpToFunction(context, ArmRegister.r11, ArmRegister.r11, LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_JAVA, "dvmCompiler_AOT_INVOKE_SINGLETON_JAVA");
 
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
-		gen.insertComment("END INVOKE SINGLETON (JAVA)");
+		gen.insertComment("--- INVOKE SINGLETON (JAVA) END");
 
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
@@ -641,7 +736,7 @@ public class AssemblyProcessor {
 	private void handleInvokeSingletonNative(CodeGenContext context, ArmInstOpL inst, int codeAddress, EncodedMethod method, boolean nullCheckArgs, int methodIndex, int literalPoolLoc) {
 		InstGen gen = new InstGen();
 
-		gen.insertComment("START INVOKE SINGLETON (NATIVE)");
+		gen.insertComment("--- INVOKE SINGLETON (NATIVE) START");
 		gen.insertComment("Save callee-save regs");
 		gen.calleeSavePush();
 
@@ -656,7 +751,7 @@ public class AssemblyProcessor {
 
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
-		gen.insertComment("END INVOKE SINGLETON (NATIVE)");
+		gen.insertComment("--- INVOKE SINGLETON (NATIVE) END");
 
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}

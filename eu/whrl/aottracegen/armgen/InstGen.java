@@ -1,5 +1,7 @@
 package eu.whrl.aottracegen.armgen;
 
+import java.util.Random;
+
 import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.LiteralPoolType;
 import eu.whrl.aottracegen.Trace;
@@ -16,6 +18,7 @@ import eu.whrl.aottracegen.armgen.insts.ArmInstOpRMultiple;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRR;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRRI;
 import eu.whrl.aottracegen.armgen.insts.ArmInstOpRRR;
+import eu.whrl.aottracegen.armgen.insts.ArmInstPseudoDirectiveSingleArg;
 import eu.whrl.aottracegen.armgen.insts.ArmInstPseudoLabel;
 
 public class InstGen {
@@ -43,6 +46,11 @@ public class InstGen {
 	
 	public ArmInst getLast() {
 		return last;
+	}
+	
+	private void addDirectiveSingleArg(String directive, String value) {
+		ArmInstPseudoDirectiveSingleArg inst = new ArmInstPseudoDirectiveSingleArg(directive, value);
+		addInst(inst);
 	}
 	
 	private void addArglessInstruction(String mnemonic) {
@@ -224,8 +232,63 @@ public class InstGen {
 		addRegRegInstruction("mov", reg1, reg2);
 	}
 	
-	public void loadLabel(ArmRegister reg, String label) {
-		addRegLabelInstruction("adr", reg, label);
+	
+	public void loadLabelComplex(ArmRegister reg, String label, boolean labelIsAfter) {
+		
+		Random rand = new Random();
+		int randomValue = label.hashCode() & rand.nextInt();
+		
+		String offsetLabel = String.format("ComplexLabelLoad_%#x", randomValue);
+		String offsetLabelSkip = String.format("ComplexLabelLoad_%#x_Skip", randomValue);
+		
+		// adr rX, ChainingCellOffset
+		addRegLabelInstruction("adr", reg, offsetLabel);
+		// ldr rX, [rX, #0]
+		memoryRead(reg, reg, 0);
+		// add.w rX, rX, r0
+		if (labelIsAfter) {
+			addRegRegRegInstruction("add", reg, reg, ArmRegister.pc);
+		} else {
+			addRegRegRegInstruction("sub", reg, ArmRegister.pc, reg);
+		}
+		// add.w rX, rX, #8
+		addRegRegImmInstruction("add", reg, reg, 8);
+		// b ChainingCellOffsetSkip
+		addLabelInstruction("b.w", offsetLabelSkip);
+		// ChainingCellOffset:
+		addLabel(offsetLabel);
+		// .word <label we want to load> - .
+		if (labelIsAfter) {
+			addDirectiveSingleArg("word", label + " - .");
+		} else {
+			addDirectiveSingleArg("word", ". - " + label);
+		}
+		// ChainingCellOffsetSkip:
+		addLabel(offsetLabelSkip);
+		
+		addComment("Complex label load of " + label + " finished!");
+	}
+	
+	
+	public void loadLabelSimple(ArmRegister reg, String label) {
+		addRegLabelInstruction("adr.w", reg, label);
+	}
+	
+	public void loadLabel(ArmRegister reg, String label, ArmInst inst, boolean labelIsAfter) {
+		if (labelIsAfter && inst.getDistanceToEnd() < 750) {
+			addComment("Simple label load, distance to end was " + inst.getDistanceToEnd());
+			loadLabelSimple(reg, label);
+		} else if (!labelIsAfter && inst.getDistanceToStart() < 750) {
+			addComment("Simple label load, distance to start was " + inst.getDistanceToStart());
+			loadLabelSimple(reg, label);
+		} else {
+			if (labelIsAfter) {
+				addComment("Complex label load, distance to end was " + inst.getDistanceToEnd());
+			} else {
+				addComment("Complex label load, distance to start was " + inst.getDistanceToStart());
+			}
+			loadLabelComplex(reg, label, labelIsAfter);
+		}
 	}
 	
 	public void jumpToReg(ArmRegister reg) {
@@ -238,6 +301,23 @@ public class InstGen {
 	
 	public void addMemoryBarrier() {
 		addArglessInstruction("dmb");
+	}
+	
+	public void addBomb() {
+		loadConstant(ArmRegister.r0, 0xDE);
+		loadConstant(ArmRegister.r1, 0xAE);
+		loadConstant(ArmRegister.r2, 0xBE);
+		loadConstant(ArmRegister.r3, 0xEF);
+		memoryRead(ArmRegister.r0, ArmRegister.r0, 0);
+	}
+	
+	public void jumpToFunctionHardcodedLiteralPool(CodeGenContext context, ArmRegister reg, LiteralPoolType function, String name, ArmInst insertionPoint) {
+		Trace curTrace = context.currentRegion.trace;
+		int literalPoolLoc = curTrace.meta.addLiteralPoolType(function);
+		insertComment(String.format("load and call %s()", name));
+		loadLabel(reg, "LiteralPool_T" + context.currentRegionIndex, insertionPoint, false);
+		memoryRead(reg, reg, literalPoolLoc * 4);
+		jumpToReg(reg);
 	}
 	
 	public void jumpToFunction(CodeGenContext context, ArmRegister reg, ArmRegister literalPoolReg, LiteralPoolType function, String name) {
