@@ -11,11 +11,13 @@ import eu.whrl.aottracegen.armgen.RegexHelper;
 public class ArmInstOpMultipleM extends ArmInstOp implements IArmInstPrintable, IArmInstParsable {
 	public List<ArmRegister> registers;
 	public ArmRegister memreg;
-
+	public int memregSlice;
+	
 	public ArmInstOpMultipleM(String opcode, ArmRegister memreg) {
 		super(opcode);
 		this.memreg = memreg;
 		this.registers = new LinkedList<ArmRegister>();
+		this.memregSlice = 0;
 	}
 
 	public void addRegister(ArmRegister register) {
@@ -28,14 +30,18 @@ public class ArmInstOpMultipleM extends ArmInstOp implements IArmInstPrintable, 
 
 	@Override
 	public String print() {
-		String regsString = "";
+		String regGroupString = "";
 		for (int i = 0; i < registers.size(); i++) {
-			regsString += registers.get(i).toString();
+			regGroupString += registers.get(i).toString();
 			if (i != registers.size()-1) {
-				regsString += ", ";
+				regGroupString += ", ";
 			}
 		}
-		return String.format("%s {%s}, [%s]", getOpcodeAsString(), regsString, memreg.toString());
+		String sliceString = "";
+		if (memregSlice > 0) {
+			sliceString = ":" + memregSlice;
+		}
+		return String.format("%s {%s}, [%s]", getOpcodeAsString(), regGroupString, memreg.toString() + sliceString);
 	}
 	
 	private Pattern regex;
@@ -57,9 +63,14 @@ public class ArmInstOpMultipleM extends ArmInstOp implements IArmInstPrintable, 
 	@Override
 	public ArmInst getInst(Matcher match, RegexHelper h) {
 		try {
-			ArmInstOpMultipleM newInst = new ArmInstOpMultipleM(match.group(1), h.readReg(match.group(3)));
+			String memregString = match.group(3);
+			ArmInstOpMultipleM newInst = new ArmInstOpMultipleM(match.group(1), h.readReg(memregString));
 			for (ArmRegister reg : h.readRegisterGroup(match.group(2))) {
 				newInst.addRegister(reg);
+			}
+			if (memregString.contains(":")) {
+				String sliceString = memregString.substring(memregString.indexOf(':') + 1, memregString.length());
+				newInst.memregSlice = Integer.parseInt(sliceString);
 			}
 			return newInst;
 		} catch (NotParsableException e) {

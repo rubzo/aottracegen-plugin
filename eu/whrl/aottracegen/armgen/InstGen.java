@@ -25,6 +25,8 @@ public class InstGen {
 	private ArmInst first;
 	private ArmInst last;
 	
+	private static final int complexLabelLoadThreshold = 700;
+	
 	public InstGen() {
 		first = null;
 		last = null;
@@ -275,10 +277,10 @@ public class InstGen {
 	}
 	
 	public void loadLabel(ArmRegister reg, String label, ArmInst inst, boolean labelIsAfter) {
-		if (labelIsAfter && inst.getDistanceToEnd() < 750) {
+		if (labelIsAfter && inst.getDistanceToEnd() < complexLabelLoadThreshold) {
 			addComment("Simple label load, distance to end was " + inst.getDistanceToEnd());
 			loadLabelSimple(reg, label);
-		} else if (!labelIsAfter && inst.getDistanceToStart() < 750) {
+		} else if (!labelIsAfter && inst.getDistanceToStart() < complexLabelLoadThreshold) {
 			addComment("Simple label load, distance to start was " + inst.getDistanceToStart());
 			loadLabelSimple(reg, label);
 		} else {

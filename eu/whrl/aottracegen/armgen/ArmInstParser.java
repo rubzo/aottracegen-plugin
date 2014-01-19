@@ -65,7 +65,30 @@ public class ArmInstParser {
 				ArmInst inst = parser.getInst(match, regexHelper);
 				if (inst != null) {
 					/* parsing was successful */
-					System.out.println(String.format("PARSE => %s: '%s'", parser.getName(), line));
+					
+					/* but did it work? */
+					String input = line;
+					String output = ((IArmInstPrintable) inst).print();
+					if ( !input.equals(output) ) {
+						
+						input = input.replace("#", "");
+						output = output.replace("#", "");
+						
+						input = input.replaceAll("\\{[^\\}]+?\\}", "");
+						output = output.replaceAll("\\{[^\\}]+?\\}", "");
+						
+						input = input.replace("0xffffffff", "-1");
+						output = output.replace("0xffffffff", "-1");
+						
+						if (!input.equals(output)) {
+							System.out.println("Mismatch after using: " + parser.getName());
+							System.out.println("INPUT : '" + line + "'");
+							System.out.println("OUTPUT: '" + ((IArmInstPrintable) inst).print() + "'");
+							System.exit(1);
+						}
+					}
+					
+					/* yes, it worked */
 					return inst;
 				}
 			}

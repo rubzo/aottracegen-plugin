@@ -9,7 +9,7 @@ public class RegexHelper {
 	public final String start = "^";
 	public final String end = "$";
 	public final String imm = "#?(-?0x[0-9a-fA-F]+?|-?[0-9]+?)";
-	public final String reg = "((?:r\\d+|s\\d+|d\\d+|q\\d+|ip|sp|fp|lr|pc)(?:!|\\[\\d+\\])?)";
+	public final String reg = "((?:r\\d+|s\\d+|d\\d+|q\\d+|ip|sp|fp|lr|pc)(?:!|\\[\\d+\\]|:\\d+)?)";
 	public final String word = "([^\\s]+?)";
 	public final String itOpcode = "(it|itt|ite|ittt|itte|itet|itee|itttt|ittte|ittet|ittee|itett|itete|iteet|iteee)"; // yep
 	public final String cc = "(eq|ne|cs|hs|cc|lo|mi|pl|vs|vc|hi|ls|ge|lt|gt|le|al)";
@@ -31,6 +31,8 @@ public class RegexHelper {
 				reg = reg.substring(0, reg.length() - 1);
 			} else if (reg.endsWith("]")) {
 				reg = reg.substring(0, reg.indexOf('['));
+			} else if (reg.contains(":")) {
+				reg = reg.substring(0, reg.indexOf(':'));
 			}
 			return ArmRegister.valueOf(reg.trim());
 		} catch (IllegalArgumentException e) {

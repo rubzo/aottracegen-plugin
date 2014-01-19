@@ -61,7 +61,7 @@ public class ArmInstOpRR extends ArmInstOp implements IArmInstPrintable, IArmIns
 				newInst.reg1Index = Integer.parseInt(reg1String.substring(reg1String.indexOf('[') + 1, reg1String.length() - 1));
 			}
 			if (reg2String.endsWith("]")) {
-				newInst.reg2Index = Integer.parseInt(reg1String.substring(reg2String.indexOf('[') + 1, reg2String.length() - 1));
+				newInst.reg2Index = Integer.parseInt(reg2String.substring(reg2String.indexOf('[') + 1, reg2String.length() - 1));
 			}
 			
 			return newInst;
