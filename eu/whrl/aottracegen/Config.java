@@ -24,8 +24,13 @@ public class Config {
 	
 	public boolean announceMode = false;
 	public boolean blockingMode = false;
+	public boolean printVregsMode = false;
+	public int printVregsInvokeLimit = 0;
+	
+	public boolean singleStepAll = false;
 	
 	public boolean armMode = false;
+	
 	public List<String> extraLibs = new LinkedList<String>();
 	
 	public String cflags = "-O3";
@@ -74,6 +79,9 @@ public class Config {
 					if (endsWithColon) {
 						currentRegion.signature += ";";
 					}
+					if (singleStepAll) {
+						currentRegion.singleStepOnly = true;
+					}
 				} else if (line.startsWith("entry")) {
 					int entryOffset = Integer.parseInt(line.substring(8, line.length()), 16);
 					currentRegion.entryOffset = entryOffset;
@@ -89,7 +97,7 @@ public class Config {
 					currentRegion = null;
 				} else if (line.startsWith("debugfuncs")) {
 					emitDebugFunctions = true;
-				} else if (line.startsWith("singlesteponly")) {
+				} else if (line.startsWith("thissinglestep")) {
 					currentRegion.singleStepOnly = true;
 				} else if (line.startsWith("ehcounter")) {
 					emitEHCounter = true;
@@ -99,6 +107,11 @@ public class Config {
 					announceMode = true;
 				} else if (line.startsWith("blocking")) {
 					blockingMode = true;
+				} else if (line.startsWith("printvregs")) {
+					printVregsInvokeLimit = Integer.parseInt(line.substring(11, line.length()));
+					printVregsMode = true;
+				} else if (line.startsWith("allsinglestep")) {
+					singleStepAll = true;
 				} else if (line.startsWith("arm")) {
 					armMode = true;
 				} else if (line.startsWith("no-remove-cbz")) {

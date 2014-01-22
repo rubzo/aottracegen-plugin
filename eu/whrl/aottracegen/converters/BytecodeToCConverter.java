@@ -21,6 +21,7 @@ import eu.whrl.aottracegen.CTraceGenerator;
 import eu.whrl.aottracegen.ChainingCell;
 import eu.whrl.aottracegen.CodeGenContext;
 import eu.whrl.aottracegen.LiteralPoolType;
+import eu.whrl.aottracegen.Region;
 import eu.whrl.aottracegen.Trace;
 import eu.whrl.aottracegen.armgen.ArmRegister;
 import eu.whrl.aottracegen.exceptions.UnimplementedInstructionException;
@@ -73,9 +74,17 @@ public class BytecodeToCConverter {
 		
 		Trace curTrace = context.currentRegion.trace;
 		
-		// potentially override with single stepping
-		if (context.currentRegion.singleStepOnly && !CTraceGenerator.opcodesThatCanReturn.contains(instruction.opcode)) {
-			return emitSingleStep(codeAddress, curTrace, instruction);
+		// Potentially print vregs?
+		if (context.config.printVregsMode && !CTraceGenerator.opcodesThatCanReturn.contains(instruction.opcode)
+				&& !CTraceGenerator.opcodesThatCanBranch.contains(instruction.opcode)) {
+			result += emitPrintVregs(codeAddress) + "\n";
+		}
+		
+		// Potentially use single stepping?
+		if (context.currentRegion.singleStepOnly && !CTraceGenerator.opcodesThatCanReturn.contains(instruction.opcode)
+				&& !CTraceGenerator.opcodesThatCanBranch.contains(instruction.opcode)) {
+			result += emitSingleStep(codeAddress, curTrace, instruction);
+			return result;
 		}
 		
 		switch (instruction.opcode) {
@@ -83,70 +92,70 @@ public class BytecodeToCConverter {
 		// opcode: 00 nop
 		case NOP:
 		{
-			result = "  // NOP";
+			result += "  // NOP";
 			break;
 		}
 		
 		// opcode: 01 move    
 		case MOVE:
 		{
-			result = emitMove(codeAddress, curTrace, instruction);
+			result += emitMove(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 02 move/from16 
 		case MOVE_FROM16:
 		{
-			result = emitMove(codeAddress, curTrace, instruction);
+			result += emitMove(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 03 move/16
 		case MOVE_16:
 		{
-			result = emitMove(codeAddress, curTrace, instruction);
+			result += emitMove(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 04 move-wide   
 		case MOVE_WIDE:
 		{
-			result = emitMoveWide(codeAddress, curTrace, instruction);
+			result += emitMoveWide(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 05 move-wide/from16
 		case MOVE_WIDE_FROM16:
 		{
-			result = emitMoveWide(codeAddress, curTrace, instruction);
+			result += emitMoveWide(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 06 move-wide/16
 		case MOVE_WIDE_16:
 		{
-			result = emitMoveWide(codeAddress, curTrace, instruction);
+			result += emitMoveWide(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 07 move-object
 		case MOVE_OBJECT:
 		{
-			result = emitMove(codeAddress, curTrace, instruction);
+			result += emitMove(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 08 move-object/from16
 		case MOVE_OBJECT_FROM16:
 		{
-			result = emitMove(codeAddress, curTrace, instruction);
+			result += emitMove(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 09 move-object/16
 		case MOVE_OBJECT_16:
 		{
-			result = emitMove(codeAddress, curTrace, instruction);
+			result += emitMove(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -155,7 +164,7 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadReturn);
+			result += String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadReturn);
 			break;
 		}
 		
@@ -164,7 +173,7 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((long long*)(v + %d)) = *((long long*) (self+%d));", vA, offsetThreadReturn);
+			result += String.format("  *((long long*)(v + %d)) = *((long long*) (self+%d));", vA, offsetThreadReturn);
 			break;
 		}
 		
@@ -173,7 +182,7 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadReturn);
+			result += String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadReturn);
 			break;
 		}
 		
@@ -182,7 +191,7 @@ public class BytecodeToCConverter {
 		{
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadException);
+			result += String.format("  v[%d] = *((int*) (self+%d));", vA, offsetThreadException);
 			break;
 		}
 		
@@ -191,7 +200,7 @@ public class BytecodeToCConverter {
 		{	
 			curTrace.meta.containsReturn = true;
 			
-			result = String.format("  TRACE_RETURN(%#x)", codeAddress);
+			result += String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
 		
@@ -202,7 +211,7 @@ public class BytecodeToCConverter {
 			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadReturn, vA) +
+			result += String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadReturn, vA) +
 					 String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
@@ -214,7 +223,7 @@ public class BytecodeToCConverter {
 			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((long long*) (self+%d)) = *((long long*)(v + %d));", offsetThreadReturn, vA) +
+			result += String.format("  *((long long*) (self+%d)) = *((long long*)(v + %d));", offsetThreadReturn, vA) +
 					 String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
@@ -226,7 +235,7 @@ public class BytecodeToCConverter {
 			
 			int vA = ((SingleRegisterInstruction)instruction).getRegisterA();
 			
-			result = String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadReturn, vA) +
+			result += String.format("  *((int*) (self+%d)) = v[%d];\n", offsetThreadReturn, vA) +
 					 String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
@@ -234,56 +243,56 @@ public class BytecodeToCConverter {
 		// opcode: 12 const/4  
 		case CONST_4:
 		{
-			result = emitConst(codeAddress, curTrace, instruction);
+			result += emitConst(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 13 const/16   
 		case CONST_16:
 		{
-			result = emitConst(codeAddress, curTrace, instruction);
+			result += emitConst(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 14 const     
 		case CONST:
 		{
-			result = emitConst(codeAddress, curTrace, instruction);
+			result += emitConst(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 15 const/high16
 		case CONST_HIGH16:
 		{
-			result = emitConstHigh(codeAddress, curTrace, instruction);
+			result += emitConstHigh(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 16 const-wide/16   
 		case CONST_WIDE_16:
 		{
-			result = emitConstWide(codeAddress, curTrace, instruction);
+			result += emitConstWide(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 17 const-wide/32
 		case CONST_WIDE_32:
 		{
-			result = emitConstWide(codeAddress, curTrace, instruction);
+			result += emitConstWide(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 18 const-wide
 		case CONST_WIDE:
 		{
-			result = emitConstWide(codeAddress, curTrace, instruction);
+			result += emitConstWide(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 19 const-wide/high16
 		case CONST_WIDE_HIGH16:
 		{
-			result = emitConstWideHigh(codeAddress, curTrace, instruction);
+			result += emitConstWideHigh(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -295,7 +304,7 @@ public class BytecodeToCConverter {
 			
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STRING_POINTER, stringIndex);
 
-			result = String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
+			result += String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
 			break;
 		}
 		
@@ -307,7 +316,7 @@ public class BytecodeToCConverter {
 			
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.STRING_POINTER, stringIndex);
 
-			result = String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
+			result += String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
 			break;
 		}
 		
@@ -319,21 +328,21 @@ public class BytecodeToCConverter {
 			
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
 
-			result = String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
+			result += String.format("  v[%d] = lit[%d];", vA, literalPoolLoc);
 			break;
 		}
 		
 		// opcode: 1d monitor-enter         
 		case MONITOR_ENTER:
 		{
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 1e monitor-exit
 		case MONITOR_EXIT:
 		{
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -418,14 +427,14 @@ public class BytecodeToCConverter {
 		// opcode: 24 filled-new-array   
 		case FILLED_NEW_ARRAY:
 		{
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 25 filled-new-array/range
 		case FILLED_NEW_ARRAY_RANGE:
 		{
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -433,28 +442,28 @@ public class BytecodeToCConverter {
 		// opcode: 27 throw    
 		case THROW:
 		{
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 28 goto     
 		case GOTO:
 		{
-			result = emitGoto(codeAddress, curTrace, instruction);
+			result += emitGoto(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 29 goto/16     
 		case GOTO_16:
 		{
-			result = emitGoto(codeAddress, curTrace, instruction);
+			result += emitGoto(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 2a goto/32
 		case GOTO_32:
 		{
-			result = emitGoto(codeAddress, curTrace, instruction);
+			result += emitGoto(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -468,7 +477,7 @@ public class BytecodeToCConverter {
 			
 			PackedSwitchDataPseudoInstruction dataInstruction = (PackedSwitchDataPseudoInstruction) context.currentRegion.getInstructionAtCodeAddress(codeAddress + dataOffset);
 			
-			result = String.format("  switch (v[%d]) {\n", vA);
+			result += String.format("  switch (v[%d]) {\n", vA);
 			
 			Iterator<PackedSwitchTarget> targetIterator = dataInstruction.iterateKeysAndTargets();
 			while (targetIterator.hasNext()) {
@@ -496,7 +505,7 @@ public class BytecodeToCConverter {
 			
 			SparseSwitchDataPseudoInstruction dataInstruction = (SparseSwitchDataPseudoInstruction) context.currentRegion.getInstructionAtCodeAddress(codeAddress + dataOffset);
 			
-			result = String.format("  switch (v[%d]) {\n", vA);
+			result += String.format("  switch (v[%d]) {\n", vA);
 			
 			Iterator<SparseSwitchTarget> targetIterator = dataInstruction.iterateKeysAndTargets();
 			while (targetIterator.hasNext()) {
@@ -521,7 +530,7 @@ public class BytecodeToCConverter {
 			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 			
-			result = String.format(
+			result += String.format(
 			"  {\n" +
 			"    float value1 = *((float*) (v + %1$d));\n" +
 			"    float value2 = *((float*) (v + %2$d));\n" +
@@ -540,7 +549,7 @@ public class BytecodeToCConverter {
 			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 			
-			result = String.format(
+			result += String.format(
 			"  {\n" +
 			"    float value1 = *((float*) (v + %1$d));\n" +
 			"    float value2 = *((float*) (v + %2$d));\n" +
@@ -559,7 +568,7 @@ public class BytecodeToCConverter {
 			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 			
-			result = String.format(
+			result += String.format(
 			"  {\n" +
 			"    double value1 = *((double*) (v + %1$d));\n" +
 			"    double value2 = *((double*) (v + %2$d));\n" +
@@ -578,7 +587,7 @@ public class BytecodeToCConverter {
 			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 			
-			result = String.format(
+			result += String.format(
 			"  {\n" +
 			"    double value1 = *((double*) (v + %1$d));\n" +
 			"    double value2 = *((double*) (v + %2$d));\n" +
@@ -597,7 +606,7 @@ public class BytecodeToCConverter {
 			int vB = ((ThreeRegisterInstruction)instruction).getRegisterB();
 			int vC = ((ThreeRegisterInstruction)instruction).getRegisterC();
 			
-			result = String.format(
+			result += String.format(
 			"  {\n" +
 			"    long long value1 = *((long long*) (v + %1$d));\n" +
 			"    long long value2 = *((long long*) (v + %2$d));\n" +
@@ -612,182 +621,182 @@ public class BytecodeToCConverter {
 		// opcode: 32 if-eq   
 		case IF_EQ:
 		{
-			result = emitIf(codeAddress, curTrace, instruction, "==");
+			result += emitIf(codeAddress, curTrace, instruction, "==");
 			break;
 		}
 		
 		// opcode: 33 if-ne   
 		case IF_NE:
 		{
-			result = emitIf(codeAddress, curTrace, instruction, "!=");
+			result += emitIf(codeAddress, curTrace, instruction, "!=");
 			break;
 		}
 		
 		// opcode: 34 if-lt   
 		case IF_LT:
 		{
-			result = emitIf(codeAddress, curTrace, instruction, "<");
+			result += emitIf(codeAddress, curTrace, instruction, "<");
 			break;
 		}
 		
 		// opcode: 35 if-ge
 		case IF_GE:
 		{
-			result = emitIf(codeAddress, curTrace, instruction, ">=");
+			result += emitIf(codeAddress, curTrace, instruction, ">=");
 			break;
 		}
 		
 		// opcode: 36 if-gt 
 		case IF_GT:
 		{
-			result = emitIf(codeAddress, curTrace, instruction, ">");
+			result += emitIf(codeAddress, curTrace, instruction, ">");
 			break;
 		}
 		
 		// opcode: 37 if-le   
 		case IF_LE:
 		{
-			result = emitIf(codeAddress, curTrace, instruction, "<=");
+			result += emitIf(codeAddress, curTrace, instruction, "<=");
 			break;
 		}
 		
 		// opcode: 38 if-eqz 
 		case IF_EQZ:
 		{
-			result = emitIfZero(codeAddress, curTrace, instruction, "==");
+			result += emitIfZero(codeAddress, curTrace, instruction, "==");
 			break;
 		}
 		
 		// opcode: 39 if-nez 
 		case IF_NEZ:
 		{
-			result = emitIfZero(codeAddress, curTrace, instruction, "!=");
+			result += emitIfZero(codeAddress, curTrace, instruction, "!=");
 			break;
 		}
 		
 		// opcode: 3a if-ltz     
 		case IF_LTZ:
 		{
-			result = emitIfZero(codeAddress, curTrace, instruction, "<");
+			result += emitIfZero(codeAddress, curTrace, instruction, "<");
 			break;
 		}
 		
 		// opcode: 3b if-gez     
 		case IF_GEZ:
 		{
-			result = emitIfZero(codeAddress, curTrace, instruction, ">=");
+			result += emitIfZero(codeAddress, curTrace, instruction, ">=");
 			break;
 		}
 		
 		// opcode: 3c if-gtz  
 		case IF_GTZ:
 		{
-			result = emitIfZero(codeAddress, curTrace, instruction, ">");
+			result += emitIfZero(codeAddress, curTrace, instruction, ">");
 			break;
 		}
 		
 		// opcode: 3d if-lez   
 		case IF_LEZ:
 		{
-			result = emitIfZero(codeAddress, curTrace, instruction, "<=");
+			result += emitIfZero(codeAddress, curTrace, instruction, "<=");
 			break;
 		}
 		
 		// opcode: 44 aget          
 		case AGET:
 		{
-			result = emitArrayGet(codeAddress, curTrace, instruction, "int", 4);
+			result += emitArrayGet(codeAddress, curTrace, instruction, "int", 4);
 			break;
 		}
 		
 		// opcode: 45 aget-wide  
 		case AGET_WIDE:
 		{
-			result = emitArrayGet(codeAddress, curTrace, instruction, "long long", 8);
+			result += emitArrayGet(codeAddress, curTrace, instruction, "long long", 8);
 			break;
 		}
 		
 		// opcode: 46 aget-object   
 		case AGET_OBJECT:
 		{
-			result = emitArrayGet(codeAddress, curTrace, instruction, "int", 4);
+			result += emitArrayGet(codeAddress, curTrace, instruction, "int", 4);
 			break;
 		}
 		
 		// opcode: 47 aget-boolean   
 		case AGET_BOOLEAN:
 		{
-			result = emitArrayGet(codeAddress, curTrace, instruction, "char", 1);
+			result += emitArrayGet(codeAddress, curTrace, instruction, "char", 1);
 			break;
 		}
 		
 		// opcode: 48 aget-byte 
 		case AGET_BYTE:
 		{
-			result = emitArrayGet(codeAddress, curTrace, instruction, "char", 1);
+			result += emitArrayGet(codeAddress, curTrace, instruction, "char", 1);
 			break;
 		}
 		
 		// opcode: 49 aget-char
 		case AGET_CHAR:
 		{
-			result = emitArrayGet(codeAddress, curTrace, instruction, "char", 1);
+			result += emitArrayGet(codeAddress, curTrace, instruction, "char", 1);
 			break;
 		}
 		
 		// opcode: 4a aget-short
 		case AGET_SHORT:
 		{
-			result = emitArrayGet(codeAddress, curTrace, instruction, "short", 2);
+			result += emitArrayGet(codeAddress, curTrace, instruction, "short", 2);
 			break;
 		}
 		
 		// opcode: 4b aput    
 		case APUT:
 		{
-			result = emitArrayPut(codeAddress, curTrace, instruction, "int", 4);
+			result += emitArrayPut(codeAddress, curTrace, instruction, "int", 4);
 			break;
 		}
 		
 		// opcode: 4c aput-wide         
 		case APUT_WIDE:
 		{
-			result = emitArrayPut(codeAddress, curTrace, instruction, "long long", 8);
+			result += emitArrayPut(codeAddress, curTrace, instruction, "long long", 8);
 			break;
 		}
 		
 		// opcode: 4d aput-object
 		case APUT_OBJECT:
 		{
-			result = emitArrayPut(codeAddress, curTrace, instruction, "int", 4);
+			result += emitArrayPut(codeAddress, curTrace, instruction, "int", 4);
 			break;
 		}
 		
 		// opcode: 4e aput-boolean
 		case APUT_BOOLEAN:
 		{
-			result = emitArrayPut(codeAddress, curTrace, instruction, "char", 1);
+			result += emitArrayPut(codeAddress, curTrace, instruction, "char", 1);
 			break;
 		}
 		
 		// opcode: 4f aput-byte  
 		case APUT_BYTE:
 		{
-			result = emitArrayPut(codeAddress, curTrace, instruction, "char", 1);
+			result += emitArrayPut(codeAddress, curTrace, instruction, "char", 1);
 			break;
 		}
 		
 		// opcode: 50 aput-char
 		case APUT_CHAR:
 		{
-			result = emitArrayPut(codeAddress, curTrace, instruction, "char", 1);
+			result += emitArrayPut(codeAddress, curTrace, instruction, "char", 1);
 			break;
 		}
 		
 		// opcode: 51 aput-short
 		case APUT_SHORT:
 		{
-			result = emitArrayPut(codeAddress, curTrace, instruction, "short", 2);
+			result += emitArrayPut(codeAddress, curTrace, instruction, "short", 2);
 			break;
 		}
 		
@@ -808,98 +817,98 @@ public class BytecodeToCConverter {
 		// opcode: 60 sget
 		case SGET:
 		{
-			result = emitStaticGet(codeAddress, curTrace, instruction, "int");
+			result += emitStaticGet(codeAddress, curTrace, instruction, "int");
 			break;
 		}
 		
 		// opcode: 61 sget-wide
 		case SGET_WIDE:
 		{
-			result = emitStaticGet(codeAddress, curTrace, instruction, "long long");
+			result += emitStaticGet(codeAddress, curTrace, instruction, "long long");
 			break;
 		}
 		
 		// opcode: 62 sget-object 
 		case SGET_OBJECT:
 		{
-			result = emitStaticGet(codeAddress, curTrace, instruction, "int");
+			result += emitStaticGet(codeAddress, curTrace, instruction, "int");
 			break;
 		}
 		
 		// opcode: 63 sget-boolean 
 		case SGET_BOOLEAN:
 		{
-			result = emitStaticGet(codeAddress, curTrace, instruction, "char");
+			result += emitStaticGet(codeAddress, curTrace, instruction, "char");
 			break;
 		}
 		
 		// opcode: 64 sget-byte
 		case SGET_BYTE:
 		{
-			result = emitStaticGet(codeAddress, curTrace, instruction, "char");
+			result += emitStaticGet(codeAddress, curTrace, instruction, "char");
 			break;
 		}
 		
 		// opcode: 65 sget-char
 		case SGET_CHAR:
 		{
-			result = emitStaticGet(codeAddress, curTrace, instruction, "char");
+			result += emitStaticGet(codeAddress, curTrace, instruction, "char");
 			break;
 		}
 		
 		// opcode: 66 sget-short
 		case SGET_SHORT:
 		{
-			result = emitStaticGet(codeAddress, curTrace, instruction, "short");
+			result += emitStaticGet(codeAddress, curTrace, instruction, "short");
 			break;
 		}
 		
 		// opcode: 67 sput
 		case SPUT:
 		{
-			result = emitStaticPut(codeAddress, curTrace, instruction, "int");
+			result += emitStaticPut(codeAddress, curTrace, instruction, "int");
 			break;
 		}
 		
 		// opcode: 68 sput-wide
 		case SPUT_WIDE:
 		{
-			result = emitStaticPut(codeAddress, curTrace, instruction, "long long");
+			result += emitStaticPut(codeAddress, curTrace, instruction, "long long");
 			break;
 		}
 		
 		// opcode: 69 sput-object   
 		case SPUT_OBJECT:
 		{
-			result = emitStaticPut(codeAddress, curTrace, instruction, "int");
+			result += emitStaticPut(codeAddress, curTrace, instruction, "int");
 			break;
 		}
 		
 		// opcode: 6a sput-boolean               
 		case SPUT_BOOLEAN:
 		{
-			result = emitStaticPut(codeAddress, curTrace, instruction, "char");
+			result += emitStaticPut(codeAddress, curTrace, instruction, "char");
 			break;
 		}
 		
 		// opcode: 6b sput-byte     
 		case SPUT_BYTE:
 		{
-			result = emitStaticPut(codeAddress, curTrace, instruction, "char");
+			result += emitStaticPut(codeAddress, curTrace, instruction, "char");
 			break;
 		}
 		
 		// opcode: 6c sput-char
 		case SPUT_CHAR:
 		{
-			result = emitStaticPut(codeAddress, curTrace, instruction, "char");
+			result += emitStaticPut(codeAddress, curTrace, instruction, "char");
 			break;
 		}
 		
 		// opcode: 6d sput-short
 		case SPUT_SHORT:
 		{
-			result = emitStaticPut(codeAddress, curTrace, instruction, "short");
+			result += emitStaticPut(codeAddress, curTrace, instruction, "short");
 			break;
 		}
 		
@@ -908,21 +917,21 @@ public class BytecodeToCConverter {
 		// opcode: 70 invoke-direct
 		case INVOKE_DIRECT: 
 		{
-			result = emitInvokeSingleton(codeAddress, true);
+			result += emitInvokeSingleton(codeAddress, true);
 			break;
 		}
 		
 		// opcode: 71 invoke-static              
 		case INVOKE_STATIC: 
 		{
-			result = emitInvokeSingleton(codeAddress, false);
+			result += emitInvokeSingleton(codeAddress, false);
 			break;
 		}
 		
 		// opcode: 72 invoke-interface    
 		case INVOKE_INTERFACE: 
 		{
-			result = emitInvokeInterface(codeAddress);
+			result += emitInvokeInterface(codeAddress);
 			break;
 		}
 		
@@ -931,21 +940,24 @@ public class BytecodeToCConverter {
 		// opcode: 76 invoke-direct/range   
 		case INVOKE_DIRECT_RANGE: 
 		{
-			result = emitInvokeSingleton(codeAddress, true);
+			//result += emitInvokeSingleton(codeAddress, true);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 77 invoke-static/range     
 		case INVOKE_STATIC_RANGE: 
 		{
-			result = emitInvokeSingleton(codeAddress, false);
+			//result += emitInvokeSingleton(codeAddress, false);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: 78 invoke-interface/range   
 		case INVOKE_INTERFACE_RANGE: 
 		{
-			result = emitInvokeInterface(codeAddress);
+			//result += emitInvokeInterface(codeAddress);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -955,7 +967,7 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result = String.format("  v[%d] = -v[%d];", vA, vB);
+			result += String.format("  v[%d] = -v[%d];", vA, vB);
 			break;
 		}
 		
@@ -965,7 +977,7 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result = String.format("  v[%d] = ~v[%d];", vA, vB);
+			result += String.format("  v[%d] = ~v[%d];", vA, vB);
 			break;
 		}
 		
@@ -975,7 +987,7 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result = String.format("  {\n" +
+			result += String.format("  {\n" +
 					               "    long long *write = (long long*) (v + %d);\n" +
 								   "    long long *read = (long long*) (v + %d);\n" +
 					               "    *write = -(*read);\n" +
@@ -989,7 +1001,7 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result = String.format("  {\n" +
+			result += String.format("  {\n" +
 					               "    long long *write = (long long*) (v + %d);\n" +
 								   "    long long *read = (long long*) (v + %d);\n" +
 					               "    *write = ~(*read);\n" +
@@ -1003,7 +1015,7 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result = String.format("  {\n" +
+			result += String.format("  {\n" +
 					               "    float *write = (float*) (v + %d);\n" +
 								   "    float *read = (float*) (v + %d);\n" +
 					               "    *write = -(*read);\n" +
@@ -1017,7 +1029,7 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result = String.format("  {\n" +
+			result += String.format("  {\n" +
 					               "    double *write = (double*) (v + %d);\n" +
 								   "    double *read = (double*) (v + %d);\n" +
 					               "    *write = -(*read);\n" +
@@ -1028,686 +1040,686 @@ public class BytecodeToCConverter {
 		// opcode: 81 int-to-long   
 		case INT_TO_LONG:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "int", "long long");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "int", "long long");
 			break;
 		}
 		
 		// opcode: 82 int-to-float
 		case INT_TO_FLOAT:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "int", "float");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "int", "float");
 			break;
 		}
 		
 		// opcode: 83 int-to-double
 		case INT_TO_DOUBLE:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "int", "double");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "int", "double");
 			break;
 		}
 		
 		// opcode: 84 long-to-int
 		case LONG_TO_INT:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "long long", "int");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "long long", "int");
 			break;
 		}
 		
 		// opcode: 85 long-to-float
 		case LONG_TO_FLOAT:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "long long", "float");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "long long", "float");
 			break;
 		}
 		
 		// opcode: 86 long-to-double 
 		case LONG_TO_DOUBLE:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "long long", "double");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "long long", "double");
 			break;
 		}
 		
 		// opcode: 87 float-to-int
 		case FLOAT_TO_INT:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "float", "int");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "float", "int");
 			break;
 		}
 		
 		// opcode: 88 float-to-long
 		case FLOAT_TO_LONG:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "float", "long long");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "float", "long long");
 			break;
 		}
 		
 		// opcode: 89 float-to-double
 		case FLOAT_TO_DOUBLE:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "float", "double");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "float", "double");
 			break;
 		}
 		
 		// opcode: 8a double-to-int
 		case DOUBLE_TO_INT:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "double", "int");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "double", "int");
 			break;
 		}
 		
 		// opcode: 8b double-to-long
 		case DOUBLE_TO_LONG:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "double", "long long");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "double", "long long");
 			break;
 		}
 		
 		// opcode: 8c double-to-float
 		case DOUBLE_TO_FLOAT:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "double", "float");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "double", "float");
 			break;
 		}
 		
 		// opcode: 8d int-to-byte   
 		case INT_TO_BYTE:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "int", "char");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "int", "char");
 			break;
 		}
 		
 		// opcode: 8e int-to-char        
 		case INT_TO_CHAR:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "int", "char");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "int", "char");
 			break;
 		}
 		
 		// opcode: 8f int-to-short         
 		case INT_TO_SHORT:
 		{
-			result = emitTypeConversion(codeAddress, curTrace, instruction, "int", "short");
+			result += emitTypeConversion(codeAddress, curTrace, instruction, "int", "short");
 			break;
 		}
 		
 		// opcode: 90 add-int                   
 		case ADD_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, "+");
+			result += emitIntArith(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: 91 sub-int
 		case SUB_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, "-");
+			result += emitIntArith(codeAddress, curTrace, instruction, "-");
 			break;
 		}
 		
 		// opcode: 92 mul-int  
 		case MUL_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, "*");
+			result += emitIntArith(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: 93 div-int
 		case DIV_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, "*");
+			result += emitIntArith(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: 94 rem-int       
 		case REM_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, "%");
+			result += emitIntArith(codeAddress, curTrace, instruction, "%");
 			break;
 		}
 		
 		// opcode: 95 and-int
 		case AND_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, "&");
+			result += emitIntArith(codeAddress, curTrace, instruction, "&");
 			break;
 		}
 		
 		// opcode: 96 or-int
 		case OR_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, "|");
+			result += emitIntArith(codeAddress, curTrace, instruction, "|");
 			break;
 		}
 		
 		// opcode: 97 xor-int
 		case XOR_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, "^");
+			result += emitIntArith(codeAddress, curTrace, instruction, "^");
 			break;
 		}
 		
 		// opcode: 98 shl-int
 		case SHL_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, "<<");
+			result += emitIntArith(codeAddress, curTrace, instruction, "<<");
 			break;
 		}
 		
 		// opcode: 99 shr-int
 		case SHR_INT:
 		{
-			result = emitIntArith(codeAddress, curTrace, instruction, ">>");
+			result += emitIntArith(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
 		// opcode: 9a ushr-int
 		case USHR_INT:
 		{
-			result = emitIntArithUnsigned(codeAddress, curTrace, instruction, ">>");
+			result += emitIntArithUnsigned(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
 		// opcode: 9b add-long    
 		case ADD_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, "+");
+			result += emitLongArith(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: 9c sub-long
 		case SUB_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, "-");
+			result += emitLongArith(codeAddress, curTrace, instruction, "-");
 			break;
 		}
 		
 		// opcode: 9d mul-long
 		case MUL_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, "*");
+			result += emitLongArith(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: 9e div-long
 		case DIV_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, "/");
+			result += emitLongArith(codeAddress, curTrace, instruction, "/");
 			break;
 		}
 		
 		// opcode: 9f rem-long                   
 		case REM_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, "%");
+			result += emitLongArith(codeAddress, curTrace, instruction, "%");
 			break;
 		}
 		
 		// opcode: a0 and-long
 		case AND_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, "&");
+			result += emitLongArith(codeAddress, curTrace, instruction, "&");
 			break;
 		}
 		
 		// opcode: a1 or-long
 		case OR_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, "|");
+			result += emitLongArith(codeAddress, curTrace, instruction, "|");
 			break;
 		}
 		
 		// opcode: a2 xor-long
 		case XOR_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, "^");
+			result += emitLongArith(codeAddress, curTrace, instruction, "^");
 			break;
 		}
 		
 		// opcode: a3 shl-long
 		case SHL_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, "<<");
+			result += emitLongArith(codeAddress, curTrace, instruction, "<<");
 			break;
 		}
 		
 		// opcode: a4 shr-long
 		case SHR_LONG:
 		{
-			result = emitLongArith(codeAddress, curTrace, instruction, ">>");
+			result += emitLongArith(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
 		// opcode: a5 ushr-long
 		case USHR_LONG:
 		{
-			result = emitLongArithUnsigned(codeAddress, curTrace, instruction, ">>");
+			result += emitLongArithUnsigned(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
 		// opcode: a6 add-float
 		case ADD_FLOAT:
 		{
-			result = emitFloatArith(codeAddress, curTrace, instruction, "+");
+			result += emitFloatArith(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: a7 sub-float
 		case SUB_FLOAT:
 		{
-			result = emitFloatArith(codeAddress, curTrace, instruction, "-");
+			result += emitFloatArith(codeAddress, curTrace, instruction, "-");
 			break;
 		}
 		
 		// opcode: a8 mul-float
 		case MUL_FLOAT:
 		{
-			result = emitFloatArith(codeAddress, curTrace, instruction, "*");
+			result += emitFloatArith(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: a9 div-float
 		case DIV_FLOAT:
 		{
-			result = emitFloatArith(codeAddress, curTrace, instruction, "/");
+			result += emitFloatArith(codeAddress, curTrace, instruction, "/");
 			break;
 		}
 		
 		// opcode: aa rem-float    
 		case REM_FLOAT:
 		{
-			result = emitFloatArith(codeAddress, curTrace, instruction, "fmodf");
+			result += emitFloatArith(codeAddress, curTrace, instruction, "fmodf");
 			break;
 		}
 		
 		// opcode: ab add-double   
 		case ADD_DOUBLE:
 		{
-			result = emitDoubleArith(codeAddress, curTrace, instruction, "+");
+			result += emitDoubleArith(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: ac sub-double
 		case SUB_DOUBLE:
 		{
-			result = emitDoubleArith(codeAddress, curTrace, instruction, "-");
+			result += emitDoubleArith(codeAddress, curTrace, instruction, "-");
 			break;
 		}
 		
 		// opcode: ad mul-double   
 		case MUL_DOUBLE:
 		{
-			result = emitDoubleArith(codeAddress, curTrace, instruction, "*");
+			result += emitDoubleArith(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: ae div-double 
 		case DIV_DOUBLE:
 		{
-			result = emitDoubleArith(codeAddress, curTrace, instruction, "/");
+			result += emitDoubleArith(codeAddress, curTrace, instruction, "/");
 			break;
 		}
 		
 		// opcode: af rem-double
 		case REM_DOUBLE:
 		{
-			result = emitDoubleArith(codeAddress, curTrace, instruction, "fmod");
+			result += emitDoubleArith(codeAddress, curTrace, instruction, "fmod");
 			break;
 		}
 		
 		// opcode: b0 add-int/2addr 
 		case ADD_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, "+");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: b1 sub-int/2addr
 		case SUB_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, "-");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, "-");
 			break;
 		}
 		
 		// opcode: b2 mul-int/2addr
 		case MUL_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, "*");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: b3 div-int/2addr
 		case DIV_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, "/");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, "/");
 			break;
 		}
 		
 		// opcode: b4 rem-int/2addr
 		case REM_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, "%");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, "%");
 			break;
 		}
 		
 		// opcode: b5 and-int/2addr
 		case AND_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, "&");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, "&");
 			break;
 		}
 		
 		// opcode: b6 or-int/2addr
 		case OR_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, "|");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, "|");
 			break;
 		}
 		
 		// opcode: b7 xor-int/2addr
 		case XOR_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, "^");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, "^");
 			break;
 		}
 		
 		// opcode: b8 shl-int/2addr
 		case SHL_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, "<<");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, "<<");
 			break;
 		}
 		
 		// opcode: b9 shr-int/2addr
 		case SHR_INT_2ADDR:
 		{
-			result = emitIntArith2Addr(codeAddress, curTrace, instruction, ">>");
+			result += emitIntArith2Addr(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
 		// opcode: ba ushr-int/2addr
 		case USHR_INT_2ADDR:
 		{
-			result = emitIntArithUnsigned2Addr(codeAddress, curTrace, instruction, ">>");
+			result += emitIntArithUnsigned2Addr(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
 		// opcode: bb add-long/2addr 
 		case ADD_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, "+");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: bc sub-long/2addr
 		case SUB_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, "-");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, "-");
 			break;
 		}
 		
 		// opcode: bd mul-long/2addr
 		case MUL_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, "*");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: be div-long/2addr
 		case DIV_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, "/");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, "/");
 			break;
 		}
 		
 		// opcode: bf rem-long/2addr             
 		case REM_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, "%");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, "%");
 			break;
 		}
 		
 		// opcode: c0 and-long/2addr             
 		case AND_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, "&");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, "&");
 			break;
 		}
 		
 		// opcode: c1 or-long/2addr              
 		case OR_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, "|");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, "|");
 			break;
 		}
 		
 		// opcode: c2 xor-long/2addr             
 		case XOR_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, "^");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, "^");
 			break;
 		}
 		
 		// opcode: c3 shl-long/2addr             
 		case SHL_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, "<<");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, "<<");
 			break;
 		}
 		
 		// opcode: c4 shr-long/2addr             
 		case SHR_LONG_2ADDR:
 		{
-			result = emitLongArith2Addr(codeAddress, curTrace, instruction, ">>");
+			result += emitLongArith2Addr(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
 		// opcode: c5 ushr-long/2addr            
 		case USHR_LONG_2ADDR:
 		{
-			result = emitLongArithUnsigned2Addr(codeAddress, curTrace, instruction, ">>");
+			result += emitLongArithUnsigned2Addr(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
 		// opcode: c6 add-float/2addr
 		case ADD_FLOAT_2ADDR:
 		{
-			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "+");
+			result += emitFloatArith2Addr(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: c7 sub-float/2addr
 		case SUB_FLOAT_2ADDR:
 		{
-			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "-");
+			result += emitFloatArith2Addr(codeAddress, curTrace, instruction, "-");
 			break;
 		}
 		
 		// opcode: c8 mul-float/2addr
 		case MUL_FLOAT_2ADDR:
 		{
-			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "*");
+			result += emitFloatArith2Addr(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: c9 div-float/2addr
 		case DIV_FLOAT_2ADDR:
 		{
-			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "/");
+			result += emitFloatArith2Addr(codeAddress, curTrace, instruction, "/");
 			break;
 		}
 		
 		// opcode: ca rem-float/2addr   
 		case REM_FLOAT_2ADDR:
 		{
-			result = emitFloatArith2Addr(codeAddress, curTrace, instruction, "fmodf");
+			result += emitFloatArith2Addr(codeAddress, curTrace, instruction, "fmodf");
 			break;
 		}
 		
 		// opcode: cb add-double/2addr  
 		case ADD_DOUBLE_2ADDR:
 		{
-			result = emitDoubleArith2Addr(codeAddress, curTrace, instruction, "+");
+			result += emitDoubleArith2Addr(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: cc sub-double/2addr
 		case SUB_DOUBLE_2ADDR:
 		{
-			result = emitDoubleArith2Addr(codeAddress, curTrace, instruction, "+");
+			result += emitDoubleArith2Addr(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: cd mul-double/2addr  
 		case MUL_DOUBLE_2ADDR:
 		{
-			result = emitDoubleArith2Addr(codeAddress, curTrace, instruction, "*");
+			result += emitDoubleArith2Addr(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: ce div-double/2addr   
 		case DIV_DOUBLE_2ADDR:
 		{
-			result = emitDoubleArith2Addr(codeAddress, curTrace, instruction, "/");
+			result += emitDoubleArith2Addr(codeAddress, curTrace, instruction, "/");
 			break;
 		}
 		
 		// opcode: cf rem-double/2addr
 		case REM_DOUBLE_2ADDR:
 		{
-			result = emitDoubleArith2Addr(codeAddress, curTrace, instruction, "fmod");
+			result += emitDoubleArith2Addr(codeAddress, curTrace, instruction, "fmod");
 			break;
 		}
 		
 		// opcode: d0 add-int/lit16
 		case ADD_INT_LIT16:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "+");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: d1 rsub-int      
 		case RSUB_INT:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "rsub");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "rsub");
 			break;
 		}
 		
 		// opcode: d2 mul-int/lit16
 		case MUL_INT_LIT16:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "*");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: d3 div-int/lit16              
 		case DIV_INT_LIT16:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "/");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "/");
 			break;
 		}
 		
 		// opcode: d4 rem-int/lit16
 		case REM_INT_LIT16:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "%");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "%");
 			break;
 		}
 		
 		// opcode: d5 and-int/lit16
 		case AND_INT_LIT16:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "&");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "&");
 			break;
 		}
 		
 		// opcode: d6 or-int/lit16               
 		case OR_INT_LIT16:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "|");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "|");
 			break;
 		}
 		
 		// opcode: d7 xor-int/lit16              
 		case XOR_INT_LIT16:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "^");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "^");
 			break;
 		}
 		
 		// opcode: d8 add-int/lit8 
 		case ADD_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "+");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "+");
 			break;
 		}
 		
 		// opcode: d9 rsub-int/lit8
 		case RSUB_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "rsub");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "rsub");
 			break;
 		}
 		
 		// opcode: da mul-int/lit8 
 		case MUL_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "*");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "*");
 			break;
 		}
 		
 		// opcode: db div-int/lit8
 		case DIV_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "/");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "/");
 			break;
 		}
 		
 		// opcode: dc rem-int/lit8
 		case REM_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "%");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "%");
 			break;
 		}
 		
 		// opcode: dd and-int/lit8
 		case AND_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "&");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "&");
 			break;
 		}
 		
 		// opcode: de or-int/lit8                
 		case OR_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "|");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "|");
 			break;
 		}
 		
 		// opcode: df xor-int/lit8
 		case XOR_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "^");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "^");
 			break;
 		}
 		
 		// opcode: e0 shl-int/lit8               
 		case SHL_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, "<<");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, "<<");
 			break;
 		}
 		
 		// opcode: e1 shr-int/lit8
 		case SHR_INT_LIT8:
 		{
-			result = emitIntArithLiteral(codeAddress, curTrace, instruction, ">>");
+			result += emitIntArithLiteral(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
 		// opcode: e2 ushr-int/lit8
 		case USHR_INT_LIT8:
 		{
-			result = emitIntArithUnsignedLiteral(codeAddress, curTrace, instruction, ">>");
+			result += emitIntArithUnsignedLiteral(codeAddress, curTrace, instruction, ">>");
 			break;
 		}
 		
@@ -1725,20 +1737,18 @@ public class BytecodeToCConverter {
 		// opcode: ee +execute-inline
 		case EXECUTE_INLINE:
 		{
-			result = "BROKEN!!!";
-			
 			int inlineIndex = ((OdexedInvokeInline)instruction).getInlineIndex();
 			
 			switch (inlineIndex) {
 			case INLINE_EMPTYINLINEMETHOD:
-				result = "// NOP";
+				result += "// NOP";
 				break;
 			case INLINE_STRING_CHARAT:
 			{
 				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
 				int vB = ((FiveRegisterInstruction) instruction).getRegisterE();
 				
-				result = String.format("  {\n" +
+				result += String.format("  {\n" +
 						 "    // inlined: java.lang.String.charAt()\n" +
 						 "    char *string = (char*) v[%1$d];\n" +
 						 "    if (string == 0) TRACE_EXCEPTION(%3$#x)\n" +
@@ -1763,7 +1773,7 @@ public class BytecodeToCConverter {
 			case INLINE_STRING_LENGTH:
 			{
 				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				result = String.format("  {\n" +
+				result += String.format("  {\n" +
 						 "    // inlined: java.lang.String.length()\n" +
 						 "    char *string = (char*) v[%1$d];\n" +
 						 "    if (string == 0) TRACE_EXCEPTION(%2$#x)\n" +
@@ -1776,7 +1786,7 @@ public class BytecodeToCConverter {
 			case INLINE_MATH_ABS_INT:
 			{
 				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				result = String.format("  {\n" +
+				result += String.format("  {\n" +
 						 "    // inlined: java.lang.math.abs(I)\n" +
 						 "    if (v[%1$d] < 0) {\n" +
 						 "      *((int*)(self + %2$d)) = -v[%1$d];\n" +
@@ -1794,7 +1804,7 @@ public class BytecodeToCConverter {
 			case INLINE_MATH_ABS_DOUBLE:
 			{
 				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				result = String.format("  {\n" +
+				result += String.format("  {\n" +
 						 "    // inlined: java.lang.math.abs(D)\n" +
 						 "    double value = *((double*)(v + %1$d));\n" +
 						 "    if (value < 0.0) {\n" +
@@ -1810,7 +1820,7 @@ public class BytecodeToCConverter {
 			{
 				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
 				int vB = ((FiveRegisterInstruction) instruction).getRegisterE();
-				result = String.format("  {\n" +
+				result += String.format("  {\n" +
 						 "    // inlined: java.lang.math.min(I)\n" +
 						 "    if (v[%1$d] < v[%2$d]) {\n" +
 						 "      *((int*)(self + %3$d)) = v[%1$d];\n" +
@@ -1827,21 +1837,21 @@ public class BytecodeToCConverter {
 			{
 				// DEFGA
 				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				result = String.format("\t*((double*) (self+%d)) = sqrt(*((double*)(v + %1$d)));", offsetThreadReturn, vA);
+				result += String.format("\t*((double*) (self+%d)) = sqrt(*((double*)(v + %1$d)));", offsetThreadReturn, vA);
 				break;
 			}
 			case INLINE_MATH_COS:
 			{
 				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
 				// double will be in d0, lit will be in r0, see pg19 of Arm Procedure Call Standard
-				result = String.format("\t*((double*) (self+%d)) = __hiya_cos(*((double*)(v + %1$d)), lit);", offsetThreadReturn, vA);
+				result += String.format("\t*((double*) (self+%d)) = __hiya_cos(*((double*)(v + %1$d)), lit);", offsetThreadReturn, vA);
 				break;
 			}
 			case INLINE_MATH_SIN:
 			{
 				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
 				// double will be in d0, lit will be in r0, see pg19 of Arm Procedure Call Standard
-				result = String.format("\t*((double*) (self+%d)) = __hiya_sin(*((double*)(v + %1$d)), lit);", offsetThreadReturn, vA);
+				result += String.format("\t*((double*) (self+%d)) = __hiya_sin(*((double*)(v + %1$d)), lit);", offsetThreadReturn, vA);
 				break;
 			}
 			case INLINE_FLOAT_TO_INT_BITS:
@@ -1878,14 +1888,14 @@ public class BytecodeToCConverter {
 		// opcode: ef +execute-inline/range      
 		case EXECUTE_INLINE_RANGE:
 		{
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: f0 +invoke-object-init/range  
 		case INVOKE_OBJECT_INIT_RANGE:
 		{
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -1894,7 +1904,7 @@ public class BytecodeToCConverter {
 		{	
 			curTrace.meta.containsReturn = true;
 			
-			result = "  barrier();\n";
+			result += "  barrier();\n";
 			result += String.format("  TRACE_RETURN(%#x)", codeAddress);
 			break;
 		}
@@ -1906,7 +1916,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%2$d] == 0) TRACE_EXCEPTION(%4$#x)\n" +
+			result += String.format("  if (v[%2$d] == 0) TRACE_EXCEPTION(%4$#x)\n" +
 		               			   "  v[%1$d] = *((int*) (((char*)v[%2$d]) + %3$#x));", vA, vB, offset, codeAddress);
 			break;
 		}
@@ -1918,7 +1928,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%3$d] == 0) TRACE_EXCEPTION(%6$#x)\n" +
+			result += String.format("  if (v[%3$d] == 0) TRACE_EXCEPTION(%6$#x)\n" +
 								   "  v[%1$d] = *((int*) (((char*)v[%3$d]) + %4$#x));\n" +
 								   "  v[%2$d] = *((int*) (((char*)v[%3$d]) + %5$#x));", vA, vA+1, vB, offset, offset+4, codeAddress);
 			break;
@@ -1931,7 +1941,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%2$d] == 0) TRACE_EXCEPTION(%4$#x)\n" +
+			result += String.format("  if (v[%2$d] == 0) TRACE_EXCEPTION(%4$#x)\n" +
 		               			   "  v[%1$d] = *((int*) (((char*)v[%2$d]) + %3$#x));", vA, vB, offset, codeAddress);
 			break;
 		}
@@ -1943,7 +1953,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%2$d] == 0) TRACE_EXCEPTION(%4$#x)\n" +
+			result += String.format("  if (v[%2$d] == 0) TRACE_EXCEPTION(%4$#x)\n" +
 					               "  *((int*) (((char*)v[%2$d]) + %3$#x)) = v[%1$d];", vA, vB, offset, codeAddress);
 			break;
 		}
@@ -1955,7 +1965,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%3$d] == 0) TRACE_EXCEPTION(%6$#x)\n" +
+			result += String.format("  if (v[%3$d] == 0) TRACE_EXCEPTION(%6$#x)\n" +
 					               "  *((int*) (((char*)v[%3$d]) + %4$#x)) = v[%1$d];\n" +
 					               "  *((int*) (((char*)v[%3$d]) + %5$#x)) = v[%2$d];", vA, vA+1, vB, offset, offset+4, codeAddress);
 			break;
@@ -1968,7 +1978,7 @@ public class BytecodeToCConverter {
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			int offset = ((OdexedFieldAccess)instruction).getFieldOffset();
 			
-			result = String.format("  if (v[%2$d] == 0) TRACE_EXCEPTION(%4$#x)\n" +
+			result += String.format("  if (v[%2$d] == 0) TRACE_EXCEPTION(%4$#x)\n" +
 					               "  *((int*) (((char*)v[%2$d]) + %3$#x)) = v[%1$d];", vA, vB, offset, codeAddress);
 			break;
 		}
@@ -1976,28 +1986,31 @@ public class BytecodeToCConverter {
 		// opcode: f8 +invoke-virtual-quick     
 		case INVOKE_VIRTUAL_QUICK: 
 		{
-			result = emitInvokeVirtualQuick(codeAddress);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
+			//result += emitInvokeVirtualQuick(codeAddress);
 			break;
 		}
 		
 		// opcode: f9 +invoke-virtual-quick/range
 		case INVOKE_VIRTUAL_QUICK_RANGE: 
 		{
-			result = emitInvokeVirtualQuick(codeAddress);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
+			//result += emitInvokeVirtualQuick(codeAddress);
+			
 			break;
 		}
 		
 		// opcode: fa +invoke-super-quick  
 		case INVOKE_SUPER_QUICK: 
 		{
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
 		// opcode: fb +invoke-super-quick/range  
 		case INVOKE_SUPER_QUICK_RANGE: 
 		{
-			result = emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitSingleStep(codeAddress, curTrace, instruction);
 			break;
 		}
 		
@@ -2007,7 +2020,7 @@ public class BytecodeToCConverter {
 		
 		default:
 		{
-			result = "  //\n  // Not implemented!!\n  //";
+			result += "  //\n  // Not implemented!!\n  //";
 			throw new UnimplementedInstructionException(instruction.opcode.name, codeAddress);
 		}
 		
@@ -2017,7 +2030,13 @@ public class BytecodeToCConverter {
 	}
 	
 	private String emitSingleStep(int codeAddress, Trace curTrace, Instruction instruction) {
+		System.out.println("Single step is now disabled. Offending instruction: " + instruction.opcode.toString());
+		System.exit(1);
 		return String.format("  single_step_%1$#x_%2$#x(lit, v, self);", codeAddress, codeAddress + instruction.getSize(codeAddress));
+	}
+	
+	private String emitPrintVregs(int codeAddress) {
+		return String.format("  print_vregs(v, self, 0x%x, lit);", codeAddress);
 	}
 	
 	private String emitMove(int codeAddress, Trace curTrace, Instruction instruction) {

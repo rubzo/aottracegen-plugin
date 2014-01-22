@@ -68,6 +68,19 @@ public class ArmInst implements Iterable<ArmInst> {
 	}
 	
 	/*
+	 * Before: (prev ->) this (-> next)
+	 * After:  (prev ->)      (-> next)
+	 */
+	public void removeSelf() {
+		if (prev != null) {
+			prev.next = next;
+		}
+		if (next != null) {
+			next.prev = prev;
+		}
+	}
+	
+	/*
 	 * Before: this
 	 * After:  *prev* -> this
 	 */

@@ -156,37 +156,25 @@ public class InstGen {
 		addRegRegGroupInstruction("stmia", dest, registers);
 	}
 	
-	public void doReadWriteMultipleWithRegMask(ArmRegister baseReg, boolean isStore, int regMask) {
+	public void doReadMultipleRange(ArmRegister memReg, ArmRegister initialReg, int numRegs) {
+		doReadWriteMultipleRange(memReg, initialReg, numRegs, false);
+	}
+	
+	public void doWriteMultipleRange(ArmRegister memReg, ArmRegister initialReg, int numRegs) {
+		doReadWriteMultipleRange(memReg, initialReg, numRegs, true);
+	}
+	
+	private void doReadWriteMultipleRange(ArmRegister memReg, ArmRegister initialReg, int numRegs, boolean isStore) {
+		ArmRegister[] regs = new ArmRegister[numRegs];
+		int baseIndex = initialReg.ordinal(); 
+		for (int i = baseIndex; i < baseIndex + numRegs; i++) {
+			regs[i - baseIndex] = ArmRegister.values()[i];
+		}
+		
 		if (isStore) {
-			switch (regMask) {
-			case 1:
-				memoryWriteMultiple(baseReg, ArmRegister.r0);
-				break;
-			case 2:
-				memoryWriteMultiple(baseReg, ArmRegister.r0, ArmRegister.r1);
-				break;
-			case 3:
-				memoryWriteMultiple(baseReg, ArmRegister.r0, ArmRegister.r1, ArmRegister.r2);
-				break;
-			case 4:
-				memoryWriteMultiple(baseReg, ArmRegister.r0, ArmRegister.r1, ArmRegister.r2, ArmRegister.r3);
-				break;
-			}
+			memoryWriteMultiple(memReg, regs);
 		} else {
-			switch (regMask) {
-			case 1:
-				memoryReadMultiple(baseReg, ArmRegister.r0);
-				break;
-			case 2:
-				memoryReadMultiple(baseReg, ArmRegister.r0, ArmRegister.r1);
-				break;
-			case 3:
-				memoryReadMultiple(baseReg, ArmRegister.r0, ArmRegister.r1, ArmRegister.r2);
-				break;
-			case 4:
-				memoryReadMultiple(baseReg, ArmRegister.r0, ArmRegister.r1, ArmRegister.r2, ArmRegister.r3);
-				break;
-			}
+			memoryReadMultiple(memReg, regs);
 		}
 	}
 	

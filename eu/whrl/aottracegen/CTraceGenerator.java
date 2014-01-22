@@ -35,6 +35,28 @@ public class CTraceGenerator {
 		opcodesThatCanReturn.add(Opcode.RETURN_WIDE);
 	}
 	
+	public static Set<Opcode> opcodesThatCanBranch;
+	static {
+		opcodesThatCanBranch = new TreeSet<Opcode>();
+		opcodesThatCanBranch.add(Opcode.IF_EQ);
+		opcodesThatCanBranch.add(Opcode.IF_EQZ);
+		opcodesThatCanBranch.add(Opcode.IF_NE);
+		opcodesThatCanBranch.add(Opcode.IF_NEZ);
+		opcodesThatCanBranch.add(Opcode.IF_LT);
+		opcodesThatCanBranch.add(Opcode.IF_LTZ);
+		opcodesThatCanBranch.add(Opcode.IF_GE);
+		opcodesThatCanBranch.add(Opcode.IF_GEZ);
+		opcodesThatCanBranch.add(Opcode.IF_GT);
+		opcodesThatCanBranch.add(Opcode.IF_GTZ);
+		opcodesThatCanBranch.add(Opcode.IF_LE);
+		opcodesThatCanBranch.add(Opcode.IF_LEZ);
+		opcodesThatCanBranch.add(Opcode.PACKED_SWITCH);
+		opcodesThatCanBranch.add(Opcode.SPARSE_SWITCH);
+		opcodesThatCanBranch.add(Opcode.GOTO);
+		opcodesThatCanBranch.add(Opcode.GOTO_16);
+		opcodesThatCanBranch.add(Opcode.GOTO_32);
+	}
+	
 	private static Set<Opcode> opcodesWithHotChainingCells;
 	static {
 		opcodesWithHotChainingCells = new TreeSet<Opcode>();
@@ -201,6 +223,9 @@ public class CTraceGenerator {
 		
 		writer.write(String.format("// --- TRACE %2d START (%s;%s;%s) ---\n", context.currentRegionIndex, context.currentRegion.clazz, context.currentRegion.method, context.currentRegion.signature));
 		writer.write("TRACE_DEPARTURE_INFO trace(int *lit, int *v, char *self) {\n");
+		if (context.config.printVregsMode) {
+			writer.write("\tcount_invoke_for_print_vregs(lit);\n");
+		}
 	}
 	
 	/*

@@ -258,21 +258,17 @@ public class AssemblyProcessor {
 		ArmInstOpMultiple pushInst = findPushInstruction(insts);
 		
 		if (pushInst != null) {
-			pushInst.registers.clear();
-			pushInst.addRegister(ArmRegister.r0);
-			pushInst.addRegister(ArmRegister.r1);
-			pushInst.addRegister(ArmRegister.r2);
-		} else {
-			/* there were no push insts at the start of the trace, so put our one for r5+r6 in */
-			ArmInstOpMultiple newPushInst = new ArmInstOpMultiple("push");
-			newPushInst.addRegister(ArmRegister.r0);
-			newPushInst.addRegister(ArmRegister.r1);
-			newPushInst.addRegister(ArmRegister.r2);
-			insts.insertBefore(newPushInst);
-			insts = newPushInst;
+			pushInst.removeSelf();
 		}
 		
-		return insts;
+		/* Put a new push instruction right at the beginning */
+		ArmInstOpMultiple newPushInst = new ArmInstOpMultiple("push");
+		newPushInst.addRegister(ArmRegister.r0);
+		newPushInst.addRegister(ArmRegister.r1);
+		newPushInst.addRegister(ArmRegister.r2);
+		insts.insertBefore(newPushInst);
+
+		return newPushInst;
 	}
 	
 	public ArmInst renameLabels(CodeGenContext context, ArmInst insts) {
@@ -335,6 +331,10 @@ public class AssemblyProcessor {
 					handleExecuteInline(context, branchInst);
 				} else if (dest.contains("single_step")) {
 					handleSingleStep(context, branchInst);
+				} else if (dest.contains("count_invoke_for_print_vregs")) {
+					handleCountInvokeForPrintVregs(context, branchInst);
+				} else if (dest.contains("print_vregs")) {
+					handlePrintVregs(context, branchInst);
 				} else if (dest.contains("instanceof")) {
 					handleInstanceof(context, branchInst);
 				} else if (dest.contains("new_instance")) {
@@ -396,7 +396,7 @@ public class AssemblyProcessor {
 				ArmRegister.r10, ArmRegister.r11);
 
 		gen.insertComment("Restore interpreter regs");
-		gen.copyRegister(ArmRegister.r5, ArmRegister.r6);
+		gen.copyRegister(ArmRegister.r5, ArmRegister.r1);
 		gen.copyRegister(ArmRegister.r6, ArmRegister.r2);
 
 		gen.insertComment("Load dPC for this bytecode and the next");
@@ -415,6 +415,24 @@ public class AssemblyProcessor {
 		
 		gen.insertComment("--- SINGLE STEP END");
 
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handleCountInvokeForPrintVregs(CodeGenContext context, ArmInstOpL inst) {
+		/* literal pool pointer is in r0 */
+		InstGen gen = new InstGen();
+		gen.insertComment("--- COUNT INVOKE FOR PRINT VREGS START");
+		gen.jumpToFunction(context, ArmRegister.r0, ArmRegister.r0, LiteralPoolType.CALL_DVMPRINTVREGSCOUNTINVOKE, "dvmPrintVregsCountInvoke");
+		gen.insertComment("--- COUNT INVOKE PRINT VREGS END");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handlePrintVregs(CodeGenContext context, ArmInstOpL inst) {
+		/* literal pool pointer is in r3 */
+		InstGen gen = new InstGen();
+		gen.insertComment("--- PRINT VREGS START");
+		gen.jumpToFunction(context, ArmRegister.r3, ArmRegister.r3, LiteralPoolType.CALL_DVMPRINTVREGS, "dvmPrintVregs");
+		gen.insertComment("--- PRINT VREGS END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
@@ -766,76 +784,87 @@ public class AssemblyProcessor {
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
+	/* clobbers r3-r9, must ensure first argument loaded is in r5 at the end, if it was nullchecked */
 	private void handleArgumentRangeLoading(InstGen gen, CodeGenContext context, int codeAddress, boolean nullCheck, ArmRegister fpReg) {
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
 		
+		ArmRegister initialFpReg = fpReg;
+		
 		gen.insertComment("Begin range argument loading");
-		if (fpReg != ArmRegister.r5) {
-			gen.copyRegister(fpReg, ArmRegister.r5);
+		if (fpReg.ordinal() > ArmRegister.r3.ordinal()) {
+			gen.copyRegister(ArmRegister.r3, fpReg);
+			fpReg = ArmRegister.r3;
 		}
+		// fpreg must now be in r3 or lower!!
+		
 		int regCount = ((InvokeInstruction) instruction).getRegCount();
-		int startReg = ((RegisterRangeInstruction) instruction).getStartRegister();
+		int startVirtualReg = ((RegisterRangeInstruction) instruction).getStartRegister();
 		
-		gen.doMath("add", ArmRegister.r4, ArmRegister.r5, startReg * 4);
+		ArmRegister counterReg = ArmRegister.r4;
+		ArmRegister readPointerReg = ArmRegister.r5;
+		ArmRegister writePointerReg = ArmRegister.r6;
+		ArmRegister tempArgStorageFirstReg = ArmRegister.r7;
 		
-		int regMask = regCount;
+		gen.doMath("add", readPointerReg, fpReg, startVirtualReg * 4);
+		
+		int numRegsInBatch = regCount;
 		if (regCount >= 4) {
-			regMask = 4;
+			numRegsInBatch = 4;
 		}
 		
-		gen.doReadWriteMultipleWithRegMask(ArmRegister.r4, false, regMask);
+		gen.doReadMultipleRange(readPointerReg, tempArgStorageFirstReg, numRegsInBatch);
 		
-		gen.doMath("sub", ArmRegister.r7, ArmRegister.r5, regCount * 4 + 20 /* size of StackSaveArea */);
+		gen.doMath("sub", writePointerReg, fpReg, regCount * 4 + 20 /* size of StackSaveArea */);
 		
 		if (regCount > 0 && nullCheck) {
 			gen.insertComment("null-check (method is not static)");
-			gen.doComparisonAndJump("eq", ArmRegister.r0, 0, String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
+			gen.doComparisonAndJump("eq", tempArgStorageFirstReg, 0, String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
+			gen.stackPush(tempArgStorageFirstReg);
 		}
 		
 		if (regCount >= 8) {
-			gen.stackPush(ArmRegister.r0, ArmRegister.r5);
-			
 			String loopHeaderLabel = String.format("ArgRangeLoopHeader_T%d_A%#x", context.currentRegionIndex, codeAddress);
 			
 			if (regCount > 11) {
-				gen.loadConstant(ArmRegister.r5, (((regCount - 4) >> 2) << 2));
+				gen.loadConstant(counterReg, (((regCount - 4) >> 2) << 2));
 				gen.insertLabel(loopHeaderLabel);
 			}
 			
-			gen.doReadWriteMultipleWithRegMask(ArmRegister.r7, true, regMask);
+			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch);
 			
-			gen.doReadWriteMultipleWithRegMask(ArmRegister.r4, false, regMask);
+			gen.doReadMultipleRange(readPointerReg, tempArgStorageFirstReg, numRegsInBatch);
 			
 			if (regCount > 11) {
-				gen.doMath("sub", ArmRegister.r5, ArmRegister.r5, 4);
-				gen.doComparisonAndJump("ne", ArmRegister.r5, 0, loopHeaderLabel);
+				gen.doMath("sub", counterReg, counterReg, 4);
+				gen.doComparisonAndJump("ne", counterReg, 0, loopHeaderLabel);
 			}
 		}
 		
 		if (regCount != 0) {
-			gen.doReadWriteMultipleWithRegMask(ArmRegister.r7, true, regMask);
+			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch);
 		}
 		
 		if (regCount > 4 && (regCount % 4 != 0)) {
-			regMask = ((1 << (regCount & 0x3)) - 1) << 1;
-			gen.doReadWriteMultipleWithRegMask(ArmRegister.r4, false, regMask);
-		}
-		
-		if (regCount >= 8) {
-			gen.stackPop(ArmRegister.r0, ArmRegister.r5);
+			numRegsInBatch = regCount % 4;
+			gen.doReadMultipleRange(readPointerReg, tempArgStorageFirstReg, numRegsInBatch);
 		}
 		
 		if (regCount > 4 && (regCount % 4 != 0)) {
-			regMask = ((1 << (regCount & 0x3)) - 1) << 1;
-			gen.doReadWriteMultipleWithRegMask(ArmRegister.r7, true, regMask);
+			numRegsInBatch = regCount % 4;
+			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch);
 		}
 		
-		if (fpReg != ArmRegister.r5) {
-			gen.copyRegister(ArmRegister.r5, fpReg);
+		if (fpReg != initialFpReg) {
+			gen.copyRegister(initialFpReg, fpReg);
+		}
+		
+		if (regCount > 0 && nullCheck) {
+			gen.stackPop(ArmRegister.r5);
 		}
 		gen.insertComment("End range argument loading");
 	}
 	
+	/* could clobber anything from r3 upwards */
 	private void handleArgumentLoading(InstGen gen, CodeGenContext context, int codeAddress, boolean nullCheck, ArmRegister fpReg) {
 		Instruction instruction = context.currentRegion.getInstructionAtCodeAddress(codeAddress);
 		

@@ -46,6 +46,8 @@ public class ITraceDescGenerator {
 		literalPoolTypeMap.put(LiteralPoolType.CALL_DVMANNOUNCE, "call_dvmannounce");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_DVMANNOUNCEINT, "call_dvmannounceint");
 		literalPoolTypeMap.put(LiteralPoolType.CALL_DVMBLOCKREGION, "call_dvmblockregion");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_DVMPRINTVREGS, "call_dvmprintvregs");
+		literalPoolTypeMap.put(LiteralPoolType.CALL_DVMPRINTVREGSCOUNTINVOKE, "call_dvmprintvregscountinvoke");
 		literalPoolTypeMap.put(LiteralPoolType.EXECUTE_INLINE, "execute_inline");
 	}
 
@@ -153,5 +155,8 @@ public class ITraceDescGenerator {
 		writer.write("region_count " + context.regions.size() + "\n");
 		writer.write("#method_jit 5\n");
 		writer.write("load_immediate\n");
+		if (context.config.printVregsMode) {
+			writer.write("vregs_print_invoke_limit " + context.config.printVregsInvokeLimit + "\n");
+		}
 	}
 }
