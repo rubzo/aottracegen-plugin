@@ -355,7 +355,7 @@ public class BytecodeToCConverter {
 		
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
 			
-			result  = "  {\n";
+			result += "  {\n";
 			result += String.format("    if (!instanceof_%2$#x(v[%1$d], lit[%3$d], lit)) TRACE_EXCEPTION(%2$#x);\n", vA, codeAddress, literalPoolLoc);
 			result += "  }";
 
@@ -372,7 +372,7 @@ public class BytecodeToCConverter {
 		
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
 			
-			result  = "  {\n";
+			result += "  {\n";
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
 			result += String.format("    v[%d] = instanceof_%#x(v[%d], lit[%d], lit);\n", vA, codeAddress, vB, literalPoolLoc);
 			result += "  }";
@@ -385,7 +385,7 @@ public class BytecodeToCConverter {
 			int vA = ((TwoRegisterInstruction)instruction).getRegisterA();
 			int vB = ((TwoRegisterInstruction)instruction).getRegisterB();
 			
-			result  = "  {\n";
+			result += "  {\n";
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
 			result += String.format("    v[%d] = *((int*) ( ((char*) v[%d]) + %d ));", vA, vB, offsetArrayObjectLength);
 			result += "  }";
@@ -400,7 +400,7 @@ public class BytecodeToCConverter {
 			
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
 			
-			result  = "  {\n";
+			result += "  {\n";
 			result += String.format("    v[%d] = new_instance_%#x(lit[%d], 1 /*ALLOC_DONT_TRACK*/, lit);\n", vA, codeAddress, literalPoolLoc);
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vA, codeAddress);
 			result += "  }";
@@ -416,7 +416,7 @@ public class BytecodeToCConverter {
 			
 			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
 			
-			result  = "  {\n";
+			result += "  {\n";
 			result += String.format("    if (v[%d] < 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
 			result += String.format("    v[%d] = new_array(lit[%d], v[%d], 1 /*ALLOC_DONT_TRACK*/, lit);\n", vA, literalPoolLoc, vB);
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vA, codeAddress);
@@ -440,7 +440,7 @@ public class BytecodeToCConverter {
 			
 			int length = ((FiveRegisterInstruction) instruction).getRegCount();
 			
-			result  = "  {\n";
+			result  += "  {\n";
 			result += String.format("    int *array_obj = new_array(lit[%d], %d, 1 /*ALLOC_DONT_TRACK*/, lit);\n", literalPoolLoc, length);
 			result += String.format("    if (array_obj == 0) TRACE_EXCEPTION(%#x);\n", codeAddress);
 			result += String.format("    *((int*) (self+%d)) = array_obj;\n", offsetThreadReturn);
@@ -475,7 +475,7 @@ public class BytecodeToCConverter {
 		// opcode: 27 throw    
 		case THROW:
 		{
-			result += emitSingleStep(codeAddress, curTrace, instruction);
+			result += String.format("    TRACE_EXCEPTION(%#x);\n", codeAddress);
 			break;
 		}
 		
@@ -973,24 +973,21 @@ public class BytecodeToCConverter {
 		// opcode: 76 invoke-direct/range   
 		case INVOKE_DIRECT_RANGE: 
 		{
-			//result += emitInvokeSingleton(codeAddress, true);
-			result += emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitInvokeSingleton(codeAddress, true);
 			break;
 		}
 		
 		// opcode: 77 invoke-static/range     
 		case INVOKE_STATIC_RANGE: 
 		{
-			//result += emitInvokeSingleton(codeAddress, false);
-			result += emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitInvokeSingleton(codeAddress, false);
 			break;
 		}
 		
 		// opcode: 78 invoke-interface/range   
 		case INVOKE_INTERFACE_RANGE: 
 		{
-			//result += emitInvokeInterface(codeAddress);
-			result += emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitInvokeInterface(codeAddress);
 			break;
 		}
 		
@@ -2061,7 +2058,7 @@ public class BytecodeToCConverter {
 	
 	private String emitSingleStep(int codeAddress, Trace curTrace, Instruction instruction) {
 		System.out.println("Single step is now disabled. Offending instruction: " + instruction.opcode.toString());
-		//System.exit(1);
+		System.exit(1);
 		return String.format("  single_step_%1$#x_%2$#x(lit, v, self);", codeAddress, codeAddress + instruction.getSize(codeAddress));
 	}
 	

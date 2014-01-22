@@ -598,6 +598,12 @@ public class AssemblyProcessor {
 
 		handleArgumentLoading(gen, context, codeAddress, true, ArmRegister.r1);
 
+		// save the literal pool pointer in r6... 
+		gen.copyRegister(ArmRegister.r6, ArmRegister.r0);
+
+		// r5 now contains object, move it to r0
+		gen.copyRegister(ArmRegister.r0, ArmRegister.r5);
+		
 		// move v
 		gen.copyRegister(ArmRegister.r3, ArmRegister.r1);
 		// move self
@@ -609,7 +615,7 @@ public class AssemblyProcessor {
 		// load &predictedChainingCell
 		gen.loadLabel(ArmRegister.r5, String.format("ChainingCell_T%d_M%#x", context.currentRegionIndex, codeAddress), inst, true);
 
-		gen.jumpToFunction(context, ArmRegister.r6, ArmRegister.r0, LiteralPoolType.CALL_AOT_INVOKE_INTERFACE, "dvmCompiler_AOT_INVOKE_INTERFACE");
+		gen.jumpToFunction(context, ArmRegister.r6, ArmRegister.r6, LiteralPoolType.CALL_AOT_INVOKE_INTERFACE, "dvmCompiler_AOT_INVOKE_INTERFACE");
 
 		gen.jumpToLabel(String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress));
 
