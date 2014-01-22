@@ -812,7 +812,7 @@ public class AssemblyProcessor {
 			numRegsInBatch = 4;
 		}
 		
-		gen.doReadMultipleRange(readPointerReg, tempArgStorageFirstReg, numRegsInBatch);
+		gen.doReadMultipleRange(readPointerReg, tempArgStorageFirstReg, numRegsInBatch, true);
 		
 		gen.doMath("sub", writePointerReg, fpReg, regCount * 4 + 20 /* size of StackSaveArea */);
 		
@@ -830,9 +830,9 @@ public class AssemblyProcessor {
 				gen.insertLabel(loopHeaderLabel);
 			}
 			
-			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch);
+			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch, true);
 			
-			gen.doReadMultipleRange(readPointerReg, tempArgStorageFirstReg, numRegsInBatch);
+			gen.doReadMultipleRange(readPointerReg, tempArgStorageFirstReg, numRegsInBatch, true);
 			
 			if (regCount > 11) {
 				gen.doMath("sub", counterReg, counterReg, 4);
@@ -841,17 +841,17 @@ public class AssemblyProcessor {
 		}
 		
 		if (regCount != 0) {
-			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch);
+			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch, true);
 		}
 		
 		if (regCount > 4 && (regCount % 4 != 0)) {
 			numRegsInBatch = regCount % 4;
-			gen.doReadMultipleRange(readPointerReg, tempArgStorageFirstReg, numRegsInBatch);
+			gen.doReadMultipleRange(readPointerReg, tempArgStorageFirstReg, numRegsInBatch, true);
 		}
 		
 		if (regCount > 4 && (regCount % 4 != 0)) {
 			numRegsInBatch = regCount % 4;
-			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch);
+			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch, true);
 		}
 		
 		if (fpReg != initialFpReg) {
@@ -900,7 +900,7 @@ public class AssemblyProcessor {
 				gen.doComparisonAndJump("eq", ArmRegister.r5, 0, String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
 			}
 
-			gen.memoryWriteMultiple(ArmRegister.r10);
+			gen.memoryWriteMultiple(ArmRegister.r10, false);
 			ArmInstOpRMultiple inst = (ArmInstOpRMultiple) gen.getLast();
 
 			inst.addRegister(ArmRegister.r5);

@@ -73,12 +73,13 @@ public class InstGen {
 		addInst(op);
 	}
 	
-	private void addRegRegGroupInstruction(String mnemonic, ArmRegister reg1, ArmRegister ... registers) {
+	private void addRegRegGroupInstruction(String mnemonic, ArmRegister reg1, boolean autoIncrement, ArmRegister ... registers) {
 		ArmInstOpRMultiple op = new ArmInstOpRMultiple(mnemonic, reg1);
 		for (ArmRegister reg : registers) {
 			op.addRegister(reg);
 		}
 		addInst(op);
+		op.autoIndex = autoIncrement;
 	}
 	
 	private void addRegLabelInstruction(String mnemonic, ArmRegister reg1, String label) {
@@ -148,23 +149,23 @@ public class InstGen {
 		addRegRegOffsetInstruction("ldr", dest, src, offset);
 	}
 	
-	public void memoryReadMultiple(ArmRegister src, ArmRegister ... registers) {
-		addRegRegGroupInstruction("ldmia", src, registers);
+	public void memoryReadMultiple(ArmRegister src, boolean autoIncrement, ArmRegister ... registers) {
+		addRegRegGroupInstruction("ldmia", src, autoIncrement, registers);
 	}
 	
-	public void memoryWriteMultiple(ArmRegister dest, ArmRegister ... registers) {
-		addRegRegGroupInstruction("stmia", dest, registers);
+	public void memoryWriteMultiple(ArmRegister dest, boolean autoIncrement, ArmRegister ... registers) {
+		addRegRegGroupInstruction("stmia", dest, autoIncrement, registers);
 	}
 	
-	public void doReadMultipleRange(ArmRegister memReg, ArmRegister initialReg, int numRegs) {
-		doReadWriteMultipleRange(memReg, initialReg, numRegs, false);
+	public void doReadMultipleRange(ArmRegister memReg, ArmRegister initialReg, int numRegs, boolean autoIncrement) {
+		doReadWriteMultipleRange(memReg, initialReg, numRegs, false, autoIncrement);
 	}
 	
-	public void doWriteMultipleRange(ArmRegister memReg, ArmRegister initialReg, int numRegs) {
-		doReadWriteMultipleRange(memReg, initialReg, numRegs, true);
+	public void doWriteMultipleRange(ArmRegister memReg, ArmRegister initialReg, int numRegs, boolean autoIncrement) {
+		doReadWriteMultipleRange(memReg, initialReg, numRegs, true, autoIncrement);
 	}
 	
-	private void doReadWriteMultipleRange(ArmRegister memReg, ArmRegister initialReg, int numRegs, boolean isStore) {
+	private void doReadWriteMultipleRange(ArmRegister memReg, ArmRegister initialReg, int numRegs, boolean isStore, boolean autoIncrement) {
 		ArmRegister[] regs = new ArmRegister[numRegs];
 		int baseIndex = initialReg.ordinal(); 
 		for (int i = baseIndex; i < baseIndex + numRegs; i++) {
@@ -172,9 +173,9 @@ public class InstGen {
 		}
 		
 		if (isStore) {
-			memoryWriteMultiple(memReg, regs);
+			memoryWriteMultiple(memReg, autoIncrement, regs);
 		} else {
-			memoryReadMultiple(memReg, regs);
+			memoryReadMultiple(memReg, autoIncrement, regs);
 		}
 	}
 	

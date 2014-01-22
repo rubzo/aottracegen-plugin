@@ -418,7 +418,7 @@ public class BytecodeToCConverter {
 			
 			result  = "  {\n";
 			result += String.format("    if (v[%d] < 0) TRACE_EXCEPTION(%#x);\n", vB, codeAddress);
-			result += String.format("    v[%d] = new_array_%#x(lit[%d], v[%d], 1 /*ALLOC_DONT_TRACK*/, lit);\n", vA, codeAddress, literalPoolLoc, vB);
+			result += String.format("    v[%d] = new_array(lit[%d], v[%d], 1 /*ALLOC_DONT_TRACK*/, lit);\n", vA, literalPoolLoc, vB);
 			result += String.format("    if (v[%d] == 0) TRACE_EXCEPTION(%#x);\n", vA, codeAddress);
 			result += "  }";
 			break;
@@ -427,7 +427,40 @@ public class BytecodeToCConverter {
 		// opcode: 24 filled-new-array   
 		case FILLED_NEW_ARRAY:
 		{
-			result += emitSingleStep(codeAddress, curTrace, instruction);
+			int classIndex = ((InstructionWithReference)instruction).getReferencedItem().getIndex();
+			
+			String arrayType = ((InstructionWithReference)instruction).getReferencedItem().getConciseIdentity().substring(15, 16);
+			
+			if (!arrayType.equals("I")) {
+				System.out.println("Can only handle FILLED_NEW_ARRAY with [I right now. Fix.");
+				System.exit(1);
+			}
+			
+			int literalPoolLoc = curTrace.meta.addLiteralPoolTypeAndValue(LiteralPoolType.CLASS_POINTER, classIndex);
+			
+			int length = ((FiveRegisterInstruction) instruction).getRegCount();
+			
+			result  = "  {\n";
+			result += String.format("    int *array_obj = new_array(lit[%d], %d, 1 /*ALLOC_DONT_TRACK*/, lit);\n", literalPoolLoc, length);
+			result += String.format("    if (array_obj == 0) TRACE_EXCEPTION(%#x);\n", codeAddress);
+			result += String.format("    *((int*) (self+%d)) = array_obj;\n", offsetThreadReturn);
+			if (length > 0) {
+				result += String.format("    *((int*)(((char*)array_obj) + 16)) = v[%d];\n", ((FiveRegisterInstruction) instruction).getRegisterD());
+			}
+			if (length > 1) {
+				result += String.format("    *((int*)(((char*)array_obj) + 20)) = v[%d];\n", ((FiveRegisterInstruction) instruction).getRegisterE());
+			}
+			if (length > 2) {
+				result += String.format("    *((int*)(((char*)array_obj) + 24)) = v[%d];\n", ((FiveRegisterInstruction) instruction).getRegisterF());
+			}
+			if (length > 3) {
+				result += String.format("    *((int*)(((char*)array_obj) + 28)) = v[%d];\n", ((FiveRegisterInstruction) instruction).getRegisterG());
+			}
+			if (length > 4) {
+				result += String.format("    *((int*)(((char*)array_obj) + 32)) = v[%d];\n", ((FiveRegisterInstruction) instruction).getRegisterA());
+			}
+			// no need to mark card table if it's just ints
+			result += "  }";
 			break;
 		}
 		
@@ -1986,17 +2019,14 @@ public class BytecodeToCConverter {
 		// opcode: f8 +invoke-virtual-quick     
 		case INVOKE_VIRTUAL_QUICK: 
 		{
-			result += emitSingleStep(codeAddress, curTrace, instruction);
-			//result += emitInvokeVirtualQuick(codeAddress);
+			result += emitInvokeVirtualQuick(codeAddress);
 			break;
 		}
 		
 		// opcode: f9 +invoke-virtual-quick/range
 		case INVOKE_VIRTUAL_QUICK_RANGE: 
 		{
-			result += emitSingleStep(codeAddress, curTrace, instruction);
-			//result += emitInvokeVirtualQuick(codeAddress);
-			
+			result += emitInvokeVirtualQuick(codeAddress);
 			break;
 		}
 		
@@ -2031,7 +2061,7 @@ public class BytecodeToCConverter {
 	
 	private String emitSingleStep(int codeAddress, Trace curTrace, Instruction instruction) {
 		System.out.println("Single step is now disabled. Offending instruction: " + instruction.opcode.toString());
-		System.exit(1);
+		//System.exit(1);
 		return String.format("  single_step_%1$#x_%2$#x(lit, v, self);", codeAddress, codeAddress + instruction.getSize(codeAddress));
 	}
 	
