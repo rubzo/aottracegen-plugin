@@ -153,8 +153,14 @@ public class ITraceDescGenerator {
 	private void emitHeader(CodeGenContext context) throws IOException {
 		writer.write("application_name " + context.config.app + "\n");
 		writer.write("region_count " + context.regions.size() + "\n");
-		writer.write("#method_jit 5\n");
-		writer.write("load_immediate\n");
+		if (context.config.emulateJitMode) {
+			writer.write("method_jit 2\n");
+			writer.write("#load_immediate\n");
+		} else {
+			writer.write("#method_jit 2\n");
+			writer.write("load_immediate\n");
+		}
+		
 		if (context.config.printVregsMode) {
 			writer.write("vregs_print_invoke_limit " + context.config.printVregsInvokeLimit + "\n");
 		}

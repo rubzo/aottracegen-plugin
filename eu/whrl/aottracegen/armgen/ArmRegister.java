@@ -14,7 +14,7 @@ public enum ArmRegister {
 	r9,
 	r10,
 	r11,
-	fp,
+	r12,
 	ip,
 	sp,
 	lr,

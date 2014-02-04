@@ -31,6 +31,8 @@ public class Config {
 	
 	public boolean armMode = false;
 	
+	public boolean emulateJitMode = false;
+	
 	public List<String> extraLibs = new LinkedList<String>();
 	
 	public String cflags = "-O3";
@@ -114,6 +116,8 @@ public class Config {
 					singleStepAll = true;
 				} else if (line.startsWith("arm")) {
 					armMode = true;
+				} else if (line.startsWith("emulatejit")) {
+					emulateJitMode = true;
 				} else if (line.startsWith("no-remove-cbz")) {
 					enableRemoveCBZs = false;
 				} else if (line.startsWith("cflags")) {

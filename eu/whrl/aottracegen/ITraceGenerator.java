@@ -44,7 +44,8 @@ public class ITraceGenerator {
 	 */
 	private List<String> extractInsts(CodeGenContext context, String asmFileName) throws ITraceGeneratorFaultException {
 		final String startMarker = "trace:";
-		final String endMarker = "\t.size\ttrace, .-trace";
+		//final String endMarker = ".size trace, .-trace";
+		final String endMarker = ".size trace, .Ltmp0-trace";
 		
 		List<String> instsList = new ArrayList<String>();
 		
@@ -58,18 +59,19 @@ public class ITraceGenerator {
 			while (buff.ready()) {
 				line = buff.readLine();
 				
-				if (line.equals(endMarker)) {
+				String trimmedLine = line.replaceAll("@.*", "").trim().replaceAll("\\s+", " ");
+				
+				if (trimmedLine.equals(endMarker)) {
 					inTraceBody = false;
 				}
 				
 				if (inTraceBody) {
-					String trimmedLine = line.replaceAll("@.*", "").trim().replaceAll("\\s+", " ");
 					if (!trimmedLine.equals("")) {
 						instsList.add(trimmedLine);
 					}
 				}
 				
-				if (line.equals(startMarker)) {
+				if (trimmedLine.equals(startMarker)) {
 					inTraceBody = true;
 				}
 			}

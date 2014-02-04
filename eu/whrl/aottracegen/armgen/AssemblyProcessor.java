@@ -25,7 +25,7 @@ public class AssemblyProcessor {
 	private ArmInstOpMultiple findPopInstruction(ArmInst insts) {
 		for (ArmInst inst : insts) {
 			ArmOpcode opcode = inst.getOpcode();
-			if (opcode == ArmOpcode.ldm || opcode == ArmOpcode.pop) {
+			if (opcode == ArmOpcode.pop) {
 				ArmInstOpMultiple op = (ArmInstOpMultiple) inst;
 				if (op.registers.size() != 3 || op.registers.get(0) != ArmRegister.r2 || 
 						op.registers.get(1) != ArmRegister.r5 || 
@@ -40,7 +40,7 @@ public class AssemblyProcessor {
 	private ArmInstOpMultiple findPushInstruction(ArmInst insts) {
 		for (ArmInst inst : insts) {
 			ArmOpcode opcode = inst.getOpcode();
-			if (opcode == ArmOpcode.stm || opcode == ArmOpcode.push) {
+			if (opcode == ArmOpcode.push) {
 				ArmInstOpMultiple op = (ArmInstOpMultiple) inst;
 				if (op.registers.size() != 3 || op.registers.get(0) != ArmRegister.r0 ||
 						op.registers.get(1) != ArmRegister.r1 ||
@@ -208,6 +208,7 @@ public class AssemblyProcessor {
 			popInst.addRegister(ArmRegister.r2);
 			popInst.addRegister(ArmRegister.r5);
 			popInst.addRegister(ArmRegister.r6);
+			popInst.specifiers.clear(); // clear the .w suffix
 			
 			/* add branch to our exit code */
 			ArmInstOpL leaveInst = new ArmInstOpL("b", "Leave_T" + context.currentRegionIndex);
@@ -374,7 +375,7 @@ public class AssemblyProcessor {
 		int thisOffset = 0;
 		int nextOffset = 0;
 		Pattern p = Pattern
-				.compile("single_step_0x(.*)_0x(.*)\\(PLT\\)$");
+				.compile("single_step_0x(.*)_0x(.*)$");
 		Matcher m = p.matcher(label);
 		if (m.find()) {
 			thisOffset = Integer.parseInt(m.group(1), 16);
@@ -582,7 +583,7 @@ public class AssemblyProcessor {
 
 		int codeAddress = 0;
 		Pattern p = Pattern
-				.compile("invoke_interface_0x(.*)\\(PLT\\)$");
+				.compile("invoke_interface_0x(.*)$");
 		Matcher m = p.matcher(label);
 		if (m.find()) {
 			codeAddress = Integer.parseInt(m.group(1), 16);
@@ -638,7 +639,7 @@ public class AssemblyProcessor {
 
 		int codeAddress = 0;
 		Pattern p = Pattern
-				.compile("invoke_virtual_quick_0x(.*)\\(PLT\\)$");
+				.compile("invoke_virtual_quick_0x(.*)$");
 		Matcher m = p.matcher(label);
 		if (m.find()) {
 			codeAddress = Integer.parseInt(m.group(1), 16);
@@ -693,7 +694,7 @@ public class AssemblyProcessor {
 	
 		int codeAddress = 0;
 		boolean nullCheckArgs = false;
-		Pattern p = Pattern.compile("invoke_singleton_(.*)_0x(.*)\\(PLT\\)$");
+		Pattern p = Pattern.compile("invoke_singleton_(.*)_0x(.*)$");
 		Matcher m = p.matcher(label);
 		if (m.find()) {
 			codeAddress = Integer.parseInt(m.group(2), 16);

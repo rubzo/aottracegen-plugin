@@ -90,11 +90,11 @@ public class CodeGenerator {
 		try {
 			System.out.println("Assembling O file...");
 			System.out.println("  (cmd: " + assembleCommand + ")");
-			runCommand(assembleCommand);
+			runCommandLocally(assembleCommand);
 			
 			System.out.println("Creating SO file...");
 			System.out.println("  (cmd: " + sharedObjectCommand + ")");
-			runCommand(sharedObjectCommand);
+			runCommandLocally(sharedObjectCommand);
 		} catch (CommandException exception) {
 			
 			System.err.println("Couldn't create shared object?");
@@ -123,61 +123,111 @@ public class CodeGenerator {
 	 * Will throw a CompilationException if it encounters any errors during compilation.
 	 */
 	public void compileC(CodeGenContext context, String cTraceFileName, String asmTraceFileName) throws CompilationException {
-		String useThumb = "-mthumb";
-		if (context.config.armMode) {
-			useThumb = "";
+		String pushCommand = String.format("adb push %s /sdcard/", cTraceFileName);
+		String pullCommand = String.format("adb pull /sdcard/%s .", asmTraceFileName);
+		
+		String clangBinary = "arm-linux-androideabi-clang";
+		String optBinary = "arm-linux-androideabi-opt";
+		String llcBinary = "arm-linux-androideabi-llc";
+		
+		// used in both modes
+		String clangCommand = "";
+		
+		// used in JIT emulation mode only
+		String optCommand = "";
+		String llcCommand = "";
+		
+		if (context.config.emulateJitMode) {
+			
+			String clangOptions = "-target armv7a -O0";
+						
+			// O2 options
+			String optOptions = "-march=armv7-a -tbaa -basicaa -globalopt -ipsccp -deadargelim -instcombine -simplifycfg -prune-eh -inline -functionattrs " +
+					"-scalarrepl -early-cse -simplify-libcalls -jump-threading -correlated-propagation -simplifycfg -instcombine " +
+					"-tailcallelim -simplifycfg -reassociate -loop-rotate -licm -loop-unswitch -instcombine -indvars -loop-idiom " +
+					"-loop-deletion -loop-unroll -gvn -memcpyopt -sccp -instcombine -jump-threading -correlated-propagation -dse " +
+					"-slp-vectorizer -bb-vectorize -instcombine -gvn -loop-unroll -adce -simplifycfg -instcombine " +
+					"-strip-dead-prototypes -globaldce -constmerge";
+			
+			String llcOptions = "-mcpu=cortex-a15 -march=thumb -O2 -regalloc=basic -code-model=default -float-abi=hard -pre-RA-sched=fast -relocation-model=static";
+			
+			clangCommand = String.format("%s -emit-llvm -S %s -o /sdcard/bitcode.bc /sdcard/%s", clangBinary, clangOptions, cTraceFileName);
+			optCommand = String.format("%s -S %s -o /sdcard/bitcode_opt.bc /sdcard/bitcode.bc", optBinary, optOptions);
+			llcCommand = String.format("%s %s -o /sdcard/%s /sdcard/bitcode_opt.bc", llcBinary, llcOptions, asmTraceFileName);
+			
+		} else {
+			
+			String clangOptions = "-target armv7a -mcpu=cortex-a15 -mtune=cortex-a15 -O3 -funsafe-math -funroll-loops -mfpu=neon -mfloat-abi=hard -mthumb";
+			
+			clangCommand = String.format("%s %s -S -o /sdcard/%s /sdcard/%s", clangBinary, clangOptions, asmTraceFileName, cTraceFileName);
 		}
-		String fpargs = "-mfloat-abi=hard -mfpu=neon";
-		if (context.currentRegion.disableFP) {
-			fpargs = "";
-		}
-		String command = String.format("arm-linux-androideabi-gcc -march=armv7-a %s %s %s -S -o %s %s", fpargs, context.config.cflags, useThumb, asmTraceFileName, cTraceFileName);
-		System.out.println("Compiling C...");
-		System.out.println("  (cmd: " + command + ")");
+		
 		try {
-			runCommand(command);
+			System.out.println("Compiling C...");
+			
+			runCommandOnDevice("rm /sdcard/*.S /sdcard/*.c");
+			System.out.println("  PUSH: " + pushCommand);
+			runCommandLocally(pushCommand);
+			if (context.config.emulateJitMode) {
+				System.out.println("  --- EMULATING JIT CODE ---");
+				runCommandOnDevice("rm /sdcard/bitcode*");
+				System.out.println("  (device) CLANG: " + clangCommand);
+				runCommandOnDevice(clangCommand);
+				System.out.println("  (device) OPT: " + optCommand);
+				runCommandOnDevice(optCommand);
+				System.out.println("  (device) LLC: " + llcCommand);
+				runCommandOnDevice(llcCommand);
+			} else {
+				System.out.println("  --- STANDALONE COMPILER CODE ---");
+				System.out.println("  (device) CLANG: " + clangCommand);
+				runCommandOnDevice(clangCommand);
+			}
+			System.out.println("  PULL: " + pullCommand);
+			runCommandLocally(pullCommand);
 		} catch (CommandException e) {
 			throw new CompilationException();
 		}
 	}
 	
-	public void optimiseLLVM(CodeGenContext context, String llvmTraceFileName, String llvmOptTraceFileName) throws CompilationException {
-		System.out.println("Optimising LLVM bytecode...");
-		String command = String.format("opt -O3 -S %s -o %s", llvmTraceFileName, llvmOptTraceFileName);
-		System.out.println("  (cmd: " + command + ")");
-		try {
-			runCommand(command);
-		} catch (CommandException e) {
-			throw new CompilationException();
-		}
+	private void runCommandOnDevice(String command) throws CommandException {
+		runCommand(command, true);
 	}
 	
-	public void compileLLVM(CodeGenContext context, String llvmOptTraceFileName, String asmTraceFileName) throws CompilationException {
-		System.out.println("Compiling LLVM bytecode...");
-		String command = String.format("llc -O3 -mcpu=cortex-a9 --enable-unsafe-fp-math %s -o %s", llvmOptTraceFileName, asmTraceFileName);
-		System.out.println("  (cmd: " + command + ")");
-		try {
-			runCommand(command);
-		} catch (CommandException e) {
-			throw new CompilationException();
-		}
+	private void runCommandLocally(String command) throws CommandException {
+		runCommand(command, false);
 	}
 	
-	private void runCommand(String command) throws CommandException {
+	private void runCommand(String command, boolean onDevice) throws CommandException {
 		try {
+			
+			if (onDevice) {
+				command = "adb shell " + command; 
+			}
+			
 			Process process = Runtime.getRuntime().exec(command);
-			BufferedReader errorStreamReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+			BufferedReader errorStreamReader;
+			if (onDevice) {
+				errorStreamReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+			} else {
+				errorStreamReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+			}
 			
 			process.waitFor();
+			if (onDevice) {
+				Thread.sleep(500);
+			}
+			
 			
 			boolean error = false;
 			String line;
 			
 			while (errorStreamReader.ready()) {
 				line = errorStreamReader.readLine();
-				if (line.contains("error") || line.contains("Error")) {
+				
+				if (line.toLowerCase().contains("error")) {
 					
 					// Error is not recoverable
+					//System.err.println("Offending command: "+ command);
 					System.err.println(line);
 					if (!error) {
 						error = true;

@@ -1,5 +1,7 @@
 package eu.whrl.aottracegen.armgen.insts;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -11,12 +13,12 @@ public class ArmInstOp extends ArmInst implements IArmInstPrintable, IArmInstPar
 	public ArmOpcode opcode;
 	public ArmConditionCode cc;
 	public boolean setsFlags;
-	public String specifier;
+	public List<String> specifiers;
 	
 	public ArmInstOp(String opcodeString) {
 		super();
 		setsFlags = false;
-		specifier = "";
+		specifiers = new LinkedList<String>();
 		parseOpcode(opcodeString);
 		if (isInvalid()) {
 			System.out.println("Couldn't read opcode: " + opcodeString);
@@ -32,7 +34,9 @@ public class ArmInstOp extends ArmInst implements IArmInstPrintable, IArmInstPar
 		if (opcodeString.contains(".")) {
 			String[] elems = opcodeString.split("\\.");
 			opcodeString = elems[0];
-			specifier = elems[1];
+			for (int i = 1; i < elems.length; i++) {
+				specifiers.add(elems[i]);
+			}
 		}
 		for (ArmConditionCode condition : ArmConditionCode.values()) {
 			if (opcodeString.endsWith(condition.toString())) {		
@@ -77,8 +81,10 @@ public class ArmInstOp extends ArmInst implements IArmInstPrintable, IArmInstPar
 		if (cc != ArmConditionCode.al) {
 			opcodeString += cc.toString();
 		}
-		if (!specifier.equals("")) {
-			opcodeString += "." + specifier;
+		if (!specifiers.isEmpty()) {
+			for (String specifier : specifiers) {
+				opcodeString += "." + specifier;
+			}
 		}
 		return opcodeString;
 	}

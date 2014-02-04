@@ -65,6 +65,7 @@ public class ArmInstParser {
 				ArmInst inst = parser.getInst(match, regexHelper);
 				if (inst != null) {
 					/* parsing was successful */
+					//System.out.println("PARSE: " + parser.getName() + " => " + line);
 					
 					/* but did it work? */
 					String input = line;
