@@ -1,5 +1,6 @@
 package eu.whrl.aottracegen;
 
+import java.util.Iterator;
 import java.util.Map;
 
 import org.jf.dexlib.Code.Instruction;
@@ -8,6 +9,7 @@ import org.jf.dexlib.Code.OffsetInstruction;
 import org.jf.dexlib.Code.Opcode;
 import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction;
 import org.jf.dexlib.Code.Format.SparseSwitchDataPseudoInstruction;
+import org.jf.dexlib.Code.Format.PackedSwitchDataPseudoInstruction.PackedSwitchTarget;
 
 public class TraceFinder {
 	
@@ -219,6 +221,36 @@ public class TraceFinder {
 		int codeAddress = 0;
 		for (Instruction inst : region.instructions) {
 			trace.extend(codeAddress);
+			
+			if (CTraceGenerator.opcodesThatCanBranch.contains(inst.opcode)) {
+				if (inst.opcode == Opcode.PACKED_SWITCH || inst.opcode == Opcode.SPARSE_SWITCH) {
+					int[] targets = null;
+					int dataOffset = ((OffsetInstruction) inst).getTargetAddressOffset();
+					if (inst.opcode == Opcode.PACKED_SWITCH) {
+						PackedSwitchDataPseudoInstruction dataInstruction = (PackedSwitchDataPseudoInstruction) region
+								.getInstructionAtCodeAddress(codeAddress + dataOffset);
+						
+						targets = dataInstruction.getTargets();
+					} else if (inst.opcode == Opcode.SPARSE_SWITCH) {
+						SparseSwitchDataPseudoInstruction dataInstruction = (SparseSwitchDataPseudoInstruction) region
+								.getInstructionAtCodeAddress(codeAddress + dataOffset);
+						
+						targets = dataInstruction.getTargets();
+					}
+					
+					for (int offset : targets ) {
+						if (offset < 0) {
+							trace.meta.backwardsBranchTargets.add(codeAddress + offset);
+						}
+					}
+				} else if (inst instanceof OffsetInstruction) {
+					int offset = ((OffsetInstruction)inst).getTargetAddressOffset(); 
+					if (offset < 0) {
+						trace.meta.backwardsBranchTargets.add(codeAddress + offset);
+					}
+				}
+			}
+			
 			codeAddress += inst.getSize(codeAddress);
 		}
 		

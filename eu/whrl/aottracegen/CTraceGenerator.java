@@ -258,6 +258,12 @@ public class CTraceGenerator {
 		if (instruction.opcode != Opcode.NOP) {
 			writer.write(stringConverter.convert(context, codeAddress));
 			writer.write(String.format("  __L%#x:\n", codeAddress));
+			
+			if (context.currentRegion.trace.meta.backwardsBranchTargets.contains(codeAddress)) {
+				writer.write("  // Backwards Branch Target - must check flags!\n");
+				writer.write(String.format("  if ( *((int*)(self+40)) != 0 ) TRACE_EXCEPTION(%#x)\n", codeAddress));
+			}
+			
 			writer.write(converter.convert(context, codeAddress));
 			writer.write("\n");
 		}

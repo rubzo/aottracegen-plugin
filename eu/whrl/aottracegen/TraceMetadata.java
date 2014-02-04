@@ -1,12 +1,15 @@
 package eu.whrl.aottracegen;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 public class TraceMetadata {
 	public List<Integer> codeAddressesThatThrowExceptions;
+	public Set<Integer> backwardsBranchTargets;
 	
 	public int literalPoolSize;
 	public List<Integer> literalPoolIndices;
@@ -18,6 +21,7 @@ public class TraceMetadata {
 	
 	public TraceMetadata() {
 		codeAddressesThatThrowExceptions = new ArrayList<Integer>();
+		backwardsBranchTargets = new HashSet<Integer>();
 		literalPoolSize = 0;
 		literalPoolIndices = new ArrayList<Integer>();
 		literalPoolTypes = new ArrayList<LiteralPoolType>();
