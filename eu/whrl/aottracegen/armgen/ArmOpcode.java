@@ -355,6 +355,7 @@ public enum ArmOpcode {
 	vclt,
 	vclz,
 	vcmp,
+	vcmpe,
 	vcnt,
 	vcvt,
 	vcvtr,

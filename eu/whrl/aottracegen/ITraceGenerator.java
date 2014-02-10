@@ -285,9 +285,11 @@ public class ITraceGenerator {
 			writer.write("# Load inputs to the trace code.\n");
 		}
 		
-		writer.write("\t# Put a vulture on the stack\n");
-		writer.write("\tmovw\tr0, #0xF00D\n");
-		writer.write("\tpush\t{r0}\n");
+		if (context.config.vultureMode) {
+			writer.write("\t# Put a vulture on the stack\n");
+			writer.write("\tmovw\tr0, #0xF00D\n");
+			writer.write("\tpush\t{r0}\n");
+		}
 		
 		writer.write(String.format("\tadr.w\tr0, LiteralPool_T%d\n", context.currentRegionIndex));
 		writer.write("\tmov\tr1, r5\n");
@@ -311,31 +313,33 @@ public class ITraceGenerator {
 			writer.write(".thumb\n");
 		}
 		
-		
-		writer.write("\t# Remove the vulture from the stack\n");
-		writer.write("\tmovw\tr3, #0xF00D\n");
-		writer.write("\tpop\t{r4}\n");
-		writer.write("\tcmp\tr3, r4\n");
-		writer.write(String.format("\tbne\tAlertStackImbalance_T%d\n", context.currentRegionIndex));
+		if (context.config.vultureMode) {
+			writer.write("\t# Remove the vulture from the stack\n");
+			writer.write("\tmovw\tr3, #0xF00D\n");
+			writer.write("\tpop\t{r4}\n");
+			writer.write("\tcmp\tr3, r4\n");
+			writer.write(String.format("\tbne\tAlertStackImbalance_T%d\n", context.currentRegionIndex));
+		}
 		
 		writer.write("\tcmp\tr0, #0\n");
 		writer.write(String.format("\tbeq\tReturns_T%d\n", context.currentRegionIndex));
 		writer.write(String.format("\tblt\tExceptions_T%d\n", context.currentRegionIndex));
 		writer.write(String.format("\tbgt\tExits_T%d\n", context.currentRegionIndex));
 		
-		
-		// Alert about stack imbalance
-		writer.write(String.format("AlertStackImbalance_T%d:\n", context.currentRegionIndex));
-		writer.write("\tmovw\tr0, #0xDEAD\n");
-		writer.write("\tmovw\tr1, #0xBEEF\n");
-		writer.write("\tmovw\tr2, #0xCAFE\n");
-		writer.write("\tmovw\tr3, #0xBABE\n");
-		writer.write("\tmov\tr4, #0\n");
-		writer.write("\tmov\tr5, #0\n");
-		writer.write("\tmov\tr6, #0\n");
-		writer.write("\tmov\tr7, #0\n");
-		writer.write("\tldr\tr7, [r7, #0]\n");
-		writer.write("\n");
+		if (context.config.vultureMode) {
+			// Alert about stack imbalance
+			writer.write(String.format("AlertStackImbalance_T%d:\n", context.currentRegionIndex));
+			writer.write("\tmovw\tr0, #0xDEAD\n");
+			writer.write("\tmovw\tr1, #0xBEEF\n");
+			writer.write("\tmovw\tr2, #0xCAFE\n");
+			writer.write("\tmovw\tr3, #0xBABE\n");
+			writer.write("\tmov\tr4, #0\n");
+			writer.write("\tmov\tr5, #0\n");
+			writer.write("\tmov\tr6, #0\n");
+			writer.write("\tmov\tr7, #0\n");
+			writer.write("\tldr\tr7, [r7, #0]\n");
+			writer.write("\n");
+		}
 		
 		writer.write(String.format("Exits_T%d:\n", context.currentRegionIndex));
 		writer.write("\tsub\tr1, r0, #1\n");
@@ -458,7 +462,7 @@ public class ITraceGenerator {
 				writer.write(String.format("ChainingCellNext_%s:\n", id));
 				if (cc.type == ChainingCell.Type.HOT || cc.type == ChainingCell.Type.INVOKE_SINGLETON || 
 						cc.type == ChainingCell.Type.INVOKE_SUPER_SINGLETON) {
-					writer.write("\tldr\tr0, [r6, #116]\n");
+					writer.write("\tldr\tr0, [r6, #100]\n"); // TODO: find out why using 116 is broken
 				} else if (cc.type == ChainingCell.Type.BACKWARD_BRANCH) {
 					writer.write("\tldr\tr0, [r6, #100]\n"); // I thought this was 120, not 100?
 				} else {

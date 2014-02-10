@@ -9,7 +9,7 @@ public class RegexHelper {
 	public final String start = "^";
 	public final String end = "$";
 	public final String imm = "#?(-?0x[0-9a-fA-F]+?|-?[0-9]+?)";
-	public final String reg = "((?:r\\d+|s\\d+|d\\d+|q\\d+|ip|sp|fp|lr|pc)(?:!|\\[\\d+\\]|:\\d+)?)";
+	public final String reg = "((?:r\\d+|s\\d+|d\\d+|q\\d+|ip|sp|fp|lr|pc|APSR_nzcv|fpscr)(?:!|\\[\\d+\\]|:\\d+)?)";
 	public final String word = "([^\\s]+?)";
 	public final String itOpcode = "(it|itt|ite|ittt|itte|itet|itee|itttt|ittte|ittet|ittee|itett|itete|iteet|iteee)"; // yep
 	public final String cc = "(eq|ne|cs|hs|cc|lo|mi|pl|vs|vc|hi|ls|ge|lt|gt|le|al)";

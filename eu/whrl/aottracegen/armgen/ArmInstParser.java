@@ -25,10 +25,12 @@ public class ArmInstParser {
 		parsers.add(new ArmInstOpMultipleM());
 		parsers.add(new ArmInstOpIfThen());
 		parsers.add(new ArmInstOpR());
+		parsers.add(new ArmInstOpRII());
 		parsers.add(new ArmInstOpRI());
 		parsers.add(new ArmInstOpRM());
 		parsers.add(new ArmInstOpMRS());
 		parsers.add(new ArmInstOpMR());
+		parsers.add(new ArmInstOpRRS());
 		parsers.add(new ArmInstOpRRII());
 		parsers.add(new ArmInstOpRRI());
 		parsers.add(new ArmInstOpRRMO());
@@ -36,6 +38,7 @@ public class ArmInstParser {
 		parsers.add(new ArmInstOpRMO());
 		parsers.add(new ArmInstOpRMI());
 		parsers.add(new ArmInstOpRMR());
+		parsers.add(new ArmInstOpRMRS());
 		parsers.add(new ArmInstOpRRRS());
 		parsers.add(new ArmInstOpRRRR());
 		parsers.add(new ArmInstOpRRR());
@@ -80,6 +83,9 @@ public class ArmInstParser {
 						
 						input = input.replace("0xffffffff", "-1");
 						output = output.replace("0xffffffff", "-1");
+						
+						input = input.replace("0x0", "0");
+						output = output.replace("0x0", "0");
 						
 						if (!input.equals(output)) {
 							System.out.println("Mismatch after using: " + parser.getName());

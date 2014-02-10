@@ -218,8 +218,11 @@ public class TraceFinder {
 	public void generateMethodTrace(Region region) {
 		Trace trace = new Trace();
 		
+		GraphGenerator grapher = new GraphGenerator();
+		
 		int codeAddress = 0;
 		for (Instruction inst : region.instructions) {
+			
 			trace.extend(codeAddress);
 			
 			if (CTraceGenerator.opcodesThatCanBranch.contains(inst.opcode)) {
@@ -251,9 +254,13 @@ public class TraceFinder {
 				}
 			}
 			
+			grapher.visit(region, inst, codeAddress, codeAddress + inst.getSize(codeAddress));
+			
 			codeAddress += inst.getSize(codeAddress);
 		}
 		
 		region.trace = trace;
+		
+		grapher.printDotFile(region);
 	}
 }

@@ -5,10 +5,12 @@ import java.util.Iterator;
 import org.jf.dexlib.Code.FiveRegisterInstruction;
 import org.jf.dexlib.Code.Instruction;
 import org.jf.dexlib.Code.InstructionWithReference;
+import org.jf.dexlib.Code.InvokeInstruction;
 import org.jf.dexlib.Code.LiteralInstruction;
 import org.jf.dexlib.Code.OdexedFieldAccess;
 import org.jf.dexlib.Code.OdexedInvokeInline;
 import org.jf.dexlib.Code.OffsetInstruction;
+import org.jf.dexlib.Code.RegisterRangeInstruction;
 import org.jf.dexlib.Code.SingleRegisterInstruction;
 import org.jf.dexlib.Code.ThreeRegisterInstruction;
 import org.jf.dexlib.Code.TwoRegisterInstruction;
@@ -83,6 +85,11 @@ public class BytecodeToCConverter {
 				&& !CTraceGenerator.opcodesThatCanBranch
 						.contains(instruction.opcode)) {
 			result += emitPrintVregs(codeAddress) + "\n";
+		}
+		
+		// potentially do trail mode
+		if (context.config.trailMode) {
+			result += emitTrail(codeAddress) + "\n";
 		}
 
 		// Potentially use single stepping?
@@ -328,13 +335,13 @@ public class BytecodeToCConverter {
 
 		// opcode: 1d monitor-enter
 		case MONITOR_ENTER: {
-			result += emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitLeaveRegion(codeAddress, curTrace, instruction);
 			break;
 		}
 
 		// opcode: 1e monitor-exit
 		case MONITOR_EXIT: {
-			result += emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitLeaveRegion(codeAddress, curTrace, instruction);
 			break;
 		}
 
@@ -1538,7 +1545,7 @@ public class BytecodeToCConverter {
 		// opcode: cc sub-double/2addr
 		case SUB_DOUBLE_2ADDR: {
 			result += emitDoubleArith2Addr(codeAddress, curTrace, instruction,
-					"+");
+					"-");
 			break;
 		}
 
@@ -1709,152 +1716,14 @@ public class BytecodeToCConverter {
 		// opcode: ed ^throw-verification-error
 		// opcode: ee +execute-inline
 		case EXECUTE_INLINE: {
-			int inlineIndex = ((OdexedInvokeInline) instruction)
-					.getInlineIndex();
-
-			switch (inlineIndex) {
-			case INLINE_EMPTYINLINEMETHOD:
-				result += "// NOP";
-				break;
-			case INLINE_STRING_CHARAT: {
-				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				int vB = ((FiveRegisterInstruction) instruction).getRegisterE();
-
-				result += String
-						.format("  {\n"
-								+ "    // inlined: java.lang.String.charAt()\n"
-								+ "    char *string = (char*) v[%1$d];\n"
-								+ "    if (string == 0) TRACE_EXCEPTION(%3$#x)\n"
-								+ "    int offset = *((int*) (string + 16));\n"
-								+ "    int count = *((int*) (string + 20));\n"
-								+ "    if (((unsigned int) v[%2$d]) >= count) TRACE_EXCEPTION(%3$#x)\n"
-								+ "    char *char_array = *((char*) (string + 8));\n"
-								+ "    short int *char_array_contents = (short int*) (char_array + 16 + (2 * v[%2$d]));\n"
-								+ "    *((short int*)(self + %4$d)) = *char_array_contents;\n"
-								+ "  }", vA, vB, codeAddress,
-								offsetThreadReturn);
-				break;
-			}
-			case INLINE_STRING_COMPARETO:
-				break;
-			case INLINE_STRING_EQUALS:
-				break;
-			case INLINE_STRING_FASTINDEXOF_II:
-				break;
-			case INLINE_STRING_IS_EMPTY:
-				break;
-			case INLINE_STRING_LENGTH: {
-				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				result += String.format("  {\n"
-						+ "    // inlined: java.lang.String.length()\n"
-						+ "    char *string = (char*) v[%1$d];\n"
-						+ "    if (string == 0) TRACE_EXCEPTION(%2$#x)\n"
-						+ "    int count = *((int*) (string + 20));\n"
-						+ "    *((int*)(self + %3$d)) = count;\n" + "  }", vA,
-						codeAddress, offsetThreadReturn);
-				break;
-			}
-			case INLINE_MATH_ABS_INT: {
-				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				result += String.format("  {\n"
-						+ "    // inlined: java.lang.math.abs(I)\n"
-						+ "    if (v[%1$d] < 0) {\n"
-						+ "      *((int*)(self + %2$d)) = -v[%1$d];\n"
-						+ "    } else {\n"
-						+ "      *((int*)(self + %2$d)) = v[%1$d];\n"
-						+ "    }\n" + "  }", vA, offsetThreadReturn);
-				break;
-			}
-			case INLINE_MATH_ABS_LONG:
-				break;
-			case INLINE_MATH_ABS_FLOAT:
-				break;
-			case INLINE_MATH_ABS_DOUBLE: {
-				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				result += String.format("  {\n"
-						+ "    // inlined: java.lang.math.abs(D)\n"
-						+ "    double value = *((double*)(v + %1$d));\n"
-						+ "    if (value < 0.0) {\n"
-						+ "      *((double*)(self + %2$d)) = -value;\n"
-						+ "    } else {\n"
-						+ "      *((double*)(self + %2$d)) = value;\n"
-						+ "    }\n" + "  }", vA, offsetThreadReturn);
-				break;
-			}
-			case INLINE_MATH_MIN_INT: {
-				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				int vB = ((FiveRegisterInstruction) instruction).getRegisterE();
-				result += String.format("  {\n"
-						+ "    // inlined: java.lang.math.min(I)\n"
-						+ "    if (v[%1$d] < v[%2$d]) {\n"
-						+ "      *((int*)(self + %3$d)) = v[%1$d];\n"
-						+ "    } else {\n"
-						+ "      *((int*)(self + %3$d)) = v[%2$d];\n"
-						+ "    }\n" + "  }", vA, vB, offsetThreadReturn);
-				break;
-			}
-			case INLINE_MATH_MAX_INT:
-				break;
-			case INLINE_MATH_SQRT: {
-				// DEFGA
-				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				result += String
-						.format("\t*((double*) (self+%d)) = sqrt(*((double*)(v + %1$d)));",
-								offsetThreadReturn, vA);
-				break;
-			}
-			case INLINE_MATH_COS: {
-				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				// double will be in d0, lit will be in r0, see pg19 of Arm
-				// Procedure Call Standard
-				result += String
-						.format("\t*((double*) (self+%d)) = __hiya_cos(*((double*)(v + %1$d)), lit);",
-								offsetThreadReturn, vA);
-				break;
-			}
-			case INLINE_MATH_SIN: {
-				int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
-				// double will be in d0, lit will be in r0, see pg19 of Arm
-				// Procedure Call Standard
-				result += String
-						.format("\t*((double*) (self+%d)) = __hiya_sin(*((double*)(v + %1$d)), lit);",
-								offsetThreadReturn, vA);
-				break;
-			}
-			case INLINE_FLOAT_TO_INT_BITS:
-				break;
-			case INLINE_FLOAT_TO_RAW_INT_BITS:
-				break;
-			case INLINE_INT_BITS_TO_FLOAT:
-				break;
-			case INLINE_DOUBLE_TO_LONG_BITS:
-				break;
-			case INLINE_DOUBLE_TO_RAW_LONG_BITS:
-				break;
-			case INLINE_LONG_BITS_TO_DOUBLE:
-				break;
-			case INLINE_STRICT_MATH_ABS_INT:
-				break;
-			case INLINE_STRICT_MATH_ABS_LONG:
-				break;
-			case INLINE_STRICT_MATH_ABS_FLOAT:
-				break;
-			case INLINE_STRICT_MATH_ABS_DOUBLE:
-				break;
-			case INLINE_STRICT_MATH_MIN_INT:
-				break;
-			case INLINE_STRICT_MATH_MAX_INT:
-				break;
-			case INLINE_STRICT_MATH_SQRT:
-				break;
-			}
+			result += emitExecuteInline(codeAddress, curTrace, instruction, false);
 
 			break;
 		}
 
 		// opcode: ef +execute-inline/range
 		case EXECUTE_INLINE_RANGE: {
-			result += emitSingleStep(codeAddress, curTrace, instruction);
+			result += emitExecuteInline(codeAddress, curTrace, instruction, true);
 			break;
 		}
 
@@ -1992,6 +1861,164 @@ public class BytecodeToCConverter {
 		return result + "\n\n";
 	}
 
+	private String emitExecuteInline(int codeAddress, Trace curTrace, Instruction instruction, boolean range) {
+		String result = "";
+		int inlineIndex = ((OdexedInvokeInline) instruction)
+				.getInlineIndex();
+
+		switch (inlineIndex) {
+		case INLINE_EMPTYINLINEMETHOD:
+			result += "// NOP";
+			break;
+		case INLINE_STRING_CHARAT: {
+			int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
+			int vB = ((FiveRegisterInstruction) instruction).getRegisterE();
+
+			result += String
+					.format("  {\n"
+							+ "    // inlined: java.lang.String.charAt()\n"
+							+ "    char *string = (char*) v[%1$d];\n"
+							+ "    if (string == 0) TRACE_EXCEPTION(%3$#x)\n"
+							+ "    int offset = *((int*) (string + 16));\n"
+							+ "    int count = *((int*) (string + 20));\n"
+							+ "    if (((unsigned int) v[%2$d]) >= count) TRACE_EXCEPTION(%3$#x)\n"
+							+ "    char *char_array = *((char*) (string + 8));\n"
+							+ "    short int *char_array_contents = (short int*) (char_array + 16 + (2 * v[%2$d]));\n"
+							+ "    *((short int*)(self + %4$d)) = *char_array_contents;\n"
+							+ "  }", vA, vB, codeAddress,
+							offsetThreadReturn);
+			break;
+		}
+		case INLINE_STRING_COMPARETO:
+			break;
+		case INLINE_STRING_EQUALS:
+			break;
+		case INLINE_STRING_FASTINDEXOF_II:
+			break;
+		case INLINE_STRING_IS_EMPTY:
+			break;
+		case INLINE_STRING_LENGTH: {
+			int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
+			result += String.format("  {\n"
+					+ "    // inlined: java.lang.String.length()\n"
+					+ "    char *string = (char*) v[%1$d];\n"
+					+ "    if (string == 0) TRACE_EXCEPTION(%2$#x)\n"
+					+ "    int count = *((int*) (string + 20));\n"
+					+ "    *((int*)(self + %3$d)) = count;\n" + "  }", vA,
+					codeAddress, offsetThreadReturn);
+			break;
+		}
+		case INLINE_MATH_ABS_INT: {
+			int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
+			result += String.format("  {\n"
+					+ "    // inlined: java.lang.math.abs(I)\n"
+					+ "    if (v[%1$d] < 0) {\n"
+					+ "      *((int*)(self + %2$d)) = -v[%1$d];\n"
+					+ "    } else {\n"
+					+ "      *((int*)(self + %2$d)) = v[%1$d];\n"
+					+ "    }\n" + "  }", vA, offsetThreadReturn);
+			break;
+		}
+		case INLINE_MATH_ABS_LONG:
+			break;
+		case INLINE_MATH_ABS_FLOAT:
+			break;
+		case INLINE_MATH_ABS_DOUBLE: {
+			int vA = 0;
+			if (range) {
+				assert(((InvokeInstruction) instruction).getRegCount() == 2);
+				vA = ((RegisterRangeInstruction) instruction).getStartRegister();
+			} else {
+				vA = ((FiveRegisterInstruction) instruction).getRegisterD();
+			}
+			result += String.format("  {\n"
+					+ "    // inlined: java.lang.math.abs(D)\n"
+					+ "    double value = *((double*)(v + %1$d));\n"
+					+ "    if (value < 0.0) {\n"
+					+ "      *((double*)(self + %2$d)) = -value;\n"
+					+ "    } else {\n"
+					+ "      *((double*)(self + %2$d)) = value;\n"
+					+ "    }\n" + "  }", vA, offsetThreadReturn);
+			break;
+		}
+		case INLINE_MATH_MIN_INT: {
+			int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
+			int vB = ((FiveRegisterInstruction) instruction).getRegisterE();
+			result += String.format("  {\n"
+					+ "    // inlined: java.lang.math.min(I)\n"
+					+ "    if (v[%1$d] < v[%2$d]) {\n"
+					+ "      *((int*)(self + %3$d)) = v[%1$d];\n"
+					+ "    } else {\n"
+					+ "      *((int*)(self + %3$d)) = v[%2$d];\n"
+					+ "    }\n" + "  }", vA, vB, offsetThreadReturn);
+			break;
+		}
+		case INLINE_MATH_MAX_INT:
+			break;
+		case INLINE_MATH_SQRT: {
+			// DEFGA
+			int vA = ((FiveRegisterInstruction) instruction).getRegisterD();
+			result += String
+					.format("\t*((double*) (self+%d)) = __hiya_sqrt(*((double*)(v + %1$d)), lit);",
+							offsetThreadReturn, vA);
+			break;
+		}
+		case INLINE_MATH_COS: {
+			int vA = 0;
+			if (range) {
+				assert(((InvokeInstruction) instruction).getRegCount() == 2);
+				vA = ((RegisterRangeInstruction) instruction).getStartRegister();
+			} else {
+				vA = ((FiveRegisterInstruction) instruction).getRegisterD();
+			}
+			result += String
+					.format("\t*((double*) (self+%1$d)) = __hiya_cos(*((double*)(v + %2$d)), lit);",
+							offsetThreadReturn, vA);
+			break;
+		}
+		case INLINE_MATH_SIN: {
+			int vA = 0;
+			if (range) {
+				assert(((InvokeInstruction) instruction).getRegCount() == 2);
+				vA = ((RegisterRangeInstruction) instruction).getStartRegister();
+			} else {
+				vA = ((FiveRegisterInstruction) instruction).getRegisterD();
+			}
+			result += String
+					.format("\t*((double*) (self+%1$d)) = __hiya_sin(*((double*)(v + %2$d)), lit);",
+							offsetThreadReturn, vA);
+			break;
+		}
+		case INLINE_FLOAT_TO_INT_BITS:
+			break;
+		case INLINE_FLOAT_TO_RAW_INT_BITS:
+			break;
+		case INLINE_INT_BITS_TO_FLOAT:
+			break;
+		case INLINE_DOUBLE_TO_LONG_BITS:
+			break;
+		case INLINE_DOUBLE_TO_RAW_LONG_BITS:
+			break;
+		case INLINE_LONG_BITS_TO_DOUBLE:
+			break;
+		case INLINE_STRICT_MATH_ABS_INT:
+			break;
+		case INLINE_STRICT_MATH_ABS_LONG:
+			break;
+		case INLINE_STRICT_MATH_ABS_FLOAT:
+			break;
+		case INLINE_STRICT_MATH_ABS_DOUBLE:
+			break;
+		case INLINE_STRICT_MATH_MIN_INT:
+			break;
+		case INLINE_STRICT_MATH_MAX_INT:
+			break;
+		case INLINE_STRICT_MATH_SQRT:
+			break;
+		}
+		return result;
+	}
+	
 	private String emitSingleStep(int codeAddress, Trace curTrace,
 			Instruction instruction) {
 		System.out
@@ -2001,9 +2028,17 @@ public class BytecodeToCConverter {
 		return String.format("  single_step_%1$#x_%2$#x(lit, v, self);",
 				codeAddress, codeAddress + instruction.getSize(codeAddress));
 	}
+	
+	private String emitLeaveRegion(int codeAddress, Trace curTrace, Instruction instruction) {
+		return String.format("  // Leaving on purpose...\n  TRACE_EXCEPTION(%#x)", codeAddress);
+	}
 
 	private String emitPrintVregs(int codeAddress) {
 		return String.format("  print_vregs(v, self, 0x%x, lit);", codeAddress);
+	}
+	
+	private String emitTrail(int codeAddress) {
+		return String.format("  print_trail(v, self, 0x%x, lit);", codeAddress);
 	}
 
 	private String emitMove(int codeAddress, Trace curTrace,
@@ -2407,19 +2442,25 @@ public class BytecodeToCConverter {
 			nullCheckString = "nullcheck";
 		}
 		return String
-				.format("  if (!invoke_singleton_%1$s_%2$#x(%2$#x, lit, v, self)) TRACE_EXCEPTION(%2$#x)",
+				.format("  if (!invoke_singleton_%1$s_%2$#x(%2$#x, lit, v, self)) TRACE_EXCEPTION(%2$#x)\n"+
+						"  *((int*)(self+40)) &= ~0x4000;\n"+
+						"  if (*((int*)(self+40)) == 0x10000) *((int*)(self+40)) = 0x0;",
 						nullCheckString, codeAddress);
 	}
 
 	private String emitInvokeInterface(int codeAddress) {
 		return String
-				.format("  if (!invoke_interface_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)",
+				.format("  if (!invoke_interface_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)\n"+
+						"  *((int*)(self+40)) &= ~0x4000;\n"+
+						"  if (*((int*)(self+40)) == 0x10000) *((int*)(self+40)) = 0x0;",
 						codeAddress);
 	}
 
 	private String emitInvokeVirtualQuick(int codeAddress) {
 		return String
-				.format("  if (!invoke_virtual_quick_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)",
+				.format("  if (!invoke_virtual_quick_%1$#x(lit, v, self)) TRACE_EXCEPTION(%1$#x)\n"+
+						"  *((int*)(self+40)) &= ~0x4000;\n"+
+						"  if (*((int*)(self+40)) == 0x10000) *((int*)(self+40)) = 0x0;",
 						codeAddress);
 	}
 

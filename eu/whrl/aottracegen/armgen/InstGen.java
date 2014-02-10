@@ -242,8 +242,8 @@ public class InstGen {
 		} else {
 			addRegRegRegInstruction("sub", reg, ArmRegister.pc, reg);
 		}
-		// add.w rX, rX, #8
-		addRegRegImmInstruction("add", reg, reg, 8);
+		// add.w rX, rX, #6
+		addRegRegImmInstruction("add", reg, reg, 6);
 		// b ChainingCellOffsetSkip
 		addLabelInstruction("b.w", offsetLabelSkip);
 		// ChainingCellOffset:
@@ -295,6 +295,7 @@ public class InstGen {
 	}
 	
 	public void addBomb() {
+		insertComment("A bomb!");
 		loadConstant(ArmRegister.r0, 0xDE);
 		loadConstant(ArmRegister.r1, 0xAE);
 		loadConstant(ArmRegister.r2, 0xBE);

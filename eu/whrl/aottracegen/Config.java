@@ -27,6 +27,16 @@ public class Config {
 	public boolean printVregsMode = false;
 	public int printVregsInvokeLimit = 0;
 	
+	public boolean trailMode = false;
+	
+	public boolean breakFlagCheckMode = false;
+	
+	public boolean vultureMode = false;
+	
+	public boolean forceEarlyExit = false;
+	public int forceEarlyExitCodeAddress = 0;
+	public int forceEarlyExitTripCount = 1;
+	
 	public boolean singleStepAll = false;
 	
 	public boolean armMode = false;
@@ -109,9 +119,21 @@ public class Config {
 					announceMode = true;
 				} else if (line.startsWith("blocking")) {
 					blockingMode = true;
+				} else if (line.startsWith("trail")) {
+					trailMode = true;
+				} else if (line.startsWith("vulture")) {
+					vultureMode = true;
+				} else if (line.startsWith("breakflag")) {
+					breakFlagCheckMode = true;
 				} else if (line.startsWith("printvregs")) {
 					printVregsInvokeLimit = Integer.parseInt(line.substring(11, line.length()));
 					printVregsMode = true;
+				} else if (line.startsWith("earlyexittripcount")) {
+					forceEarlyExitTripCount = Integer.parseInt(line.substring(19, line.length()));
+				} else if (line.startsWith("earlyexit")) {
+					forceEarlyExitCodeAddress = Integer.parseInt(line.substring(12, line.length()), 16);
+					forceEarlyExit = true;
+				
 				} else if (line.startsWith("allsinglestep")) {
 					singleStepAll = true;
 				} else if (line.startsWith("arm")) {

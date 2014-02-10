@@ -98,5 +98,7 @@ public enum ArmRegister {
 	q12,
 	q13,
 	q14,
-	q15
+	q15,
+	APSR_nzcv,
+	fpscr
 }

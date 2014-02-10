@@ -220,9 +220,16 @@ public class CTraceGenerator {
 		writer.write("#define TRACE_RETURN(a) { return 0; }\n");
 		writer.write("#define TRACE_DEPARTURE_INFO int\n");
 		writer.write("\n");
+		writer.write("extern double __hiya_sin(double v, int *lit);\n");
+		writer.write("extern double __hiya_cos(double v, int *lit);\n");
+		writer.write("extern double __hiya_sqrt(double v, int *lit);\n");
+		writer.write("\n");
 		
 		writer.write(String.format("// --- TRACE %2d START (%s;%s;%s) ---\n", context.currentRegionIndex, context.currentRegion.clazz, context.currentRegion.method, context.currentRegion.signature));
 		writer.write("TRACE_DEPARTURE_INFO trace(int *lit, int *v, char *self) {\n");
+		if (context.config.forceEarlyExit) {
+			writer.write("\tint tripCount = 0;\n\n");
+		}
 		if (context.config.printVregsMode) {
 			writer.write("\tcount_invoke_for_print_vregs(lit);\n");
 		}
@@ -259,10 +266,16 @@ public class CTraceGenerator {
 			writer.write(stringConverter.convert(context, codeAddress));
 			writer.write(String.format("  __L%#x:\n", codeAddress));
 			
-			if (context.currentRegion.trace.meta.backwardsBranchTargets.contains(codeAddress)) {
+			if (context.config.forceEarlyExit && (codeAddress == context.config.forceEarlyExitCodeAddress)) {
+				writer.write("  // Forced to exit early...\n");
+				writer.write(String.format("  if (++tripCount == %d) TRACE_EXCEPTION(%#x)\n\n", context.config.forceEarlyExitTripCount, codeAddress));
+				return;
+			}
+			
+			if (context.config.breakFlagCheckMode && context.currentRegion.trace.meta.backwardsBranchTargets.contains(codeAddress)) {
 				writer.write("  // Backwards Branch Target - must check flags!\n");
 				writer.write(String.format("  if ( *((int*)(self+40)) != 0 ) TRACE_EXCEPTION(%#x)\n", codeAddress));
-			}
+			}	
 			
 			writer.write(converter.convert(context, codeAddress));
 			writer.write("\n");

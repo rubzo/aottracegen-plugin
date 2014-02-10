@@ -24,14 +24,8 @@ public class AssemblyProcessor {
 	
 	private ArmInstOpMultiple findPopInstruction(ArmInst insts) {
 		for (ArmInst inst : insts) {
-			ArmOpcode opcode = inst.getOpcode();
-			if (opcode == ArmOpcode.pop) {
-				ArmInstOpMultiple op = (ArmInstOpMultiple) inst;
-				if (op.registers.size() != 3 || op.registers.get(0) != ArmRegister.r2 || 
-						op.registers.get(1) != ArmRegister.r5 || 
-						op.registers.get(2) != ArmRegister.r6) {
-					return op;
-				}
+			if (inst.getOpcode() == ArmOpcode.pop) {
+				return (ArmInstOpMultiple) inst;
 			}
 		}
 		return null;
@@ -163,7 +157,7 @@ public class AssemblyProcessor {
 			} else if (doFixup && !foundTable) {
 				if (inst instanceof ArmInstPseudoDirectiveSingleArg) {
 					ArmInstPseudoDirectiveSingleArg directive = (ArmInstPseudoDirectiveSingleArg) inst;
-					if (directive.name.equals("byte") || directive.name.equals("2byte")) {
+					if (directive.name.equals("byte") || directive.name.equals("2byte") || directive.name.equals("short")) {
 						foundTable = true;
 					}
 				}
@@ -172,7 +166,7 @@ public class AssemblyProcessor {
 			if (foundTable) {
 				if (inst instanceof ArmInstPseudoDirectiveSingleArg) {
 					ArmInstPseudoDirectiveSingleArg directive = (ArmInstPseudoDirectiveSingleArg) inst;
-					if (directive.name.equals("byte") || directive.name.equals("2byte")) {
+					if (directive.name.equals("byte") || directive.name.equals("2byte") || directive.name.equals("short")) {
 						directive.arg = directive.arg.replaceAll("L", regionPrefix + "L");
 						if (directive.name.equals("byte")) {
 							directive.name = "2byte";
@@ -204,10 +198,15 @@ public class AssemblyProcessor {
 			}
 			
 			/* pop only r5, r6 */
+			int popRegistersCount = popInst.registers.size();
 			popInst.registers.clear();
 			popInst.addRegister(ArmRegister.r2);
 			popInst.addRegister(ArmRegister.r5);
 			popInst.addRegister(ArmRegister.r6);
+			if (popRegistersCount % 2 != 0) {
+				// pop an extra guy so we're double word aligned
+				popInst.addRegister(ArmRegister.r7);
+			}
 			popInst.specifiers.clear(); // clear the .w suffix
 			
 			/* add branch to our exit code */
@@ -215,14 +214,20 @@ public class AssemblyProcessor {
 			if (popInst.cc != ArmConditionCode.al) {
 				/* pass on CC */
 				leaveInst.cc = popInst.cc;
-				popInst.cc = ArmConditionCode.al;
+				/* we turned one instruction into two instructions, there may be a IT instruction 
+				 * prior that this will confused - make it ITT instead
+				 */
+				if (popInst.prev.getOpcode() == ArmOpcode.it) {
+					ArmInstOp itInst = (ArmInstOp) popInst.prev;
+					itInst.opcode = ArmOpcode.itt;
+				}
 			}
 			popInst.insertAfter(leaveInst);
 			
 			foundAnExit = true;
 
 			/* there might be another pop instruction, look for it */
-			popInst = findPopInstruction(insts);
+			popInst = findPopInstruction(popInst.next);
 		}
 		
 		if (!foundAnExit) {
@@ -235,13 +240,25 @@ public class AssemblyProcessor {
 						newInstStart.addRegister(ArmRegister.r2);
 						newInstStart.addRegister(ArmRegister.r5);
 						newInstStart.addRegister(ArmRegister.r6);
+						newInstStart.cc = exitInst.cc;
 						
 						ArmInstOpL newInstEnd = new ArmInstOpL("b", "Leave_T" + context.currentRegionIndex);
+						newInstEnd.cc = exitInst.cc;
 						
 						newInstStart.linkToNext(newInstEnd);
 						
 						inst.replaceChain(newInstStart, newInstEnd);
 						foundAnExit = true;
+						
+						/* we turned one instruction into two instructions, there may be a IT instruction 
+						 * prior that this will confused - make it ITT instead
+						 */
+						if (exitInst.cc != ArmConditionCode.al) {
+							if (exitInst.prev.getOpcode() == ArmOpcode.it) {
+								ArmInstOp itInst = (ArmInstOp) exitInst.prev;
+								itInst.opcode = ArmOpcode.itt;
+							}
+						}
 					} else {
 						System.err.println("Found a bx instruction that doesn't use lr?");
 						System.exit(1);
@@ -258,7 +275,10 @@ public class AssemblyProcessor {
 		/* deal with the single push instruction at the entry */
 		ArmInstOpMultiple pushInst = findPushInstruction(insts);
 		
+		int pushRegistersCount = 0;
+		
 		if (pushInst != null) {
+			pushRegistersCount = pushInst.registers.size();
 			pushInst.removeSelf();
 		}
 		
@@ -267,6 +287,9 @@ public class AssemblyProcessor {
 		newPushInst.addRegister(ArmRegister.r0);
 		newPushInst.addRegister(ArmRegister.r1);
 		newPushInst.addRegister(ArmRegister.r2);
+		if (pushRegistersCount % 2 != 0) {
+			newPushInst.addRegister(ArmRegister.r7);
+		}
 		insts.insertBefore(newPushInst);
 
 		return newPushInst;
@@ -336,6 +359,8 @@ public class AssemblyProcessor {
 					handleCountInvokeForPrintVregs(context, branchInst);
 				} else if (dest.contains("print_vregs")) {
 					handlePrintVregs(context, branchInst);
+				} else if (dest.contains("print_trail")) {
+					handlePrintTrail(context, branchInst);
 				} else if (dest.contains("instanceof")) {
 					handleInstanceof(context, branchInst);
 				} else if (dest.contains("new_instance")) {
@@ -344,13 +369,13 @@ public class AssemblyProcessor {
 					handleNewArray(context, branchInst);
 				} else if (dest.contains("barrier")) {
 					handleBarrier(context, branchInst);
-				} else if (dest.contains("sqrt")) {
+				} else if (dest.contains("__hiya_sqrt")) {
 					handleSqrt(context, branchInst);
-				} else if (dest.contains("__aeabi_l2d")) {
+				} else if (dest.contains("__aeabi_l2d") || dest.contains("__floatdidf") ) {
 					handleAeabiL2D(context, branchInst);
-				} else if (dest.contains("__aeabi_l2f")) {
+				} else if (dest.contains("__aeabi_l2f") || dest.contains("__floatdisf") ) {
 					handleAeabiL2F(context, branchInst);
-				} else if (dest.contains("__aeabi_idivmod")) {
+				} else if (dest.contains("__aeabi_idivmod") || dest.contains("__modsi3") ) {
 					handleAeabiIDivMod(context, branchInst);
 				} else if (dest.contains("__aeabi_idiv")) {
 					handleAeabiIDiv(context, branchInst);
@@ -434,6 +459,15 @@ public class AssemblyProcessor {
 		gen.insertComment("--- PRINT VREGS START");
 		gen.jumpToFunction(context, ArmRegister.r3, ArmRegister.r3, LiteralPoolType.CALL_DVMPRINTVREGS, "dvmPrintVregs");
 		gen.insertComment("--- PRINT VREGS END");
+		inst.replaceChain(gen.getFirst(), gen.getLast());
+	}
+	
+	private void handlePrintTrail(CodeGenContext context, ArmInstOpL inst) {
+		/* literal pool pointer is in r3 */
+		InstGen gen = new InstGen();
+		gen.insertComment("--- PRINT TRAIL START");
+		gen.jumpToFunction(context, ArmRegister.r3, ArmRegister.r3, LiteralPoolType.CALL_DVMPRINTTRAIL, "dvmPrintTrail");
+		gen.insertComment("--- PRINT TRAIL END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
@@ -521,9 +555,9 @@ public class AssemblyProcessor {
 	
 	private void handleSqrt(CodeGenContext context, ArmInstOpL inst) {
 		InstGen gen = new InstGen();
-		gen.insertComment("--- BOMB START");
-		gen.addBomb();
-		gen.insertComment("--- END START");
+		gen.insertComment("--- SQRT START");
+		gen.jumpToFunction(context, ArmRegister.r2, ArmRegister.r2, LiteralPoolType.CALL_SQRT, "sqrt");
+		gen.insertComment("--- SQRT END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
 	
@@ -562,8 +596,7 @@ public class AssemblyProcessor {
 	private void handleCos(CodeGenContext context, ArmInstOpL inst) {
 		InstGen gen = new InstGen();
 		gen.insertComment("--- COS START");
-		// double will be in d0, lit will be in r0, see pg19 of Arm Procedure Call Standard
-		gen.jumpToFunction(context, ArmRegister.r0, ArmRegister.r0, LiteralPoolType.CALL_COS, "cos");
+		gen.jumpToFunction(context, ArmRegister.r2, ArmRegister.r2, LiteralPoolType.CALL_COS, "cos");
 		gen.insertComment("--- COS END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
@@ -571,8 +604,7 @@ public class AssemblyProcessor {
 	private void handleSin(CodeGenContext context, ArmInstOpL inst) {
 		InstGen gen = new InstGen();
 		gen.insertComment("--- SIN START");
-		// double will be in d0, lit will be in r0, see pg19 of Arm Procedure Call Standard
-		gen.jumpToFunction(context, ArmRegister.r0, ArmRegister.r0, LiteralPoolType.CALL_SIN, "sin");
+		gen.jumpToFunction(context, ArmRegister.r2, ArmRegister.r2, LiteralPoolType.CALL_SIN, "sin");
 		gen.insertComment("--- SIN END");
 		inst.replaceChain(gen.getFirst(), gen.getLast());
 	}
@@ -618,13 +650,13 @@ public class AssemblyProcessor {
 
 		gen.jumpToFunction(context, ArmRegister.r6, ArmRegister.r6, LiteralPoolType.CALL_AOT_INVOKE_INTERFACE, "dvmCompiler_AOT_INVOKE_INTERFACE");
 
-		gen.jumpToLabel(String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress));
+		gen.jumpToLabel("2f");
 
-		gen.insertLabel(String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
+		gen.insertLabel("1");
 
 		gen.loadConstant(ArmRegister.r0, 0);
 
-		gen.insertLabel(String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress));
+		gen.insertLabel("2");
 
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
@@ -673,14 +705,14 @@ public class AssemblyProcessor {
 
 		gen.jumpToFunction(context, ArmRegister.r6, ArmRegister.r6, LiteralPoolType.CALL_AOT_INVOKE_VIRTUAL_QUICK, "dvmCompiler_AOT_INVOKE_VIRTUAL_QUICK");
 
-		String jumpAfterLabel = String.format("JumpAfter_T%d_A%#x", context.currentRegionIndex, codeAddress);
-		gen.jumpToLabel(jumpAfterLabel);
+		gen.jumpToLabel("2f");
 	
-		gen.insertLabel(String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
+		// jumped to by the argument loader
+		gen.insertLabel("1");
 
 		gen.loadConstant(ArmRegister.r0, 0);
 
-		gen.insertLabel(jumpAfterLabel);
+		gen.insertLabel("2");
 
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
@@ -761,6 +793,15 @@ public class AssemblyProcessor {
 
 		gen.jumpToFunction(context, ArmRegister.r11, ArmRegister.r11, LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_JAVA, "dvmCompiler_AOT_INVOKE_SINGLETON_JAVA");
 
+		gen.jumpToLabel("2f");
+		
+		// jumped to by the argument loader
+		gen.insertLabel("1");
+
+		gen.loadConstant(ArmRegister.r0, 0);
+
+		gen.insertLabel("2");
+		
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
 		gen.insertComment("--- INVOKE SINGLETON (JAVA) END");
@@ -775,15 +816,24 @@ public class AssemblyProcessor {
 		gen.insertComment("Save callee-save regs");
 		gen.calleeSavePush();
 
-		/* move literal pool from r1 to r5 */
-		gen.copyRegister(ArmRegister.r5, ArmRegister.r1);
-		/* read method pointer out of r5[literalpoolloc] into r1 */ 
-		gen.memoryRead(ArmRegister.r1, ArmRegister.r5, 4 * literalPoolLoc);
+		/* move literal pool from r1 to r11 */
+		gen.copyRegister(ArmRegister.r11, ArmRegister.r1);
+		/* read method pointer out of r11[literalpoolloc] into r1 */ 
+		gen.memoryRead(ArmRegister.r1, ArmRegister.r11, 4 * literalPoolLoc);
 		
 		handleArgumentLoading(gen, context, codeAddress, nullCheckArgs, ArmRegister.r2);
 
-		gen.jumpToFunction(context, ArmRegister.r5, ArmRegister.r5, LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_NATIVE, "dvmCompiler_AOT_INVOKE_SINGLETON_NATIVE");
+		gen.jumpToFunction(context, ArmRegister.r11, ArmRegister.r11, LiteralPoolType.CALL_AOT_INVOKE_SINGLETON_NATIVE, "dvmCompiler_AOT_INVOKE_SINGLETON_NATIVE");
 
+		gen.jumpToLabel("2f");
+		
+		// jumped to by the argument loader
+		gen.insertLabel("1");
+
+		gen.loadConstant(ArmRegister.r0, 0);
+
+		gen.insertLabel("2");
+		
 		gen.insertComment("Restore callee-save regs");
 		gen.calleeSavePop();
 		gen.insertComment("--- INVOKE SINGLETON (NATIVE) END");
@@ -825,16 +875,14 @@ public class AssemblyProcessor {
 		
 		if (regCount > 0 && nullCheck) {
 			gen.insertComment("null-check (method is not static)");
-			gen.doComparisonAndJump("eq", tempArgStorageFirstReg, 0, String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
+			gen.doComparisonAndJump("eq", tempArgStorageFirstReg, 0, "1f");
 			gen.stackPush(tempArgStorageFirstReg);
 		}
 		
 		if (regCount >= 8) {
-			String loopHeaderLabel = String.format("ArgRangeLoopHeader_T%d_A%#x", context.currentRegionIndex, codeAddress);
-			
 			if (regCount > 11) {
 				gen.loadConstant(counterReg, (((regCount - 4) >> 2) << 2));
-				gen.insertLabel(loopHeaderLabel);
+				gen.insertLabel("3");
 			}
 			
 			gen.doWriteMultipleRange(writePointerReg, tempArgStorageFirstReg, numRegsInBatch, true);
@@ -843,7 +891,7 @@ public class AssemblyProcessor {
 			
 			if (regCount > 11) {
 				gen.doMath("sub", counterReg, counterReg, 4);
-				gen.doComparisonAndJump("ne", counterReg, 0, loopHeaderLabel);
+				gen.doComparisonAndJump("ne", counterReg, 0, "3b");
 			}
 		}
 		
@@ -904,7 +952,7 @@ public class AssemblyProcessor {
 		if (regCount > 0) {
 			if (nullCheck) {
 				gen.insertComment("null-check (method is not static)");
-				gen.doComparisonAndJump("eq", ArmRegister.r5, 0, String.format("RaiseException_T%d_A%#x", context.currentRegionIndex, codeAddress));
+				gen.doComparisonAndJump("eq", ArmRegister.r5, 0, "1f");
 			}
 
 			gen.memoryWriteMultiple(ArmRegister.r10, false);
