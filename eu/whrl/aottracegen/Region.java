@@ -24,6 +24,7 @@ public class Region {
 	public boolean disableFP = false;
 	public boolean entireMethod = false;
 	public boolean singleStepOnly = false;
+	public boolean useAlternative = false;
 	
 	public EncodedMethod encodedMethod;
 	

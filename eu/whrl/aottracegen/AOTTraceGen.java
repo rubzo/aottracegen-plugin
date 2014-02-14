@@ -57,7 +57,7 @@ public class AOTTraceGen implements Plugin {
 		// Add all the methods declared in specified library dex files
 		for (String libName : libNames) {
 			try {
-				DexFile libDexFile = new DexFile(libName, false, false);
+				DexFile libDexFile = new DexFile("framework/" + libName, false, false);
 				for (ClassDefItem clazz : libDexFile.ClassDefsSection.getItems()) {
 					if (clazz.getClassData() != null) {
 						for (EncodedMethod method : clazz.getClassData().getDirectMethods()) {

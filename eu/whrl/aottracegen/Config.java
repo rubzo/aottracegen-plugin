@@ -111,6 +111,8 @@ public class Config {
 					emitDebugFunctions = true;
 				} else if (line.startsWith("thissinglestep")) {
 					currentRegion.singleStepOnly = true;
+				} else if (line.startsWith("alternative")) {
+					currentRegion.useAlternative = true;
 				} else if (line.startsWith("ehcounter")) {
 					emitEHCounter = true;
 					// Emitting the counter at every exception handler exit point requires the debug function to be emitted.

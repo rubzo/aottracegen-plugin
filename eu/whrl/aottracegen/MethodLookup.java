@@ -62,7 +62,7 @@ public class MethodLookup {
 	}
 	
 	public void initClassPath(DexFile dexFile) {
-		String[] classPathDirs = {"."};
+		String[] classPathDirs = {".", "framework"};
 		String[] extraDirs = {};
 		ClassPath.InitializeClassPathFromOdex(classPathDirs, extraDirs, "my odex", dexFile, false);
 	}

@@ -123,6 +123,9 @@ public class CodeGenerator {
 	 * Will throw a CompilationException if it encounters any errors during compilation.
 	 */
 	public void compileC(CodeGenContext context, String cTraceFileName, String asmTraceFileName) throws CompilationException {
+		if (context.currentRegion.useAlternative) {
+			cTraceFileName = "alternative_" + cTraceFileName;
+		}
 		String pushCommand = String.format("adb push %s /sdcard/", cTraceFileName);
 		String pullCommand = String.format("adb pull /sdcard/%s .", asmTraceFileName);
 		
